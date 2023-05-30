@@ -88,26 +88,30 @@ int main(int argc, char* argv[])
         if ((int)context.size() >= params.n_batch) break;
     }
 
-    DEBUG("Context readback:");
+    DEBUG("Context:");
     for (auto tok : context) DEBUG("%s",llama_token_to_str(ctx,tok));
 
-    for (int i = 0; i < (int)context.size(); i+=params.n_batch) {
-        int n_eval = (int)context.size() - i;
-        if (n_eval > params.n_batch) n_eval = params.n_batch;
-        DEBUG("Evaluating %d tokens starting from '%s' (%d)...\n",n_eval,llama_token_to_str(ctx,context[i]),context[i]);
-        if (llama_eval(ctx,&context[i],n_eval,n_past,params.n_threads)) {
-            ERR("failed to eval '%s'",llama_token_to_str(ctx,context[i]));
-            return 1;
+    while (n_remain--) {
+        for (int i = 0; i < (int)context.size(); i+=params.n_batch) {
+            int n_eval = (int)context.size() - i;
+            if (n_eval > params.n_batch) n_eval = params.n_batch;
+            DEBUG("Evaluating %d tokens starting from '%s' (%d)...\n",n_eval,llama_token_to_str(ctx,context[i]),context[i]);
+            if (llama_eval(ctx,&context[i],n_eval,n_past,params.n_threads)) {
+                ERR("failed to eval '%s'",llama_token_to_str(ctx,context[i]));
+                return 1;
+            }
+            n_past += n_eval;
         }
-        n_past += n_eval;
+        context.clear();
+
+        auto tok = llama_sample_top_p_top_k(ctx, history.data() + n_ctx - params.repeat_last_n, params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
+        DEBUG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
+
+        history.erase(history.begin());
+        history.push_back(tok);
+        context.push_back(tok);
+        --n_remain;
     }
-
-    auto tok = llama_sample_top_p_top_k(ctx, history.data() + n_ctx - params.repeat_last_n, params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
-    DEBUG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
-
-    history.erase(history.begin());
-    history.push_back(tok);
-    --n_remain;
 
     llama_free(ctx);
     return 0;

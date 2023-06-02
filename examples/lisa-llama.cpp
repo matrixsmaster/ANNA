@@ -13,7 +13,11 @@
 #include "llama.h"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
-#define DEBUG(...) fprintf(stderr,__VA_ARGS__)
+#ifndef NDEBUG
+    #define DEBUG(...) fprintf(stderr,__VA_ARGS__)
+#else
+    #define DEBUG(...)
+#endif
 
 void set_params(gpt_params* p, int argc, char* argv[])
 {
@@ -21,7 +25,7 @@ void set_params(gpt_params* p, int argc, char* argv[])
     p->model = argv[1];
     p->seed = atoi(argv[2]);
     p->n_threads = 8;
-    p->n_predict = -1;
+    p->n_predict = 64; // FIXME
     p->n_ctx = 2048;
     p->top_k = 40;
     p->top_p = 0.8;
@@ -38,8 +42,9 @@ std::string get_input()
     for (;;) {
         ssize_t n = read(0,cbuf,1);
         if (n <= 0) break;
-        s += *cbuf;
+        //s += *cbuf;
         if (*cbuf == '\n') break;
+        s += *cbuf;
     }
     return s;
 }
@@ -106,12 +111,17 @@ int main(int argc, char* argv[])
 
         auto tok = llama_sample_top_p_top_k(ctx, history.data() + n_ctx - params.repeat_last_n, params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
         DEBUG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
+#ifdef NDEBUG
+        printf("%s",llama_token_to_str(ctx,tok));
+#endif
+        fflush(stdout);
 
         history.erase(history.begin());
         history.push_back(tok);
         context.push_back(tok);
         --n_remain;
     }
+    puts(" ");
 
     llama_free(ctx);
     return 0;

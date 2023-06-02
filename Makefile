@@ -36,10 +36,13 @@ endif
 # Compile flags
 #
 
-# keep standard at C11 and C++11
-CFLAGS   = -I.              -O0 -g -std=c11   -fPIC
-CXXFLAGS = -I. -I./examples -O0 -g -std=c++11 -fPIC
-LDFLAGS  = -g
+## keep standard at C11 and C++11
+#CFLAGS   = -I.              -O0 -g -std=c11   -fPIC
+#CXXFLAGS = -I. -I./examples -O0 -g -std=c++11 -fPIC
+#LDFLAGS  = -g
+CFLAGS   = -I.              -O3 -DNDEBUG -std=c11   -fPIC
+CXXFLAGS = -I. -I./examples -O3 -DNDEBUG -std=c++11 -fPIC
+LDFLAGS  =
 
 # warnings
 CFLAGS   += -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith
@@ -176,7 +179,7 @@ main: examples/main/main.cpp ggml.o llama.o common.o $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 lisa: examples/lisa-llama.cpp ggml.o llama.o common.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) 
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 quantize: examples/quantize/quantize.cpp ggml.o llama.o $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)

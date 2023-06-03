@@ -26,13 +26,13 @@ void set_params(gpt_params* p, int argc, char* argv[])
     p->model = argv[1];
     p->seed = atoi(argv[2]);
     p->n_threads = 8;
-    p->n_predict = 64; // FIXME
-    p->n_ctx = 32; //2048;
+    p->n_predict = -1;
+    p->n_ctx = 2048;
     p->top_k = 40;
     p->top_p = 0.8;
     p->temp = 0.7;
     p->repeat_penalty = 1.2;
-    p->n_batch = 16;
+    p->n_batch = 512;
     p->n_parts = -1;
 }
 
@@ -43,9 +43,9 @@ std::string get_input()
     for (;;) {
         ssize_t n = read(0,cbuf,1);
         if (n <= 0) break;
-        //s += *cbuf;
-        if (*cbuf == '\n') break;
         s += *cbuf;
+        if (*cbuf == '\n') break;
+        //s += *cbuf;
     }
     return s;
 }
@@ -76,6 +76,7 @@ int main(int argc, char* argv[])
     DEBUG("String received: '%s'\n",inp_str.c_str());
     inp_str.insert(0,1,' '); // add space
     auto inp_emb = ::llama_tokenize(ctx,inp_str,true);
+    auto prompt = inp_emb; // save first sequence as prompt
 
     int n_ctx = llama_n_ctx(ctx);
     int n_past = 0;
@@ -97,38 +98,31 @@ int main(int argc, char* argv[])
     DEBUG("Context:");
     for (auto tok : context) DEBUG("%s",llama_token_to_str(ctx,tok));
 
-    while (n_remain--) {
-        DEBUG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,context.size());
-        if ((!context.empty()) && (n_past + (int)context.size() > n_ctx)) {
-            const int n_left = n_past - (int)inp_emb.size();
-            DEBUG("n_past = %d, inp_emb = %d, n_left = %d\n",n_past,(int)inp_emb.size(),n_left);
-            //n_past = inp_emb.size();
+    const llama_token tok_newline = ::llama_tokenize(ctx,"\n",false).at(0);
 
-            // insert n_left/2 tokens at the start of embd from last_n_tokens
-            //context.insert(context.begin(),(history.begin() + n_ctx - n_left/2 - context.size()),history.end()-context.size());
-            // WRONG! that action overwrites the prompt.
+    while (n_remain--) {
+        //DEBUG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,context.size());
+        if ((!context.empty()) && (n_past + (int)context.size() > n_ctx)) {
+            const int n_left = n_past - (int)prompt.size();
+            //DEBUG("n_past = %d, prompt = %d, n_left = %d\n",n_past,(int)prompt.size(),n_left);
 
             std::vector<llama_token> tmp = context;
-            context = inp_emb;
+            context = prompt;
             context.insert(context.end(),history.end()-n_left/2,history.end());
-            n_past = 0;//context.size();
-            DEBUG("context now = %d, n_left now = %d\n",(int)context.size(),n_left);
+            n_past = 0; // reset
+            //DEBUG("context now = %d, n_left now = %d\n",(int)context.size(),n_left);
 
-            printf("\n---\n");
-            printf("resetting: '");
-            for (int i = 0; i < (int)context.size(); i++) {
-                printf("%s", llama_token_to_str(ctx,context[i]));
-            }
-            printf("'\n");
-            printf("\n---\n");
+            /*DEBUG("resetting:\n");
+            for (int i = 0; i < (int)context.size(); i++) DEBUG("%s",llama_token_to_str(ctx,context[i]));
+            DEBUG(" \n");*/
         }
 
         for (int i = 0; i < (int)context.size(); i+=params.n_batch) {
             int n_eval = (int)context.size() - i;
             if (n_eval > params.n_batch) n_eval = params.n_batch;
-            DEBUG("Evaluating %d tokens (n_past = %d now), starting from '%s' (%d)...\n",n_eval,n_past,llama_token_to_str(ctx,context[i]),context[i]);
+            //DEBUG("Evaluating %d tokens (n_past = %d now), starting from '%s' (%d)...\n",n_eval,n_past,llama_token_to_str(ctx,context[i]),context[i]);
             if (llama_eval(ctx,&context[i],n_eval,n_past,params.n_threads)) {
-                ERR("failed to eval '%s'",llama_token_to_str(ctx,context[i]));
+                ERR("Failed to eval '%s'",llama_token_to_str(ctx,context[i]));
                 return 1;
             }
             n_past += n_eval;
@@ -136,15 +130,29 @@ int main(int argc, char* argv[])
         context.clear();
 
         auto tok = llama_sample_top_p_top_k(ctx, history.data() + n_ctx - params.repeat_last_n, params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
-        DEBUG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
-#ifdef NDEBUG
+        //DEBUG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
+//#ifdef NDEBUG
         printf("%s",llama_token_to_str(ctx,tok));
-#endif
+//#endif
         fflush(stdout);
+
+        if (tok == llama_token_eos()) {
+            DEBUG("*** EOS detected, converting to newline\n");
+            tok = tok_newline;
+        }
 
         history.erase(history.begin());
         history.push_back(tok);
         context.push_back(tok);
+
+        if (tok == tok_newline) {
+            DEBUG("Waiting for input\n");
+            std::string inp_str = get_input();
+            DEBUG("String received: '%s'\n",inp_str.c_str());
+            inp_str.insert(0,1,' '); // add space
+            inp_emb = ::llama_tokenize(ctx,inp_str,true);
+            if (!inp_emb.empty()) context.insert(context.end(),inp_emb.begin(),inp_emb.end());
+        }
     }
     puts(" ");
 

@@ -14,9 +14,10 @@
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #ifndef NDEBUG
-    #define DEBUG(...) fprintf(stderr,__VA_ARGS__)
+    #define DEBUG(...) do { fprintf(stderr,__VA_ARGS__); fflush(stderr); } while (0)
 #else
-    #define DEBUG(...)
+    //#define DEBUG(...)
+    #define DEBUG(...) do { fprintf(stderr,__VA_ARGS__); fflush(stderr); } while (0)
 #endif
 
 void set_params(gpt_params* p, int argc, char* argv[])
@@ -97,6 +98,7 @@ int main(int argc, char* argv[])
     for (auto tok : context) DEBUG("%s",llama_token_to_str(ctx,tok));
 
     while (n_remain--) {
+        DEBUG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,context.size());
         for (int i = 0; i < (int)context.size(); i+=params.n_batch) {
             int n_eval = (int)context.size() - i;
             if (n_eval > params.n_batch) n_eval = params.n_batch;
@@ -119,7 +121,6 @@ int main(int argc, char* argv[])
         history.erase(history.begin());
         history.push_back(tok);
         context.push_back(tok);
-        --n_remain;
     }
     puts(" ");
 

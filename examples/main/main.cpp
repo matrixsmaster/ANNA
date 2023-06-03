@@ -24,6 +24,11 @@
 #include <signal.h>
 #endif
 
+#ifdef DEBUG
+#undef DEBUG
+#endif
+#define DEBUG(...) do { fprintf(stderr,__VA_ARGS__); fflush(stderr); } while (0)
+
 static console_state con_st;
 static llama_context ** g_ctx;
 
@@ -262,6 +267,8 @@ int main(int argc, char ** argv) {
     std::vector<llama_token> embd;
 
     while (n_remain != 0 || params.interactive) {
+        DEBUG("Main loop: n_remain = %d, interactive = %d, embedding size = %ld\n",n_remain,params.interactive,embd.size());
+
         // predict
         if (embd.size() > 0) {
             // infinite text generation via context swapping
@@ -288,6 +295,7 @@ int main(int argc, char ** argv) {
             // evaluate tokens in batches
             // embd is typically prepared beforehand to fit within a batch, but not always
             for (int i = 0; i < (int) embd.size(); i += params.n_batch) {
+                DEBUG("Evaluating token %d, iteration %d, batch size %d\n",embd[i],i,params.n_batch);
                 int n_eval = (int) embd.size() - i;
                 if (n_eval > params.n_batch) {
                     n_eval = params.n_batch;
@@ -347,6 +355,7 @@ int main(int argc, char ** argv) {
         } else {
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
+                DEBUG("Consuming token %d, n_consumed = %d\n",embd_inp[n_consumed],n_consumed);
                 embd.push_back(embd_inp[n_consumed]);
                 last_n_tokens.erase(last_n_tokens.begin());
                 last_n_tokens.push_back(embd_inp[n_consumed]);

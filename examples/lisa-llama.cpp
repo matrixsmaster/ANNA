@@ -27,12 +27,12 @@ void set_params(gpt_params* p, int argc, char* argv[])
     p->seed = atoi(argv[2]);
     p->n_threads = 8;
     p->n_predict = 64; // FIXME
-    p->n_ctx = 2048;
+    p->n_ctx = 32; //2048;
     p->top_k = 40;
     p->top_p = 0.8;
     p->temp = 0.7;
     p->repeat_penalty = 1.2;
-    p->n_batch = 512; //16?
+    p->n_batch = 16;
     p->n_parts = -1;
 }
 
@@ -99,10 +99,34 @@ int main(int argc, char* argv[])
 
     while (n_remain--) {
         DEBUG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,context.size());
+        if ((!context.empty()) && (n_past + (int)context.size() > n_ctx)) {
+            const int n_left = n_past - (int)inp_emb.size();
+            DEBUG("n_past = %d, inp_emb = %d, n_left = %d\n",n_past,(int)inp_emb.size(),n_left);
+            //n_past = inp_emb.size();
+
+            // insert n_left/2 tokens at the start of embd from last_n_tokens
+            //context.insert(context.begin(),(history.begin() + n_ctx - n_left/2 - context.size()),history.end()-context.size());
+            // WRONG! that action overwrites the prompt.
+
+            std::vector<llama_token> tmp = context;
+            context = inp_emb;
+            context.insert(context.end(),history.end()-n_left/2,history.end());
+            n_past = 0;//context.size();
+            DEBUG("context now = %d, n_left now = %d\n",(int)context.size(),n_left);
+
+            printf("\n---\n");
+            printf("resetting: '");
+            for (int i = 0; i < (int)context.size(); i++) {
+                printf("%s", llama_token_to_str(ctx,context[i]));
+            }
+            printf("'\n");
+            printf("\n---\n");
+        }
+
         for (int i = 0; i < (int)context.size(); i+=params.n_batch) {
             int n_eval = (int)context.size() - i;
             if (n_eval > params.n_batch) n_eval = params.n_batch;
-            DEBUG("Evaluating %d tokens starting from '%s' (%d)...\n",n_eval,llama_token_to_str(ctx,context[i]),context[i]);
+            DEBUG("Evaluating %d tokens (n_past = %d now), starting from '%s' (%d)...\n",n_eval,n_past,llama_token_to_str(ctx,context[i]),context[i]);
             if (llama_eval(ctx,&context[i],n_eval,n_past,params.n_threads)) {
                 ERR("failed to eval '%s'",llama_token_to_str(ctx,context[i]));
                 return 1;

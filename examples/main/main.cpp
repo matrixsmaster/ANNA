@@ -283,13 +283,13 @@ int main(int argc, char ** argv) {
                 // insert n_left/2 tokens at the start of embd from last_n_tokens
                 embd.insert(embd.begin(), last_n_tokens.begin() + n_ctx - n_left/2 - embd.size(), last_n_tokens.end() - embd.size());
 
-                //printf("\n---\n");
-                //printf("resetting: '");
-                //for (int i = 0; i < (int) embd.size(); i++) {
-                //    printf("%s", llama_token_to_str(ctx, embd[i]));
-                //}
-                //printf("'\n");
-                //printf("\n---\n");
+                printf("\n---\n");
+                printf("resetting: '");
+                for (int i = 0; i < (int) embd.size(); i++) {
+                    printf("%s", llama_token_to_str(ctx, embd[i]));
+                }
+                printf("'\n");
+                printf("\n---\n");
             }
 
             // evaluate tokens in batches

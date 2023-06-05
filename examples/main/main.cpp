@@ -266,8 +266,11 @@ int main(int argc, char ** argv) {
 
     std::vector<llama_token> embd;
 
+    params.antiprompt.clear();
+    params.antiprompt.push_back("\n");
+
     while (n_remain != 0 || params.interactive) {
-        DEBUG("Main loop: n_remain = %d, interactive = %d, embedding size = %ld\n",n_remain,params.interactive,embd.size());
+        //DEBUG("Main loop: n_remain = %d, interactive = %d, embedding size = %ld\n",n_remain,params.interactive,embd.size());
 
         // predict
         if (embd.size() > 0) {
@@ -292,14 +295,31 @@ int main(int argc, char ** argv) {
                 printf("\n---\n");
             }
 
+#if 0
+            DEBUG("Context:\n");
+            for (auto & tok : embd) DEBUG("%s",llama_token_to_str(ctx,tok));
+            DEBUG("\n***\n");
+            DEBUG("History:\n");
+            for (auto & tok : last_n_tokens) {
+                if (tok)
+                    DEBUG("%d (%s) ",tok,llama_token_to_str(ctx,tok));
+            }
+            DEBUG("\n***\n");
+#endif
+
             // evaluate tokens in batches
             // embd is typically prepared beforehand to fit within a batch, but not always
             for (int i = 0; i < (int) embd.size(); i += params.n_batch) {
-                DEBUG("Evaluating token %d, iteration %d, batch size %d\n",embd[i],i,params.n_batch);
+                //DEBUG("Evaluating token %d, iteration %d, batch size %d\n",embd[i],i,params.n_batch);
                 int n_eval = (int) embd.size() - i;
                 if (n_eval > params.n_batch) {
                     n_eval = params.n_batch;
                 }
+#if 0
+                DEBUG("Calling eval( ");
+                for (int j = 0; j < n_eval; j++) DEBUG("%d (%s) ",embd[i+j],llama_token_to_str(ctx,embd[i+j]));
+                DEBUG(")\nn_past = %d, n_threads = %d\n",n_past,params.n_threads);
+#endif
                 if (llama_eval(ctx, &embd[i], n_eval, n_past, params.n_threads)) {
                     fprintf(stderr, "%s : failed to eval\n", __func__);
                     return 1;
@@ -320,12 +340,13 @@ int main(int argc, char ** argv) {
             llama_token id = 0;
 
             {
+#if 0
                 auto logits = llama_get_logits(ctx);
 
                 if (params.ignore_eos) {
                     logits[llama_token_eos()] = 0;
                 }
-
+#endif
                 id = llama_sample_top_p_top_k(ctx,
                         last_n_tokens.data() + n_ctx - params.repeat_last_n,
                         params.repeat_last_n, top_k, top_p, temp, repeat_penalty);
@@ -355,7 +376,7 @@ int main(int argc, char ** argv) {
         } else {
             // some user input remains from prompt or interaction, forward it to processing
             while ((int) embd_inp.size() > n_consumed) {
-                DEBUG("Consuming token %d, n_consumed = %d\n",embd_inp[n_consumed],n_consumed);
+                //DEBUG("Consuming token %d, n_consumed = %d\n",embd_inp[n_consumed],n_consumed);
                 embd.push_back(embd_inp[n_consumed]);
                 last_n_tokens.erase(last_n_tokens.begin());
                 last_n_tokens.push_back(embd_inp[n_consumed]);
@@ -424,19 +445,13 @@ int main(int argc, char ** argv) {
                 std::string line;
                 bool another_line = true;
                 do {
-#if defined(_WIN32)
-                    std::wstring wline;
-                    if (!std::getline(std::wcin, wline)) {
-                        // input stream is bad or EOF received
-                        return 0;
-                    }
-                    win32_utf8_encode(wline, line);
-#else
+
                     if (!std::getline(std::cin, line)) {
                         // input stream is bad or EOF received
                         return 0;
                     }
-#endif
+                    fflush(stdin);
+
                     if (line.empty() || line.back() != '\\') {
                         another_line = false;
                     } else {

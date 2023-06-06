@@ -19,11 +19,26 @@
     #define DEBUG(...)
 #endif
 
-void set_params(gpt_params* p, int argc, char* argv[])
+static std::string load_file(const std::string & fn)
+{
+    std::string out;
+    std::ifstream file(fn);
+    if (!file) {
+        ERR("Failed to open file '%s'\n",fn.c_str());
+        abort();
+    }
+    std::copy(std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>(),back_inserter(out));
+    if (out.back() == '\n') out.pop_back();
+    DEBUG("File '%s' read: '%s'\n",fn.c_str(),out.c_str());
+    return out;
+}
+
+static void set_params(gpt_params* p, int argc, char* argv[])
 {
     assert(argc > 3);
     p->model = argv[1];
     p->seed = atoi(argv[2]);
+    p->prompt = load_file(argv[3]);
     p->n_threads = 8;
     p->n_predict = -1;
     p->n_ctx = 2048;
@@ -33,14 +48,6 @@ void set_params(gpt_params* p, int argc, char* argv[])
     p->repeat_penalty = 1.2;
     p->n_batch = 512;
     p->n_parts = -1;
-
-    std::ifstream file(argv[3]);
-    if (!file) {
-        ERR("Failed to open file '%s'\n",argv[3]);
-        abort();
-    }
-    std::copy(std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>(),back_inserter(p->prompt));
-    if (p->prompt.back() == '\n') p->prompt.pop_back();
 }
 
 /*
@@ -51,7 +58,7 @@ void set_params(gpt_params* p, int argc, char* argv[])
  * $ - Put newline in, run batch, don't run sampling
  * @ - Put newline in, don't run batch or sampling, buffer the input
  * */
-std::string get_input(bool* skip_next)
+static std::string get_input(bool* skip_next)
 {
     char cbuf[2];
     std::string s;
@@ -83,7 +90,7 @@ std::string get_input(bool* skip_next)
     return s;
 }
 
-void printvec(llama_context* ctx, const std::vector<llama_token> & vec)
+static void printvec(llama_context* ctx, const std::vector<llama_token> & vec)
 {
     putchar('\n');
     for (auto & i : vec) {
@@ -202,13 +209,16 @@ int main(int argc, char* argv[])
             fflush(stdout);
 
             // In OG llama.cpp they pushed eos into global context before replacing it for newline, and injecting into next embedding sequence
-            history.erase(history.begin());
-            history.push_back(tok);
+            //history.erase(history.begin());
+            //history.push_back(tok);
 
             if (tok == llama_token_eos()) {
                 DEBUG("*** EOS detected, converting to newline\n");
                 tok = tok_newline;
             }
+
+            history.erase(history.begin());
+            history.push_back(tok);
 
             context.push_back(tok);
 
@@ -222,13 +232,18 @@ nextline:
             DEBUG("Waiting for input\n");
             std::string inp_str = get_input(&skip_sampling);
             DEBUG("String received: '%s'\n",inp_str.c_str());
+#if 1
             if (inp_str == "get_history()\n") {
                 printvec(ctx,history);
                 goto nextline;
             } else if (inp_str == "get_context()\n") {
                 printvec(ctx,context);
                 goto nextline;
+            } else if (inp_str == "load_file()\n") {
+                DEBUG("Enter file name\n");
+                inp_str = load_file(get_input(NULL));
             }
+#endif
             //inp_str.insert(0,1,' '); // add space
             inp_emb = ::llama_tokenize(ctx,inp_str,false);
             n_consumed = 0;

@@ -35,10 +35,11 @@ static std::string load_file(const std::string & fn)
 
 static void set_params(gpt_params* p, int argc, char* argv[])
 {
-    assert(argc > 3);
+    assert(argc > 2);
     p->model = argv[1];
     p->seed = atoi(argv[2]);
-    p->prompt = load_file(argv[3]);
+    p->prompt.clear();
+    if (argc > 3) p->prompt = load_file(argv[3]);
     p->n_threads = 8;
     p->n_predict = -1;
     p->n_ctx = 2048;
@@ -120,21 +121,26 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    params.prompt.insert(0,1,' '); // add space
-    auto inp_emb = ::llama_tokenize(ctx,params.prompt,true);
-    auto prompt = inp_emb; // save first sequence as prompt
-
     int n_ctx = llama_n_ctx(ctx);
     int n_past = 0;
     int n_remain = params.n_predict;
     int n_consumed = 0;
     bool skip_sampling = false;
 
-    std::vector<llama_token> context;
+    std::vector<llama_token> context,prompt,inp_emb;
     std::vector<llama_token> history(n_ctx);
     std::fill(history.begin(),history.end(),0);
 
     const llama_token tok_newline = ::llama_tokenize(ctx,"\n",false).at(0);
+
+    if (params.prompt.empty())
+        skip_sampling = true;
+    else {
+        params.prompt.insert(0,1,' '); // add space
+        inp_emb = ::llama_tokenize(ctx,params.prompt,true);
+        prompt = inp_emb; // save first sequence as prompt
+        DEBUG("Prompt size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),params.n_ctx-(int)inp_emb.size());
+    }
 
     while (n_remain--) {
         //DEBUG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,context.size());
@@ -160,7 +166,7 @@ int main(int argc, char* argv[])
                 context = prompt;
                 context.insert(context.end(),history.end()-n_left/2,history.end());
                 n_past = 0; // reset
-                //DEBUG("context now = %d, n_left now = %d\n",(int)context.size(),n_left);
+                DEBUG("\ncontext now = %d, n_left now = %d\n",(int)context.size(),n_left);
 
                 /*DEBUG("resetting:\n");
                 for (int i = 0; i < (int)context.size(); i++) DEBUG("%s",llama_token_to_str(ctx,context[i]));
@@ -229,11 +235,12 @@ int main(int argc, char* argv[])
 
         if (tok == tok_newline) {
 nextline:
-            DEBUG("Waiting for input\n");
+            DEBUG("Waiting for input (%d tokens consumed so far)\n",n_past);
             std::string inp_str = get_input(&skip_sampling);
             DEBUG("String received: '%s'\n",inp_str.c_str());
+            if (inp_str.empty() || inp_str == "\n") continue;
 #if 1
-            if (inp_str == "get_history()\n") {
+            else if (inp_str == "get_history()\n") {
                 printvec(ctx,history);
                 goto nextline;
             } else if (inp_str == "get_context()\n") {
@@ -244,8 +251,14 @@ nextline:
                 inp_str = load_file(get_input(NULL));
             }
 #endif
-            //inp_str.insert(0,1,' '); // add space
-            inp_emb = ::llama_tokenize(ctx,inp_str,false);
+            if (params.prompt.empty()) {
+                // first input will be considered prompt now
+                inp_str.insert(0,1,' '); // add space
+                inp_emb = ::llama_tokenize(ctx,inp_str,true);
+                params.prompt = inp_str;
+                prompt = inp_emb;
+            } else
+                inp_emb = ::llama_tokenize(ctx,inp_str,false);
             n_consumed = 0;
         }
     }

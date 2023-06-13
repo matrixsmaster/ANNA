@@ -107,8 +107,6 @@ int main(int argc, char* argv[])
 
     set_params(&params,argc,argv);
 
-    std::mt19937 rng(params.seed);
-
     auto lparams = llama_context_default_params();
     lparams.n_ctx      = params.n_ctx;
     lparams.n_parts    = params.n_parts;
@@ -122,12 +120,14 @@ int main(int argc, char* argv[])
     }
 
     int n_ctx = llama_n_ctx(ctx);
-    int n_past = 0;
+    int n_past = 0, old_past = 0;
     int n_remain = params.n_predict;
     int n_consumed = 0;
     bool skip_sampling = false;
+    bool no_input = false;
 
     std::vector<llama_token> queue,prompt,inp_emb;
+    std::vector<llama_token> oldqueue,oldcontext;
     std::vector<llama_token> context(n_ctx);
     std::fill(context.begin(),context.end(),0);
 
@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
             skip_sampling = false;
         }
 
-        if (tok == tok_newline) {
+        if (tok == tok_newline && !no_input) {
 nextline:
             DEBUG("Waiting for input (%d tokens consumed so far)\n",n_past);
             std::string inp_str = get_input(&skip_sampling);
@@ -249,6 +249,16 @@ nextline:
             } else if (inp_str == "load_file()\n") {
                 DEBUG("Enter file name\n");
                 inp_str = load_file(get_input(NULL));
+            } else if (inp_str == "no_input()\n") {
+                inp_str.clear();
+                no_input = true;
+                continue;
+            } else if (inp_str == "undo()\n") {
+                context = oldcontext;
+                queue = oldqueue;
+                n_past = old_past;
+                skip_sampling = true;
+                continue;
             }
 #endif
             if (params.prompt.empty()) {
@@ -260,6 +270,10 @@ nextline:
             } else
                 inp_emb = ::llama_tokenize(ctx,inp_str,false);
             n_consumed = 0;
+
+            oldcontext = context;
+            oldqueue = queue;
+            old_past = n_past;
         }
     }
     puts(" ");

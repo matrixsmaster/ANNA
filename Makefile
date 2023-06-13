@@ -2,7 +2,7 @@
 #CXX=clang++-15
 
 # Define the default target now so that it is always the first target
-default: main lisa
+default: main lisa multilisa
 
 ifndef UNAME_S
 UNAME_S := $(shell uname -s)
@@ -179,6 +179,9 @@ main: examples/main/main.cpp ggml.o llama.o common.o $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 lisa: examples/lisa-llama.cpp ggml.o llama.o common.o $(OBJS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
+multilisa: examples/multilisa.cpp ggml.o llama.o common.o $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 quantize: examples/quantize/quantize.cpp ggml.o llama.o $(OBJS)

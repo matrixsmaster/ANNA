@@ -1,5 +1,5 @@
-#CC=clang-15
-#CXX=clang++-15
+#CC=clang-14
+#CXX=clang++-14
 
 # Define the default target now so that it is always the first target
 default: main lisa multilisa

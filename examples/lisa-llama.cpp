@@ -25,7 +25,8 @@ static std::string load_file(const std::string & fn)
     std::ifstream file(fn);
     if (!file) {
         ERR("Failed to open file '%s'\n",fn.c_str());
-        abort();
+        return out;
+        //abort();
     }
     std::copy(std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>(),back_inserter(out));
     if (out.back() == '\n') out.pop_back();
@@ -40,7 +41,7 @@ static void set_params(gpt_params* p, int argc, char* argv[])
     p->seed = atoi(argv[2]);
     p->prompt.clear();
     if (argc > 3) p->prompt = load_file(argv[3]);
-    p->n_threads = 8;
+    p->n_threads = 14;
     p->n_predict = -1;
     p->n_ctx = 2048;
     p->top_k = 40;
@@ -247,8 +248,12 @@ nextline:
                 printvec(ctx,queue);
                 goto nextline;
             } else if (inp_str == "load_file()\n") {
-                DEBUG("Enter file name\n");
-                inp_str = load_file(get_input(NULL));
+                do {
+                    DEBUG("Enter file name\n");
+                    inp_str = get_input(NULL);
+                    if (inp_str.back() == '\n') inp_str.pop_back();
+                    inp_str = load_file(inp_str);
+                } while (inp_str.empty());
             } else if (inp_str == "no_input()\n") {
                 inp_str.clear();
                 no_input = true;

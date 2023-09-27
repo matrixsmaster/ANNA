@@ -1,8 +1,11 @@
 #CC=clang-14
 #CXX=clang++-14
+#LLAMA_CUBLAS=1
+
+all: anna
 
 # Define the default target now so that it is always the first target
-default: main lisa multilisa
+BUILD_TARGETS = anna
 
 ifndef UNAME_S
 UNAME_S := $(shell uname -s)
@@ -16,147 +19,211 @@ ifndef UNAME_M
 UNAME_M := $(shell uname -m)
 endif
 
-CCV := $(shell $(CC) --version | head -n 1)
-CXXV := $(shell $(CXX) --version | head -n 1)
-
-# Mac OS + Arm can report x86_64
-# ref: https://github.com/ggerganov/whisper.cpp/issues/66#issuecomment-1282546789
-ifeq ($(UNAME_S),Darwin)
-	ifneq ($(UNAME_P),arm)
-		SYSCTL_M := $(shell sysctl -n hw.optional.arm64 2>/dev/null)
-		ifeq ($(SYSCTL_M),1)
-			# UNAME_P := arm
-			# UNAME_M := arm64
-			warn := $(warning Your arch is announced as x86_64, but it seems to actually be ARM64. Not fixing that can lead to bad performance. For more info see: https://github.com/ggerganov/whisper.cpp/issues/66\#issuecomment-1282546789)
-		endif
-	endif
-endif
-
 #
 # Compile flags
 #
 
-## keep standard at C11 and C++11
-CFLAGS   = -I.              -O0 -g -std=c11   -fPIC
-CXXFLAGS = -I. -I./examples -O0 -g -std=c++11 -fPIC
-LDFLAGS  = -g
-#CFLAGS   = -I.              -O3 -DNDEBUG -std=c11   -fPIC
-#CXXFLAGS = -I. -I./examples -O3 -DNDEBUG -std=c++11 -fPIC
-#LDFLAGS  =
+# keep standard at C11 and C++11
+MK_CPPFLAGS = -I. -Icommon
+MK_CFLAGS   = -std=c11   -fPIC
+MK_CXXFLAGS = -std=c++20 -fPIC
 
-# warnings
-CFLAGS   += -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith
-CXXFLAGS += -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-multichar
+# -Ofast tends to produce faster code, but may not be available for some compilers.
+MK_CFLAGS        += -Ofast
+MK_HOST_CXXFLAGS += -Ofast
+MK_CUDA_CXXFLAGS += -O3
 
-# OS specific
-# TODO: support Windows
+# clock_gettime came in POSIX.1b (1993)
+# CLOCK_MONOTONIC came in POSIX.1-2001 / SUSv3 as optional
+# posix_memalign came in POSIX.1-2001 / SUSv3
+# M_PI is an XSI extension since POSIX.1-2001 / SUSv3, came in XPG1 (1985)
+MK_CPPFLAGS += -D_XOPEN_SOURCE=600
+
+# Somehow in OpenBSD whenever POSIX conformance is specified
+# some string functions rely on locale_t availability,
+# which was introduced in POSIX.1-2008, forcing us to go higher
+ifeq ($(UNAME_S),OpenBSD)
+	MK_CPPFLAGS += -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700
+endif
+
+# Data types, macros and functions related to controlling CPU affinity and
+# some memory allocation are available on Linux through GNU extensions in libc
 ifeq ($(UNAME_S),Linux)
-	CFLAGS   += -pthread
-	CXXFLAGS += -pthread
+	MK_CPPFLAGS += -D_GNU_SOURCE
 endif
+
+# RLIMIT_MEMLOCK came in BSD, is not specified in POSIX.1,
+# and on macOS its availability depends on enabling Darwin extensions
+# similarly on DragonFly, enabling BSD extensions is necessary
 ifeq ($(UNAME_S),Darwin)
-	CFLAGS   += -pthread
-	CXXFLAGS += -pthread
+	MK_CPPFLAGS += -D_DARWIN_C_SOURCE
 endif
+ifeq ($(UNAME_S),DragonFly)
+	MK_CPPFLAGS += -D__BSD_VISIBLE
+endif
+
+# alloca is a non-standard interface that is not visible on BSDs when
+# POSIX conformance is specified, but not all of them provide a clean way
+# to enable it in such cases
 ifeq ($(UNAME_S),FreeBSD)
-	CFLAGS   += -pthread
-	CXXFLAGS += -pthread
+	MK_CPPFLAGS += -D__BSD_VISIBLE
 endif
 ifeq ($(UNAME_S),NetBSD)
-	CFLAGS   += -pthread
-	CXXFLAGS += -pthread
+	MK_CPPFLAGS += -D_NETBSD_SOURCE
 endif
 ifeq ($(UNAME_S),OpenBSD)
-	CFLAGS   += -pthread
-	CXXFLAGS += -pthread
+	MK_CPPFLAGS += -D_BSD_SOURCE
 endif
-ifeq ($(UNAME_S),Haiku)
-	CFLAGS   += -pthread
-	CXXFLAGS += -pthread
+
+ifdef LLAMA_DEBUG
+	MK_CFLAGS   += -O0 -g
+	MK_CXXFLAGS += -O0 -g
+	MK_LDFLAGS  += -g
+else
+	MK_CPPFLAGS += -DNDEBUG
+endif
+
+ifdef LLAMA_SERVER_VERBOSE
+	MK_CPPFLAGS += -DSERVER_VERBOSE=$(LLAMA_SERVER_VERBOSE)
+endif
+
+ifdef LLAMA_DISABLE_LOGS
+	MK_CPPFLAGS += -DLOG_DISABLE_LOGS
+endif # LLAMA_DISABLE_LOGS
+
+# warnings
+MK_CFLAGS    += -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith \
+				-Wmissing-prototypes -Werror=implicit-int -Wno-unused-function
+MK_CXXFLAGS  += -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar
+
+# TODO(cebtenzzre): remove this once PR #2632 gets merged
+TTFS_CXXFLAGS = $(CXXFLAGS) -Wno-missing-declarations
+
+ifneq '' '$(findstring clang,$(shell $(CXX) --version))'
+	# clang++ only
+	MK_CXXFLAGS   += -Wmissing-prototypes
+	TTFS_CXXFLAGS += -Wno-missing-prototypes
+else
+	# g++ only
+	MK_CXXFLAGS += -Wno-format-truncation -Wno-array-bounds
+endif
+
+# library name prefix
+ifneq ($(_WIN32),1)
+	LIB_PRE := lib
+endif
+
+# Dynamic Shared Object extension
+ifneq ($(_WIN32),1)
+	DSO_EXT := .so
+else
+	DSO_EXT := .dll
 endif
 
 # Architecture specific
 # TODO: probably these flags need to be tweaked on some architectures
 #       feel free to update the Makefile for your architecture and send a pull request or issue
-ifeq ($(UNAME_M),$(filter $(UNAME_M),x86_64 i686))
+
+ifndef RISCV
+
+ifeq ($(UNAME_M),$(filter $(UNAME_M),x86_64 i686 amd64))
 	# Use all CPU extensions that are available:
-	CFLAGS   += -march=native -mtune=native
-	CXXFLAGS += -march=native -mtune=native
+	MK_CFLAGS   += -march=native -mtune=native
+	MK_HOST_CXXFLAGS += -march=native -mtune=native
 
 	# Usage AVX-only
-	#CFLAGS   += -mfma -mf16c -mavx
-	#CXXFLAGS += -mfma -mf16c -mavx
+	#MK_CFLAGS   += -mfma -mf16c -mavx
+	#MK_CXXFLAGS += -mfma -mf16c -mavx
+
+	# Usage SSSE3-only (Not is SSE3!)
+	#MK_CFLAGS   += -mssse3
+	#MK_CXXFLAGS += -mssse3
 endif
+
+# The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+# https://github.com/ggerganov/llama.cpp/issues/2922
+ifneq '' '$(findstring mingw,$(shell $(CC) -dumpmachine))'
+	MK_CFLAGS   += -Xassembler -muse-unaligned-vector-move
+	MK_CXXFLAGS += -Xassembler -muse-unaligned-vector-move
+endif
+
+ifneq ($(filter aarch64%,$(UNAME_M)),)
+	# Apple M1, M2, etc.
+	# Raspberry Pi 3, 4, Zero 2 (64-bit)
+	MK_CFLAGS   += -mcpu=native
+	MK_CXXFLAGS += -mcpu=native
+endif
+
+ifneq ($(filter armv6%,$(UNAME_M)),)
+	# Raspberry Pi 1, Zero
+	MK_CFLAGS   += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access
+	MK_CXXFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access
+endif
+
+ifneq ($(filter armv7%,$(UNAME_M)),)
+	# Raspberry Pi 2
+	MK_CFLAGS   += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access -funsafe-math-optimizations
+	MK_CXXFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access -funsafe-math-optimizations
+endif
+
+ifneq ($(filter armv8%,$(UNAME_M)),)
+	# Raspberry Pi 3, 4, Zero 2 (32-bit)
+	MK_CFLAGS   += -mfp16-format=ieee -mno-unaligned-access
+	MK_CXXFLAGS += -mfp16-format=ieee -mno-unaligned-access
+endif
+
 ifneq ($(filter ppc64%,$(UNAME_M)),)
 	POWER9_M := $(shell grep "POWER9" /proc/cpuinfo)
 	ifneq (,$(findstring POWER9,$(POWER9_M)))
-		CFLAGS   += -mcpu=power9
-		CXXFLAGS += -mcpu=power9
-	endif
-	# Require c++23's std::byteswap for big-endian support.
-	ifeq ($(UNAME_M),ppc64)
-		CXXFLAGS += -std=c++23 -DGGML_BIG_ENDIAN
+		MK_CFLAGS   += -mcpu=power9
+		MK_CXXFLAGS += -mcpu=power9
 	endif
 endif
-ifndef LLAMA_NO_ACCELERATE
-	# Mac M1 - include Accelerate framework.
-	# `-framework Accelerate` works on Mac Intel as well, with negliable performance boost (as of the predict time).
-	ifeq ($(UNAME_S),Darwin)
-		CFLAGS  += -DGGML_USE_ACCELERATE
-		LDFLAGS += -framework Accelerate
-	endif
+
+else
+	MK_CFLAGS   += -march=rv64gcv -mabi=lp64d
+	MK_CXXFLAGS += -march=rv64gcv -mabi=lp64d
 endif
-ifdef LLAMA_OPENBLAS
-	CFLAGS  += -DGGML_USE_OPENBLAS -I/usr/local/include/openblas
-	LDFLAGS += -lopenblas
+
+ifndef LLAMA_NO_K_QUANTS
+	MK_CPPFLAGS += -DGGML_USE_K_QUANTS
+	OBJS     += k_quants.o
+ifdef LLAMA_QKK_64
+	MK_CPPFLAGS += -DGGML_QKK_64
 endif
-ifdef LLAMA_CUBLAS
-	CFLAGS    += -DGGML_USE_CUBLAS -I/usr/local/cuda/include
-	LDFLAGS   += -lcublas -lculibos -lcudart -lcublasLt -lpthread -ldl -lrt -L/usr/local/cuda/lib64
-	OBJS      += ggml-cuda.o
-	NVCC      = nvcc
-	NVCCFLAGS = --forward-unknown-to-host-compiler -arch=native
-ggml-cuda.o: ggml-cuda.cu ggml-cuda.h
-	$(NVCC) $(NVCCFLAGS) $(CXXFLAGS) -Wno-pedantic -c $< -o $@
 endif
-ifdef LLAMA_GPROF
-	CFLAGS   += -pg
-	CXXFLAGS += -pg
-endif
-ifdef LLAMA_PERF
-	CFLAGS   += -DGGML_PERF
-	CXXFLAGS += -DGGML_PERF
-endif
-ifneq ($(filter aarch64%,$(UNAME_M)),)
-	CFLAGS   += -mcpu=native
-	CXXFLAGS += -mcpu=native
-endif
-ifneq ($(filter armv6%,$(UNAME_M)),)
-	# Raspberry Pi 1, 2, 3
-	CFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access
-endif
-ifneq ($(filter armv7%,$(UNAME_M)),)
-	# Raspberry Pi 4
-	CFLAGS += -mfpu=neon-fp-armv8 -mfp16-format=ieee -mno-unaligned-access -funsafe-math-optimizations
-endif
-ifneq ($(filter armv8%,$(UNAME_M)),)
-	# Raspberry Pi 4
-	CFLAGS += -mfp16-format=ieee -mno-unaligned-access
-endif
+
+ifndef LLAMA_NO_K_QUANTS
+k_quants.o: k_quants.c k_quants.h
+	$(CC) $(CFLAGS) -c $< -o $@
+endif # LLAMA_NO_K_QUANTS
+
+# combine build flags with cmdline overrides
+override CFLAGS        := $(MK_CPPFLAGS) $(CPPFLAGS) $(MK_CFLAGS) $(CFLAGS)
+override CXXFLAGS      := $(MK_CPPFLAGS) $(CPPFLAGS) $(MK_CXXFLAGS) $(CXXFLAGS)
+override CUDA_CXXFLAGS := $(MK_CUDA_CXXFLAGS) $(CUDA_CXXFLAGS)
+override HOST_CXXFLAGS := $(MK_HOST_CXXFLAGS) $(HOST_CXXFLAGS)
+override LDFLAGS       := $(MK_LDFLAGS) $(LDFLAGS)
+
+# save CXXFLAGS before we add host-only options
+NVCCFLAGS := $(NVCCFLAGS) $(CXXFLAGS) $(CUDA_CXXFLAGS) -Wno-pedantic -Xcompiler "$(HOST_CXXFLAGS)"
+override CXXFLAGS += $(HOST_CXXFLAGS)
 
 #
 # Print build information
 #
 
 $(info I llama.cpp build info: )
-$(info I UNAME_S:  $(UNAME_S))
-$(info I UNAME_P:  $(UNAME_P))
-$(info I UNAME_M:  $(UNAME_M))
-$(info I CFLAGS:   $(CFLAGS))
-$(info I CXXFLAGS: $(CXXFLAGS))
-$(info I LDFLAGS:  $(LDFLAGS))
-$(info I CC:       $(CCV))
-$(info I CXX:      $(CXXV))
+$(info I UNAME_S:   $(UNAME_S))
+$(info I UNAME_P:   $(UNAME_P))
+$(info I UNAME_M:   $(UNAME_M))
+$(info I CFLAGS:    $(CFLAGS))
+$(info I CXXFLAGS:  $(CXXFLAGS))
+$(info I NVCCFLAGS: $(NVCCFLAGS))
+$(info I LDFLAGS:   $(LDFLAGS))
+$(info I CC:        $(CCV))
+$(info I CXX:       $(CXXV))
 $(info )
 
 #
@@ -166,50 +233,22 @@ $(info )
 ggml.o: ggml.c ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
-llama.o: llama.cpp ggml.h llama.h llama_util.h
+ggml-alloc.o: ggml-alloc.c ggml.h ggml-alloc.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+
+OBJS += ggml-alloc.o
+
+llama.o: llama.cpp ggml.h ggml-alloc.h llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-common.o: examples/common.cpp examples/common.h
+common.o: common.cpp common.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -vf *.o main quantize quantize-stats perplexity embedding benchmark-q4_0-matmult
-
-main: examples/main/main.cpp ggml.o llama.o common.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-lisa: examples/lisa-llama.cpp ggml.o llama.o common.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-multilisa: examples/multilisa.cpp ggml.o llama.o common.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-quantize: examples/quantize/quantize.cpp ggml.o llama.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-quantize-stats: examples/quantize-stats/quantize-stats.cpp ggml.o llama.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-perplexity: examples/perplexity/perplexity.cpp ggml.o llama.o common.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-embedding: examples/embedding/embedding.cpp ggml.o llama.o common.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-vdot: pocs/vdot/vdot.cpp ggml.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
-
-libllama.so: llama.o ggml.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -shared -fPIC -o $@ $^ $(LDFLAGS)
+	rm -vrf *.o tests/*.o *.so *.dll benchmark-matmult build-info.h *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
 
 #
-# Tests
+# Examples
 #
-
-benchmark: examples/benchmark/benchmark-q4_0-matmult.c ggml.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o benchmark-q4_0-matmult $(LDFLAGS)
-	./benchmark-q4_0-matmult
-
-.PHONY: tests
-tests:
-	bash ./tests/run-tests.sh
+anna: anna.cpp                                       ggml.o llama.o common.o $(OBJS)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h,$^) -o $@ $(LDFLAGS)

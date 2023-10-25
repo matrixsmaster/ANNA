@@ -88,7 +88,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     //p->repeat_penalty = 1.2;
     p->n_batch = 512;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:T:PS")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:T:PSG:r:R:A:L")) != -1) {
         switch (opt) {
         case 'm':
             p->model = optarg;
@@ -128,6 +128,11 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             break;
         case 'S':
             g_eos = true;
+            break;
+        case 'G':
+#ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
+            p->n_gpu_layers = atoi(optarg);
+#endif
             break;
         default:
             usage(argv[0]);

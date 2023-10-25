@@ -1,6 +1,6 @@
 #CC=clang-14
 #CXX=clang++-14
-#LLAMA_CUBLAS=1
+LLAMA_CUBLAS=1
 
 all: anna
 
@@ -26,7 +26,7 @@ endif
 # keep standard at C11 and C++11
 MK_CPPFLAGS = -I. -Icommon
 MK_CFLAGS   = -std=c11   -fPIC
-MK_CXXFLAGS = -std=c++20 -fPIC
+MK_CXXFLAGS = -std=c++11 -fPIC
 
 # -Ofast tends to produce faster code, but may not be available for some compilers.
 MK_CFLAGS        += -Ofast
@@ -95,6 +95,62 @@ endif # LLAMA_DISABLE_LOGS
 MK_CFLAGS    += -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith \
 				-Wmissing-prototypes -Werror=implicit-int -Wno-unused-function
 MK_CXXFLAGS  += -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar
+
+ifdef LLAMA_CUBLAS
+	MK_CPPFLAGS  += -DGGML_USE_CUBLAS -I/usr/local/cuda/include -I/opt/cuda/include -I$(CUDA_PATH)/targets/x86_64-linux/include
+	MK_LDFLAGS   += -lcublas -lculibos -lcudart -lcublasLt -lpthread -ldl -lrt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -L$(CUDA_PATH)/targets/x86_64-linux/lib
+	OBJS      += ggml-cuda.o
+	NVCCFLAGS = --forward-unknown-to-host-compiler -use_fast_math
+ifdef LLAMA_CUDA_NVCC
+	NVCC = $(LLAMA_CUDA_NVCC)
+else
+	NVCC = nvcc
+endif #LLAMA_CUDA_NVCC
+ifdef CUDA_DOCKER_ARCH
+	NVCCFLAGS += -Wno-deprecated-gpu-targets -arch=$(CUDA_DOCKER_ARCH)
+else
+	NVCCFLAGS += -arch=all
+endif # CUDA_DOCKER_ARCH
+ifdef LLAMA_CUDA_FORCE_DMMV
+	NVCCFLAGS += -DGGML_CUDA_FORCE_DMMV
+endif # LLAMA_CUDA_FORCE_DMMV
+ifdef LLAMA_CUDA_DMMV_X
+	NVCCFLAGS += -DGGML_CUDA_DMMV_X=$(LLAMA_CUDA_DMMV_X)
+else
+	NVCCFLAGS += -DGGML_CUDA_DMMV_X=32
+endif # LLAMA_CUDA_DMMV_X
+ifdef LLAMA_CUDA_MMV_Y
+	NVCCFLAGS += -DGGML_CUDA_MMV_Y=$(LLAMA_CUDA_MMV_Y)
+else ifdef LLAMA_CUDA_DMMV_Y
+	NVCCFLAGS += -DGGML_CUDA_MMV_Y=$(LLAMA_CUDA_DMMV_Y) # for backwards compatibility
+else
+	NVCCFLAGS += -DGGML_CUDA_MMV_Y=1
+endif # LLAMA_CUDA_MMV_Y
+ifdef LLAMA_CUDA_F16
+	NVCCFLAGS += -DGGML_CUDA_F16
+endif # LLAMA_CUDA_F16
+ifdef LLAMA_CUDA_DMMV_F16
+	NVCCFLAGS += -DGGML_CUDA_F16
+endif # LLAMA_CUDA_DMMV_F16
+ifdef LLAMA_CUDA_KQUANTS_ITER
+	NVCCFLAGS += -DK_QUANTS_PER_ITERATION=$(LLAMA_CUDA_KQUANTS_ITER)
+else
+	NVCCFLAGS += -DK_QUANTS_PER_ITERATION=2
+endif
+ifdef LLAMA_CUDA_PEER_MAX_BATCH_SIZE
+	NVCCFLAGS += -DGGML_CUDA_PEER_MAX_BATCH_SIZE=$(LLAMA_CUDA_PEER_MAX_BATCH_SIZE)
+else
+	NVCCFLAGS += -DGGML_CUDA_PEER_MAX_BATCH_SIZE=128
+endif # LLAMA_CUDA_PEER_MAX_BATCH_SIZE
+#ifdef LLAMA_CUDA_CUBLAS
+#	NVCCFLAGS += -DGGML_CUDA_CUBLAS
+#endif # LLAMA_CUDA_CUBLAS
+ifdef LLAMA_CUDA_CCBIN
+	NVCCFLAGS += -ccbin $(LLAMA_CUDA_CCBIN)
+endif
+ggml-cuda.o: ggml-cuda.cu ggml-cuda.h
+	$(NVCC) $(NVCCFLAGS) -Wno-pedantic -c $< -o $@
+endif # LLAMA_CUBLAS
 
 # TODO(cebtenzzre): remove this once PR #2632 gets merged
 TTFS_CXXFLAGS = $(CXXFLAGS) -Wno-missing-declarations
@@ -230,7 +286,7 @@ $(info )
 # Build library
 #
 
-ggml.o: ggml.c ggml.h
+ggml.o: ggml.c ggml.h ggml-cuda.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
 ggml-alloc.o: ggml-alloc.c ggml.h ggml-alloc.h
@@ -238,7 +294,7 @@ ggml-alloc.o: ggml-alloc.c ggml.h ggml-alloc.h
 
 OBJS += ggml-alloc.o
 
-llama.o: llama.cpp ggml.h ggml-alloc.h llama.h
+llama.o: llama.cpp ggml.h ggml-alloc.h ggml-cuda.h llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 common.o: common.cpp common.h
@@ -251,4 +307,4 @@ clean:
 # Examples
 #
 anna: anna.cpp                                       ggml.o llama.o common.o $(OBJS)
-	$(CXX) $(CXXFLAGS) $(filter-out %.h,$^) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -std=c++20 $(filter-out %.h,$^) -o $@ $(LDFLAGS)

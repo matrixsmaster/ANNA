@@ -8,12 +8,15 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <deque>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include "common.h"
 #include "llama.h"
+
+#define ANNA_VERSION "0.3.1"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -23,12 +26,21 @@
 //#define DBG(...)
 //#endif
 
+#define DEBUG_TIMING 0
+
 #define MAX_INPUT_LEN 2048
 #define MAX_INPUT_WAIT_MS 250
 
 #ifndef MYLLAMATHREADS
 #define MYLLAMATHREADS 8
 #endif
+
+using namespace std;
+
+struct anna_requester {
+    string prefix,suffix;
+    string command;
+};
 
 static const char* argstrings[] = {
     "<-m model file>",
@@ -41,14 +53,21 @@ static const char* argstrings[] = {
     "[-e temperature]",
     "[-u user_input_prefix]",
     "[-x context_length]",
+    "[-r request_prefix request_suffix request_command]",
     "[-T terminator_string]",
     "[-P](pipeline flag)",
     "[-S](use BOS/EOS tokens flag)",
+    "[-I](info flag)",
+    "[-G number_of_layers_to_offload_to_GPU]",
+    "[-H path_to_prompt_hub]",
     NULL
 };
 
-static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false;
-static std::string g_inbuf, g_tokenf, g_scache, g_uprefix, g_piecebuf, g_outcache, g_terminator;
+static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false, g_info = false;
+static string g_inbuf, g_tokenf, g_scache, g_uprefix, g_piecebuf, g_outcache, g_reqcache, g_terminator;
+static deque<string> g_sprompts;
+static vector<anna_requester> g_requesters;
+static int g_request_active = 0;
 
 static void usage(const char* sname)
 {
@@ -58,16 +77,16 @@ static void usage(const char* sname)
     fprintf(stderr,"\n\n");
 }
 
-static std::string load_file(const std::string & fn)
+static string load_file(const string & fn)
 {
-    std::string out;
-    std::ifstream file(fn);
+    string out;
+    ifstream file(fn);
     if (!file) {
         ERR("Failed to open file '%s'",fn.c_str());
         return out;
         //abort();
     }
-    std::copy(std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>(),back_inserter(out));
+    copy(istreambuf_iterator<char>(file),istreambuf_iterator<char>(),back_inserter(out));
     if (out.back() == '\n') out.pop_back();
     DBG("File '%s' read: '%s'",fn.c_str(),out.c_str());
     return out;
@@ -88,7 +107,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     //p->repeat_penalty = 1.2;
     p->n_batch = 512;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:T:PSG:r:R:A:L")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSIG:H:")) != -1) {
         switch (opt) {
         case 'm':
             p->model = optarg;
@@ -100,7 +119,10 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             p->n_threads = atoi(optarg);
             break;
         case 'p':
-            p->prompt = load_file(optarg);
+            if (p->prompt.empty())
+                p->prompt = load_file(optarg);
+            else
+                g_sprompts.push_back(load_file(optarg));
             break;
         case 'f':
             g_tokenf = optarg;
@@ -120,6 +142,16 @@ static int set_params(gpt_params* p, int argc, char* argv[])
         case 'x':
             p->n_ctx = atoi(optarg);
             break;
+        case 'r':
+            {
+                anna_requester ar;
+                ar.prefix = argv[optind-1];
+                ar.suffix = argv[optind++];
+                ar.command = argv[optind++];
+                g_requesters.push_back(ar);
+                DBG("Requester added: ['%s' / '%s'] -> '%s'\n",ar.prefix.c_str(),ar.suffix.c_str(),ar.command.c_str());
+            }
+            break;
         case 'T':
             g_terminator = optarg;
             break;
@@ -129,10 +161,16 @@ static int set_params(gpt_params* p, int argc, char* argv[])
         case 'S':
             g_eos = true;
             break;
+        case 'I':
+            g_info = true;
+            break;
         case 'G':
 #ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
             p->n_gpu_layers = atoi(optarg);
 #endif
+            break;
+        case 'H':
+            // TODO: prompt Hub support
             break;
         default:
             usage(argv[0]);
@@ -163,9 +201,9 @@ static const char* llama_token_to_str(llama_context* ctx, llama_token token)
  * $ - Put newline in, run batch, don't run sampling
  * @ - Put newline in, don't run batch or sampling, buffer the input
  * */
-static std::string get_input(bool* skip_next)
+static string get_input(bool* skip_next)
 {
-    std::string s;
+    string s;
     ssize_t n = -1;
     char cbuf[2];
 
@@ -199,7 +237,7 @@ static std::string get_input(bool* skip_next)
     return s;
 }
 
-static bool load_cache(llama_context* ctx, int & n_past, std::vector<llama_token> & context)
+static bool load_cache(llama_context* ctx, int & n_past, vector<llama_token> & context)
 {
     int fd = open(g_scache.c_str(),O_RDONLY|O_DIRECT);
     if (fd < 0) {
@@ -254,7 +292,7 @@ static bool load_cache(llama_context* ctx, int & n_past, std::vector<llama_token
     return true;
 }
 
-static void save_cache(llama_context* ctx, int n_past, std::vector<llama_token> & context)
+static void save_cache(llama_context* ctx, int n_past, vector<llama_token> & context)
 {
     int fd = open(g_scache.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
     if (fd < 0) {
@@ -266,7 +304,10 @@ static void save_cache(llama_context* ctx, int n_past, std::vector<llama_token> 
     uint32_t csize = llama_n_ctx(ctx) * sizeof(llama_token);
     uint32_t total = sizeof(int) + csize + 4 + dsize;
 
-    ftruncate(fd,total);
+    if (ftruncate(fd,total)) {
+        ERR("Unable to truncate to %u\n",total);
+        return;
+    }
     uint8_t* data = (uint8_t*)mmap(NULL,total,PROT_WRITE,MAP_SHARED,fd,0);
 
     close(fd);
@@ -297,24 +338,42 @@ static void save_cache(llama_context* ctx, int n_past, std::vector<llama_token> 
     DBG("Cache (%u bytes) saved to %s\n",total,g_scache.c_str());
 }
 
-static bool check_terminator()
+static bool check_last_piece(string & pattern)
 {
-    if (g_terminator.empty()) return false;
+    if (pattern.empty()) return false;
     // We assume that previous token was just sampled, and g_piecebuf represents its string
     for (size_t i = 1; i <= g_piecebuf.length(); i++) {
-        std::string s = g_outcache + g_piecebuf.substr(0,i);
-        DBG("s='%s'\n",s.c_str());
-        if (s.ends_with(g_terminator)) {
-            DBG("Terminator found.\n");
+        string s = g_outcache + g_piecebuf.substr(0,i);
+        //DBG("s='%s'\n",s.c_str());
+        if (s.ends_with(pattern)) {
+            DBG("Pattern found.\n");
             return true;
         }
     }
-    g_outcache += g_piecebuf;
     return false;
+}
+
+static string run_request()
+{
+    string cmd = g_requesters.at(g_request_active-1).command + " \"" + g_reqcache + "\"";
+    FILE* proc = popen(cmd.c_str(),"r");
+    if (!proc) {
+        ERR("Unable to execute process '%s'\n",cmd.c_str());
+        return string();
+    }
+
+    int c;
+    string res;
+    while ((c = fgetc(proc)) != EOF) res += c;
+
+    pclose(proc);
+    return res;
 }
 
 int main(int argc, char* argv[])
 {
+    fprintf(stderr,"ANNA version " ANNA_VERSION "\n\n");
+
     gpt_params params;
     if (argc < 2) {
         usage(argv[0]);
@@ -325,7 +384,7 @@ int main(int argc, char* argv[])
     llama_model* model;
     llama_context* ctx;
     llama_backend_init(false);
-    std::tie(model,ctx) = llama_init_from_gpt_params(params);
+    tie(model,ctx) = llama_init_from_gpt_params(params);
     if (!model) {
         ERR("Failed to load model '%s'",params.model.c_str());
         return 1;
@@ -341,11 +400,11 @@ int main(int argc, char* argv[])
     bool no_input = false;
     bool reload_on_reset = false;
 
-    std::vector<llama_token> queue,prompt,inp_emb,forced_start;
-    std::vector<llama_token> oldqueue,oldcontext;
-    std::vector<llama_token> context(n_ctx);
-    std::fill(context.begin(),context.end(),0);
-    std::string output_line;
+    vector<llama_token> queue,prompt,inp_emb,forced_start;
+    vector<llama_token> oldqueue,oldcontext;
+    vector<llama_token> context(n_ctx);
+    fill(context.begin(),context.end(),0);
+    string output_line;
 
     const llama_token tok_newline = llama_token_nl(ctx);
     DBG("Newline token = %d\n",tok_newline);
@@ -370,6 +429,16 @@ int main(int argc, char* argv[])
             DBG("Newline token at the end of the prompt, skipping sampling for the first round...\n");
             skip_sampling = true;
         }
+    }
+
+    if (g_info) {
+        printf("\nPrompt size: %lu tokens\n",inp_emb.size());
+        vector<llama_token> spt;
+        for (auto & sp : g_sprompts) {
+            spt = ::llama_tokenize(ctx,sp,false);
+            printf("Next prompt size: %lu tokens\n",spt.size());
+        }
+        g_quit = true;
     }
 
     bool populate_cache = !g_scache.empty();
@@ -397,7 +466,7 @@ int main(int argc, char* argv[])
                 const int n_left = n_past - (int)prompt.size();
                 //DBG("n_past = %d, prompt = %d, n_left = %d\n",n_past,(int)prompt.size(),n_left);
 
-                std::vector<llama_token> tmp = queue;
+                vector<llama_token> tmp = queue;
                 queue = prompt;
                 queue.insert(queue.end(),context.end()-n_left/2,context.end());
                 n_past = 0; // reset
@@ -412,16 +481,16 @@ int main(int argc, char* argv[])
                 DBG("Calling eval( ");
                 for (int j = 0; j < n_eval; j++) DBG("%d (%s) ",queue[i+j],llama_token_to_str(ctx,queue[i+j]));
                 DBG(")\nn_past = %d, n_threads = %d\n",n_past,params.n_threads);
-                auto pre_eval = std::chrono::steady_clock::now();
-#elif 0
-                auto pre_eval = std::chrono::steady_clock::now();
+                auto pre_eval = chrono::steady_clock::now();
+#elif DEBUG_TIMING
+                auto pre_eval = chrono::steady_clock::now();
 #endif
                 if (llama_eval(ctx,&queue[i],n_eval,n_past,params.n_threads)) {
                     ERR("Failed to eval '%s'",llama_token_to_str(ctx,queue[i]));
                     return 1;
                 }
-#if 0
-                auto eval_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - pre_eval);
+#if DEBUG_TIMING
+                auto eval_time = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - pre_eval);
                 DBG("Eval time = %lu\n",eval_time.count());
 #endif
                 n_past += n_eval;
@@ -471,12 +540,12 @@ int main(int argc, char* argv[])
 
             // usual sampling
             if (tok < 0) {
-#if 0
-                auto pre_sample = std::chrono::steady_clock::now();
+#if DEBUG_TIMING
+                auto pre_sample = chrono::steady_clock::now();
 #endif
                 //tok = llama_sample_top_p_top_k(ctx, context.data() + n_ctx - params.repeat_last_n, params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
                 float* logits = llama_get_logits(ctx);
-                std::vector<llama_token_data> cand;
+                vector<llama_token_data> cand;
                 cand.reserve(n_vocab);
 
                 for (llama_token token_id = 0; token_id < n_vocab; token_id++)
@@ -494,21 +563,22 @@ int main(int argc, char* argv[])
                     llama_sample_temperature(ctx,&cand_p,params.temp);
                     tok = llama_sample_token_mirostat_v2(ctx,&cand_p,mirostat_tau,mirostat_eta,&mirostat_mu);
                 }
-#if 0
-                auto sample_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - pre_sample);
+#if DEBUG_TIMING
+                auto sample_time = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - pre_sample);
                 DBG("Sample time = %lu\n",sample_time.count());
 #endif
                 //DBG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
             }
 
+            // Print the next token and always flush the stdout buffer to force the printing
             printf("%s",llama_token_to_str(ctx,tok));
             fflush(stdout);
-            if (check_terminator()) break;
 
             // In OG llama.cpp they pushed eos into global queue before replacing it for newline, and injecting into next embedding sequence
             //context.erase(context.begin());
             //context.push_back(tok);
 
+            // ... But we do it much better way :)
             if (tok == llama_token_eos(ctx)) {
                 DBG("*** EOS detected ***\n");
                 tok = tok_newline;
@@ -520,12 +590,41 @@ int main(int argc, char* argv[])
 
             queue.push_back(tok);
 
+            // Now check for terminating condition or request condition
+            if (check_last_piece(g_terminator)) break;
+            if (g_request_active) {
+                if (check_last_piece(g_requesters.at(g_request_active-1).suffix)) {
+                    string res = run_request();
+                    if (!res.empty()) {
+                        inp_emb = ::llama_tokenize(ctx,res,false);
+                        DBG("Request result = '%s' (%lu tokens)\n",res.c_str(),inp_emb.size());
+                    } else
+                        ERR("Request %s returned an empty string!",g_requesters.at(g_request_active-1).command.c_str());
+                    g_request_active = 0;
+                    g_outcache.clear();
+                    continue; // go back so we can process it
+                } else
+                    g_reqcache += g_piecebuf;
+
+            } else {
+                int rc = 0;
+                for (auto & rq : g_requesters) {
+                    ++rc;
+                    if (check_last_piece(rq.prefix)) {
+                        g_request_active = rc;
+                        g_reqcache.clear();
+                        break;
+                    }
+                }
+            }
+            g_outcache += g_piecebuf;
+
         } else {
             tok = tok_newline;
             skip_sampling = false;
         }
 
-        if (tok == tok_newline) g_outcache.clear(); // terminator can't include newline
+        if (tok == tok_newline) g_outcache.clear(); // terminator/request can't include newline
 
         if (tok == tok_newline && !no_input) {
             DBG("Waiting for input (%d tokens consumed so far)\n",n_past);
@@ -534,14 +633,24 @@ int main(int argc, char* argv[])
                 fflush(stdout);
             }
 
-            std::string inp_str = get_input(&skip_sampling);
+            // Input next string or use next secondary prompt
+            string inp_str;
+            if (!g_sprompts.empty()) {
+                inp_str = g_sprompts.front();
+                g_sprompts.pop_front();
+            } else
+                inp_str = get_input(&skip_sampling);
+
             DBG("String received: '%s', sampling skip = %d\n",inp_str.c_str(),skip_sampling);
             if (g_pipemode && !skip_sampling) {
                 DBG("Going to no-input mode automatically.\n");
                 no_input = true; // ignore anything past EOF in pipe mode
             }
 
-            if (inp_str.empty() || inp_str == "\n") continue;
+            // Rudimentary internal "CLI"
+            if (inp_str.empty() || inp_str == "\n")
+                continue;
+
             else if (inp_str == "load_file()\n") {
                 do {
                     printf("Enter file name\n");
@@ -550,22 +659,25 @@ int main(int argc, char* argv[])
                     if (inp_str.back() == '\n') inp_str.pop_back();
                     inp_str = load_file(inp_str);
                 } while (inp_str.empty());
+
             } else if (inp_str == "no_input()\n") {
                 inp_str.clear();
                 no_input = true;
                 continue;
+
             } else if (inp_str == "undo()\n") {
                 context = oldcontext;
                 queue = oldqueue;
                 n_past = old_past;
                 skip_sampling = true;
                 continue;
+
             } else if (inp_str == "save()\n") {
                 printf("Enter file name\n");
                 inp_str = get_input(NULL);
                 if (!inp_str.empty() && inp_str != "\n") {
                     if (inp_str.back() == '\n') inp_str.pop_back();
-                    std::string tmp = g_scache;
+                    string tmp = g_scache;
                     g_scache = inp_str;
                     save_cache(ctx,n_past,context);
                     g_scache = tmp;
@@ -573,6 +685,7 @@ int main(int argc, char* argv[])
                 continue;
             }
 
+            // don't run on empty
             if (inp_str.empty() || inp_str == "\n") continue;
 
             if (params.prompt.empty()) {
@@ -589,6 +702,7 @@ int main(int argc, char* argv[])
             n_consumed = 0;
             n_remain = params.n_predict;
 
+            // save "undo point"
             oldcontext = context;
             oldqueue = queue;
             old_past = n_past;
@@ -596,6 +710,7 @@ int main(int argc, char* argv[])
     }
     puts("");
 
+    // don't forget to free the memory, even though the process is terminating anyway :D
     llama_free(ctx);
     llama_free_model(model);
     llama_backend_free();

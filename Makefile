@@ -1,6 +1,7 @@
 #CC=clang-14
 #CXX=clang++-14
 LLAMA_CUBLAS=1
+LLAMA_DEBUG=1
 
 all: anna
 

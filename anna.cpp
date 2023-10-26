@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.3.2"
+#define ANNA_VERSION "0.3.3"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -59,12 +59,13 @@ static const char* argstrings[] = {
     "[-P](pipeline flag)",
     "[-S](use BOS/EOS tokens flag)",
     "[-I](info flag)",
+    "[-N](ignore newline flag)",
     "[-G number_of_layers_to_offload_to_GPU]",
     "[-H path_to_prompt_hub]",
     NULL
 };
 
-static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false, g_info = false;
+static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false, g_info = false, g_nonl = false;
 static string g_inbuf, g_tokenf, g_scache, g_uprefix, g_piecebuf, g_outcache, g_reqcache, g_terminator;
 static deque<string> g_sprompts;
 static vector<anna_requester> g_requesters;
@@ -108,7 +109,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     //p->repeat_penalty = 1.2;
     p->n_batch = 512;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSIG:H:")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSING:H:")) != -1) {
         switch (opt) {
         case 'm':
             p->model = optarg;
@@ -164,6 +165,9 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             break;
         case 'I':
             g_info = true;
+            break;
+        case 'N':
+            g_nonl = true;
             break;
         case 'G':
 #ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
@@ -354,6 +358,17 @@ static bool check_last_piece(string & pattern)
     return false;
 }
 
+static void print_vec(llama_context* ctx, vector<llama_token> & vec)
+{
+    DBG("-------------------------\n");
+    string s;
+    for (auto & i: vec) {
+        if (i) s += llama_token_to_str(ctx,i);
+    }
+    DBG("%s\n",s.c_str());
+    DBG("-------------------------\n");
+}
+
 static string run_request()
 {
     string cmd = g_requesters.at(g_request_active-1).command + " \"" + g_reqcache + "\"";
@@ -417,6 +432,7 @@ int main(int argc, char* argv[])
     vector<llama_token> context(n_ctx);
     fill(context.begin(),context.end(),0);
     string output_line;
+    string full_convo = params.prompt;
 
     const llama_token tok_newline = llama_token_nl(ctx);
     DBG("Newline token = %d\n",tok_newline);
@@ -461,6 +477,8 @@ int main(int argc, char* argv[])
         if (params.prompt.empty()) reload_on_reset = true;
     }
 
+    bool user_turn = skip_sampling;
+    bool force_prefix = false;
     while (!g_quit) {
         //DBG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,queue.size());
         if (!queue.empty()) {
@@ -512,6 +530,8 @@ int main(int argc, char* argv[])
 
         // A kludge to replicate same batching as in llama.cpp - do input embedding after finalizing previous local queue
         if (!inp_emb.empty()) {
+            //DBG("Doing input embedding!\n");
+            //print_vec(ctx,inp_emb);
             while ((int)inp_emb.size() > n_consumed) {
                 queue.push_back(inp_emb[n_consumed]);
                 context.erase(context.begin());
@@ -531,17 +551,18 @@ int main(int argc, char* argv[])
         }
 
         llama_token tok;
-        bool user_prefix_detected = false;
         if (!skip_sampling) {
             tok = -1;
 
             // token enforcement
-            if ((context.back() == tok_newline && !forced_start.empty()) || (i_fstart > 0)) {
+            if ((force_prefix && !forced_start.empty()) || (i_fstart > 0)) {
                 if (i_fstart < (int)forced_start.size()) {
                     tok = forced_start[i_fstart++];
                     DBG("Enforcing token %d...\n",tok);
-                } else
+                } else {
                     i_fstart = 0;
+                    force_prefix = false;
+                }
             }
 
             // prediction max length reached, force EOS
@@ -586,6 +607,7 @@ int main(int argc, char* argv[])
             // Print the next token and always flush the stdout buffer to force the printing
             printf("%s",llama_token_to_str(ctx,tok));
             fflush(stdout);
+            full_convo += llama_token_to_str(ctx,tok);
 
             // In OG llama.cpp they pushed eos into global queue before replacing it for newline, and injecting into next embedding sequence
             //context.erase(context.begin());
@@ -609,9 +631,14 @@ int main(int argc, char* argv[])
             if (check_last_piece(g_terminator)) break;
             if (g_request_active) {
                 if (check_last_piece(g_requesters.at(g_request_active-1).suffix)) {
+                    //FIXME: remove parts of the suffix!
                     string res = run_request();
                     if (!res.empty()) {
-                        inp_emb = ::llama_tokenize(ctx,res,false);
+                        n_consumed = 0;
+                        n_remain = params.n_predict;
+                        full_convo += res;
+                        inp_emb = ::llama_tokenize(ctx,res,g_eos);
+                        if (g_eos) inp_emb.push_back(llama_token_eos(ctx));
                         DBG("Request result = '%s' (%lu tokens)\n",res.c_str(),inp_emb.size());
                     } else
                         ERR("Request %s returned an empty string!",g_requesters.at(g_request_active-1).command.c_str());
@@ -632,19 +659,28 @@ int main(int argc, char* argv[])
                     }
                 }
             }
-            user_prefix_detected = (!g_uprefix.empty() && check_last_piece(g_uprefix));
+            if (!g_uprefix.empty() && check_last_piece(g_uprefix)) user_turn = true;
             g_outcache += g_piecebuf;
 
         } else {
-            tok = tok_newline;
+            user_turn = true;
             skip_sampling = false;
         }
 
-        if (tok == tok_newline) g_outcache.clear(); // terminator/request can't include newline
+        if (tok == tok_newline || tok == llama_token_eos(ctx))
+            g_outcache.clear(); // terminator/request pattern can't include newline or EOS
 
-        if ((tok == tok_newline && !no_input && !g_eos) || (tok == llama_token_eos(ctx) && g_eos) || user_prefix_detected) {
+        // different conditions to turn control back to user (or external input)
+        if (g_eos && tok == llama_token_eos(ctx)) user_turn = true;
+        if (!g_nonl && tok == tok_newline) user_turn = true;
+
+        if (user_turn && !no_input) {
+            force_prefix = true;
+            user_turn = false;
+
             DBG("Waiting for input (%d tokens consumed so far)\n",n_past);
-            if (!g_uprefix.empty()) {
+
+            if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix)) {
                 printf("%s",g_uprefix.c_str());
                 fflush(stdout);
             }
@@ -664,10 +700,10 @@ int main(int argc, char* argv[])
             }
 
             // Rudimentary internal "CLI"
-            if (inp_str.empty() || inp_str == "\n")
+            if (inp_str.empty() || inp_str == "\n") {
                 continue;
 
-            else if (inp_str == "load_file()\n") {
+            } else if (inp_str == "load_file()\n") {
                 do {
                     printf("Enter file name\n");
                     inp_str = get_input(NULL);
@@ -698,6 +734,17 @@ int main(int argc, char* argv[])
                     save_cache(ctx,n_past,context);
                     g_scache = tmp;
                 }
+                skip_sampling = true;
+                continue;
+
+            } else if (inp_str == "print_context()\n") {
+                print_vec(ctx,context);
+                skip_sampling = true;
+                continue;
+
+            } else if (inp_str == "print_queue()\n") {
+                print_vec(ctx,queue);
+                skip_sampling = true;
                 continue;
             }
 
@@ -711,12 +758,14 @@ int main(int argc, char* argv[])
                 params.prompt = inp_str;
                 prompt = inp_emb;
             } else {
-                if (!g_uprefix.empty()) inp_str = g_uprefix + inp_str;
+                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix))
+                    inp_str = g_uprefix + inp_str;
                 DBG("Actual string to be tokenized: '%s'\n",inp_str.c_str());
                 inp_emb = ::llama_tokenize(ctx,inp_str,false);
             }
             n_consumed = 0;
             n_remain = params.n_predict;
+            full_convo += inp_str;
 
             // save "undo point"
             oldcontext = context;

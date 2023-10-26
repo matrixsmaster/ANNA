@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.3.3"
+#define ANNA_VERSION "0.3.4"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -624,21 +624,26 @@ int main(int argc, char* argv[])
 
             context.erase(context.begin());
             context.push_back(tok);
-
             queue.push_back(tok);
 
             // Now check for terminating condition or request condition
             if (check_last_piece(g_terminator)) break;
             if (g_request_active) {
-                if (check_last_piece(g_requesters.at(g_request_active-1).suffix)) {
-                    //FIXME: remove parts of the suffix!
-                    string res = run_request();
+                string cursuffix = g_requesters.at(g_request_active-1).suffix;
+                if (check_last_piece(cursuffix)) {
+                    // remove leftover parts of the suffix
+                    int rem = cursuffix.length() - g_piecebuf.length();
+                    g_reqcache.erase(g_reqcache.length()-rem,rem);
+                    // run request and try to make sense of it
+                    string res = "\n" + run_request();
                     if (!res.empty()) {
+                        inp_emb = ::llama_tokenize(ctx,res,g_eos);
+                        if (g_eos) inp_emb.push_back(llama_token_eos(ctx));
+                        printf("\n"); // by this point the model would think a newline was pushed to the output already
+                        // don't forget to reset consumption count
                         n_consumed = 0;
                         n_remain = params.n_predict;
                         full_convo += res;
-                        inp_emb = ::llama_tokenize(ctx,res,g_eos);
-                        if (g_eos) inp_emb.push_back(llama_token_eos(ctx));
                         DBG("Request result = '%s' (%lu tokens)\n",res.c_str(),inp_emb.size());
                     } else
                         ERR("Request %s returned an empty string!",g_requesters.at(g_request_active-1).command.c_str());

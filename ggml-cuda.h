@@ -16,6 +16,8 @@ extern "C" {
 
 #define GGML_CUDA_MAX_DEVICES       16
 
+void cublas_enable_log(int en);
+
 GGML_API void   ggml_init_cublas(void);
 GGML_API void * ggml_cuda_host_malloc(size_t size);
 GGML_API void   ggml_cuda_host_free(void * ptr);

@@ -15,16 +15,17 @@
 #include <sys/stat.h>
 #include "common.h"
 #include "llama.h"
+#include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.3.1"
+#define ANNA_VERSION "0.3.2"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
-//#else
-//#define DBG(...)
-//#endif
+#else
+#define DBG(...)
+#endif
 
 #define DEBUG_TIMING 0
 
@@ -370,10 +371,16 @@ static string run_request()
     return res;
 }
 
+static void anna_no_log(llama_log_level level, const char * text, void * user_data)
+{
+    /* NOTHING TO SEE HERE */
+}
+
 int main(int argc, char* argv[])
 {
     fprintf(stderr,"ANNA version " ANNA_VERSION "\n\n");
 
+    // get CLI arguments
     gpt_params params;
     if (argc < 2) {
         usage(argv[0]);
@@ -381,6 +388,11 @@ int main(int argc, char* argv[])
     }
     if (set_params(&params,argc,argv)) return -1;
 
+    // prepare logging if info is requested
+    llama_log_set((g_info? NULL:anna_no_log),NULL);
+    //cublas_enable_log(g_info);
+
+    // load the model
     llama_model* model;
     llama_context* ctx;
     llama_backend_init(false);
@@ -438,7 +450,7 @@ int main(int argc, char* argv[])
             spt = ::llama_tokenize(ctx,sp,false);
             printf("Next prompt size: %lu tokens\n",spt.size());
         }
-        g_quit = true;
+        //g_quit = true;
     }
 
     bool populate_cache = !g_scache.empty();
@@ -519,6 +531,7 @@ int main(int argc, char* argv[])
         }
 
         llama_token tok;
+        bool user_prefix_detected = false;
         if (!skip_sampling) {
             tok = -1;
 
@@ -581,8 +594,10 @@ int main(int argc, char* argv[])
             // ... But we do it much better way :)
             if (tok == llama_token_eos(ctx)) {
                 DBG("*** EOS detected ***\n");
-                tok = tok_newline;
-                if (no_input && g_eos) break; // don't ignore EOS in non-interactive mode if EOS flag is set
+                if (g_eos) {
+                    if (no_input) break; // don't ignore EOS in non-interactive mode if EOS flag is set
+                } else
+                    tok = tok_newline;
             }
 
             context.erase(context.begin());
@@ -617,6 +632,7 @@ int main(int argc, char* argv[])
                     }
                 }
             }
+            user_prefix_detected = (!g_uprefix.empty() && check_last_piece(g_uprefix));
             g_outcache += g_piecebuf;
 
         } else {
@@ -626,7 +642,7 @@ int main(int argc, char* argv[])
 
         if (tok == tok_newline) g_outcache.clear(); // terminator/request can't include newline
 
-        if (tok == tok_newline && !no_input) {
+        if ((tok == tok_newline && !no_input && !g_eos) || (tok == llama_token_eos(ctx) && g_eos) || user_prefix_detected) {
             DBG("Waiting for input (%d tokens consumed so far)\n",n_past);
             if (!g_uprefix.empty()) {
                 printf("%s",g_uprefix.c_str());

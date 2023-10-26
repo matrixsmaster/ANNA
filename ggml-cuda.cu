@@ -73,6 +73,9 @@
 #include <cuda_fp16.h>
 #endif // defined(GGML_USE_HIPBLAS)
 
+//#define GGML_CUDA_PRINT_DEBUG(...) cublas_log(__VA_ARGS__)
+#define GGML_CUDA_PRINT_DEBUG(...)
+
 #include "ggml-cuda.h"
 #include "ggml.h"
 
@@ -96,6 +99,24 @@
 
 #ifndef __has_builtin
     #define __has_builtin(x) 0
+#endif
+
+#if 0
+static int cublas_logging_enabled = 0;
+
+void cublas_enable_log(int en)
+{
+    cublas_logging_enabled = en;
+}
+
+static void cublas_log(const char* fmt, ...)
+{
+    if (!cublas_logging_enabled) return;
+    va_list vl;
+    va_start(vl,fmt);
+    vfprintf(stderr,fmt,vl);
+    va_end(vl);
+}
 #endif
 
 typedef int8_t int8x4_t __attribute__((ext_vector_type(4)));
@@ -159,9 +180,9 @@ static_assert(sizeof(half) == sizeof(ggml_fp16_t), "wrong fp16 size");
         if (err_ != cudaSuccess) {                                                      \
             int id;                                                                     \
             cudaGetDevice(&id);                                                         \
-            fprintf(stderr, "\nCUDA error %d at %s:%d: %s\n", err_, __FILE__, __LINE__, \
+            GGML_CUDA_PRINT_DEBUG( "\nCUDA error %d at %s:%d: %s\n", err_, __FILE__, __LINE__, \
                 cudaGetErrorString(err_));                                              \
-            fprintf(stderr, "current device: %d\n", id);                                \
+            GGML_CUDA_PRINT_DEBUG( "current device: %d\n", id);                                \
             exit(1);                                                                    \
         }                                                                               \
     } while (0)
@@ -173,9 +194,9 @@ static_assert(sizeof(half) == sizeof(ggml_fp16_t), "wrong fp16 size");
         if (err_ != CUBLAS_STATUS_SUCCESS) {                                            \
             int id;                                                                     \
             cudaGetDevice(&id);                                                         \
-            fprintf(stderr, "\ncuBLAS error %d at %s:%d: %s\n",                         \
+            GGML_CUDA_PRINT_DEBUG( "\ncuBLAS error %d at %s:%d: %s\n",                         \
                     err_, __FILE__, __LINE__, cublasGetStatusString(err_));             \
-            fprintf(stderr, "current device: %d\n", id);                                \
+            GGML_CUDA_PRINT_DEBUG( "current device: %d\n", id);                                \
             exit(1);                                                                    \
         }                                                                               \
     } while (0)
@@ -186,8 +207,8 @@ static_assert(sizeof(half) == sizeof(ggml_fp16_t), "wrong fp16 size");
         if (err_ != CUBLAS_STATUS_SUCCESS) {                                            \
             int id;                                                                     \
             cudaGetDevice(&id);                                                         \
-            fprintf(stderr, "\ncuBLAS error %d at %s:%d\n", err_, __FILE__, __LINE__);  \
-            fprintf(stderr, "current device: %d\n", id);                                \
+            GGML_CUDA_PRINT_DEBUG( "\ncuBLAS error %d at %s:%d\n", err_, __FILE__, __LINE__);  \
+            GGML_CUDA_PRINT_DEBUG( "current device: %d\n", id);                                \
             exit(1);                                                                    \
         }                                                                               \
     } while (0)
@@ -5478,7 +5499,7 @@ static void * ggml_cuda_pool_malloc(size_t size, size_t * actual_size) {
         return ptr;
     }
 #ifdef DEBUG_CUDA_MALLOC
-    fprintf(stderr, "%s: %d buffers, max_size = %u MB, tot_size = %u MB, requested %u MB\n", __func__, nnz,
+    GGML_CUDA_PRINT_DEBUG( "%s: %d buffers, max_size = %u MB, tot_size = %u MB, requested %u MB\n", __func__, nnz,
             (uint32_t)(max_size/1024/1024), (uint32_t)(tot_size/1024/1024), (uint32_t)(size/1024/1024));
 #endif
     void * ptr;
@@ -5502,7 +5523,7 @@ static void ggml_cuda_pool_free(void * ptr, size_t size) {
             return;
         }
     }
-    fprintf(stderr, "WARNING: cuda buffer pool full, increase MAX_CUDA_BUFFERS\n");
+    GGML_CUDA_PRINT_DEBUG( "WARNING: cuda buffer pool full, increase MAX_CUDA_BUFFERS\n");
     CUDA_CHECK(cudaFree(ptr));
 }
 
@@ -5522,11 +5543,11 @@ void ggml_init_cublas() {
         CUDA_CHECK(cudaGetDeviceCount(&g_device_count));
         GGML_ASSERT(g_device_count <= GGML_CUDA_MAX_DEVICES);
         int64_t total_vram = 0;
-        fprintf(stderr, "%s: found %d " GGML_CUDA_NAME " devices:\n", __func__, g_device_count);
+        GGML_CUDA_PRINT_DEBUG( "%s: found %d " GGML_CUDA_NAME " devices:\n", __func__, g_device_count);
         for (int64_t id = 0; id < g_device_count; ++id) {
             cudaDeviceProp prop;
             CUDA_CHECK(cudaGetDeviceProperties(&prop, id));
-            fprintf(stderr, "  Device %ld: %s, compute capability %d.%d\n", id, prop.name, prop.major, prop.minor);
+            GGML_CUDA_PRINT_DEBUG( "  Device %ld: %s, compute capability %d.%d\n", id, prop.name, prop.major, prop.minor);
 
             g_tensor_split[id] = total_vram;
             total_vram += prop.totalGlobalMem;
@@ -5595,7 +5616,7 @@ void * ggml_cuda_host_malloc(size_t size) {
         // The allocation error can be bypassed. A null ptr will assigned out of this function.
         // This can fixed the OOM error in WSL.
         cudaGetLastError();
-        fprintf(stderr, "WARNING: failed to allocate %.2f MB of pinned memory: %s\n",
+        GGML_CUDA_PRINT_DEBUG( "WARNING: failed to allocate %.2f MB of pinned memory: %s\n",
             size/1024.0/1024.0, cudaGetErrorString(err));
         return nullptr;
     }
@@ -7058,7 +7079,7 @@ void ggml_cuda_assign_buffers_force_inplace(struct ggml_tensor * tensor) {
 
 void ggml_cuda_set_main_device(const int main_device) {
     if (main_device >= g_device_count) {
-        fprintf(stderr, "warning: cannot set main_device=%d because there are only %d devices. Using device %d instead.\n",
+        GGML_CUDA_PRINT_DEBUG( "warning: cannot set main_device=%d because there are only %d devices. Using device %d instead.\n",
                 main_device, g_device_count, g_main_device);
         return;
     }
@@ -7066,7 +7087,7 @@ void ggml_cuda_set_main_device(const int main_device) {
     if (g_device_count > 1) {
         cudaDeviceProp prop;
         CUDA_CHECK(cudaGetDeviceProperties(&prop, g_main_device));
-        fprintf(stderr, "%s: using device %d (%s) as main device\n", __func__, g_main_device, prop.name);
+        GGML_CUDA_PRINT_DEBUG( "%s: using device %d (%s) as main device\n", __func__, g_main_device, prop.name);
     }
 }
 

@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.3.4"
+#define ANNA_VERSION "0.3.4b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -637,8 +637,12 @@ int main(int argc, char* argv[])
                     // run request and try to make sense of it
                     string res = "\n" + run_request();
                     if (!res.empty()) {
+#if 0
                         inp_emb = ::llama_tokenize(ctx,res,g_eos);
                         if (g_eos) inp_emb.push_back(llama_token_eos(ctx));
+#else
+                        inp_emb = ::llama_tokenize(ctx,res,false);
+#endif
                         printf("\n"); // by this point the model would think a newline was pushed to the output already
                         // don't forget to reset consumption count
                         n_consumed = 0;

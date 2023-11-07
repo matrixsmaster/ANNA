@@ -2,8 +2,6 @@
 
 #include "llama.h"
 
-#include "grammar-parser.h"
-
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -45,10 +43,7 @@ struct llama_sampling_context {
     // mirostat sampler state
     float mirostat_mu;
 
-    llama_grammar * grammar;
-
-    // internal
-    grammar_parser::parse_state parsed_grammar;
+    void * grammar;
 
     // TODO: replace with ring-buffer
     std::vector<llama_token>      prev;

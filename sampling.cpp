@@ -6,63 +6,21 @@ struct llama_sampling_context * llama_sampling_init(const struct gpt_params & pa
     result->params = params.sampling_params;
     result->grammar = nullptr;
 
-    // if there is a grammar, parse it
-    if (!params.grammar.empty()) {
-        result->parsed_grammar = grammar_parser::parse(params.grammar.c_str());
-
-        // will be empty (default) if there are parse errors
-        if (result->parsed_grammar.rules.empty()) {
-            fprintf(stderr, "%s: failed to parse grammar\n", __func__);
-            return nullptr;
-        }
-
-        std::vector<const llama_grammar_element *> grammar_rules(result->parsed_grammar.c_rules());
-
-        result->grammar = llama_grammar_init(
-                grammar_rules.data(),
-                grammar_rules.size(), result->parsed_grammar.symbol_ids.at("root"));
-    }
-
     result->prev.resize(params.n_ctx);
 
     return result;
 }
 
 void llama_sampling_free(struct llama_sampling_context * ctx) {
-    if (ctx->grammar != NULL) {
-        llama_grammar_free(ctx->grammar);
-    }
-
     delete ctx;
 }
 
 void llama_sampling_reset(llama_sampling_context * ctx) {
-    if (ctx->grammar != NULL) {
-        llama_grammar_free(ctx->grammar);
-    }
-
-    if (!ctx->parsed_grammar.rules.empty()) {
-        std::vector<const llama_grammar_element *> grammar_rules(ctx->parsed_grammar.c_rules());
-
-        ctx->grammar = llama_grammar_init(
-                grammar_rules.data(),
-                grammar_rules.size(), ctx->parsed_grammar.symbol_ids.at("root"));
-    }
-
     std::fill(ctx->prev.begin(), ctx->prev.end(), 0);
     ctx->cur.clear();
 }
 
 void llama_sampling_cp(llama_sampling_context * src, llama_sampling_context * dst) {
-    if (dst->grammar) {
-        llama_grammar_free(dst->grammar);
-        dst->grammar = nullptr;
-    }
-
-    if (src->grammar) {
-        dst->grammar = llama_grammar_copy(src->grammar);
-    }
-
     dst->prev = src->prev;
 }
 
@@ -136,10 +94,6 @@ llama_token llama_sampling_sample(
         }
     }
 
-    if (ctx_sampling->grammar != NULL) {
-        llama_sample_grammar(ctx_main, &cur_p, ctx_sampling->grammar);
-    }
-
     if (temp <= 0) {
         // Greedy sampling
         id = llama_sample_token_greedy(ctx_main, &cur_p);
@@ -186,8 +140,4 @@ void llama_sampling_accept(
         llama_token id) {
     ctx_sampling->prev.erase(ctx_sampling->prev.begin());
     ctx_sampling->prev.push_back(id);
-
-    if (ctx_sampling->grammar != NULL) {
-        llama_grammar_accept_token(ctx_main, ctx_sampling->grammar, id);
-    }
 }

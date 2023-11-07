@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.3.4c"
+#define ANNA_VERSION "0.4.0"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -94,7 +94,7 @@ static string load_file(const string & fn)
     return out;
 }
 
-static int set_params(gpt_params* p, int argc, char* argv[])
+static int set_params(gpt_params* p, llama_sampling_params* sp, int argc, char* argv[])
 {
     int opt;
     p->model.clear();
@@ -105,7 +105,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     p->n_ctx = 4096;
     //p->top_k = 40;
     //p->top_p = 0.8;
-    p->temp = -1;
+    sp->temp = -1;
     //p->repeat_penalty = 1.2;
     p->n_batch = 512;
 
@@ -136,7 +136,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             p->n_predict = atoi(optarg);
             break;
         case 'e':
-            p->temp = atof(optarg);
+            sp->temp = atof(optarg);
             break;
         case 'u':
             g_uprefix = optarg;
@@ -186,6 +186,8 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     if (p->model.empty()) return 1;
     if (!p->seed) p->seed = time(NULL);
     DBG("seed = %u\n",p->seed);
+
+    p->n_threads_batch = p->n_threads;
 
     return 0;
 }
@@ -386,7 +388,7 @@ static string run_request()
     return res;
 }
 
-static void anna_no_log(llama_log_level level, const char * text, void * user_data)
+static void anna_no_log(ggml_log_level level, const char * text, void * user_data)
 {
     /* NOTHING TO SEE HERE */
 }
@@ -397,11 +399,12 @@ int main(int argc, char* argv[])
 
     // get CLI arguments
     gpt_params params;
+    llama_sampling_params sparms;
     if (argc < 2) {
         usage(argv[0]);
         return -1;
     }
-    if (set_params(&params,argc,argv)) return -1;
+    if (set_params(&params,&sparms,argc,argv)) return -1;
 
     // prepare logging if info is requested
     llama_log_set((g_info? NULL:anna_no_log),NULL);
@@ -418,7 +421,7 @@ int main(int argc, char* argv[])
     }
 
     int n_ctx = llama_n_ctx(ctx);
-    int n_vocab = llama_n_vocab(ctx);
+    int n_vocab = llama_n_vocab(llama_get_model(ctx));
     int n_past = 0, old_past = 0;
     int n_remain = params.n_predict;
     int n_consumed = 0;
@@ -433,6 +436,7 @@ int main(int argc, char* argv[])
     fill(context.begin(),context.end(),0);
     string output_line;
     string full_convo = params.prompt;
+    //llama_sampling_context * ctx_sampling = llama_sampling_init(params);
 
     const llama_token tok_newline = llama_token_nl(ctx);
     DBG("Newline token = %d\n",tok_newline);
@@ -515,7 +519,7 @@ int main(int argc, char* argv[])
 #elif DEBUG_TIMING
                 auto pre_eval = chrono::steady_clock::now();
 #endif
-                if (llama_eval(ctx,&queue[i],n_eval,n_past,params.n_threads)) {
+                if (llama_eval(ctx,&queue[i],n_eval,n_past)) {
                     ERR("Failed to eval '%s'",llama_token_to_str(ctx,queue[i]));
                     return 1;
                 }
@@ -577,7 +581,6 @@ int main(int argc, char* argv[])
 #if DEBUG_TIMING
                 auto pre_sample = chrono::steady_clock::now();
 #endif
-                //tok = llama_sample_top_p_top_k(ctx, context.data() + n_ctx - params.repeat_last_n, params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
                 float* logits = llama_get_logits(ctx);
                 vector<llama_token_data> cand;
                 cand.reserve(n_vocab);
@@ -587,16 +590,19 @@ int main(int argc, char* argv[])
 
                 llama_token_data_array cand_p = {cand.data(),cand.size(),false};
 
-                if (params.temp <= 0)
+                //if (params.temp <= 0)
                     tok = llama_sample_token_greedy(ctx,&cand_p); // Select it using the "Greedy sampling" method
-                else {
+                /*else {
                     // FIXME: make it more controllable, or throw it out completely
                     const float mirostat_eta = 0.3f;
                     const float mirostat_tau = 3.0f;
                     float mirostat_mu = 2.0f * mirostat_tau;
                     llama_sample_temperature(ctx,&cand_p,params.temp);
                     tok = llama_sample_token_mirostat_v2(ctx,&cand_p,mirostat_tau,mirostat_eta,&mirostat_mu);
-                }
+                }*/
+
+                //tok = llama_sampling_sample(ctx_sampling,ctx,NULL);
+
 #if DEBUG_TIMING
                 auto sample_time = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - pre_sample);
                 DBG("Sample time = %lu\n",sample_time.count());

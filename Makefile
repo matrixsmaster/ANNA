@@ -94,8 +94,10 @@ endif # LLAMA_DISABLE_LOGS
 
 # warnings
 MK_CFLAGS    += -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith \
-				-Wmissing-prototypes -Werror=implicit-int -Wno-unused-function
-MK_CXXFLAGS  += -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar
+				-Wmissing-prototypes -Werror=implicit-int -Wno-unused-function \
+				-Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter
+MK_CXXFLAGS  += -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar \
+				-Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter
 
 ifdef LLAMA_CUBLAS
 	MK_CPPFLAGS  += -DGGML_USE_CUBLAS -I/usr/local/cuda/include -I/opt/cuda/include -I$(CUDA_PATH)/targets/x86_64-linux/include
@@ -293,7 +295,10 @@ ggml.o: ggml.c ggml.h ggml-cuda.h
 ggml-alloc.o: ggml-alloc.c ggml.h ggml-alloc.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
-OBJS += ggml-alloc.o
+ggml-backend.o: ggml-backend.c ggml.h ggml-backend.h
+	$(CC)  $(CFLAGS)   -c $< -o $@
+
+OBJS += ggml-alloc.o ggml-backend.o
 
 llama.o: llama.cpp ggml.h ggml-alloc.h ggml-cuda.h llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@

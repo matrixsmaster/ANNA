@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.3.4b"
+#define ANNA_VERSION "0.3.4c"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -699,6 +699,10 @@ int main(int argc, char* argv[])
             if (!g_sprompts.empty()) {
                 inp_str = g_sprompts.front();
                 g_sprompts.pop_front();
+                if (inp_str.ends_with("\n")) {
+                    DBG("Newline token at the end of a secondary prompt, skipping sampling for the first round...\n");
+                    skip_sampling = true;
+                }
             } else
                 inp_str = get_input(&skip_sampling);
 

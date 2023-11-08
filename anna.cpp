@@ -457,6 +457,10 @@ int main(int argc, char* argv[])
         inp_emb = ::llama_tokenize(ctx,params.prompt,true);
         prompt = inp_emb; // save first sequence as prompt
         DBG("Prompt size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),params.n_ctx-(int)inp_emb.size());
+        if ((int)inp_emb.size() >= n_ctx) {
+            ERR("Too many tokens in prompt: %d tokens in prompt for a %d tokens context window!\n",(int)inp_emb.size(),n_ctx);
+            g_quit = true;
+        }
         if (inp_emb.back() == tok_newline) {
             DBG("Newline token at the end of the prompt, skipping sampling for the first round...\n");
             skip_sampling = true;
@@ -781,6 +785,10 @@ int main(int argc, char* argv[])
                     inp_str = g_uprefix + inp_str;
                 DBG("Actual string to be tokenized: '%s'\n",inp_str.c_str());
                 inp_emb = ::llama_tokenize(ctx,inp_str,false);
+            }
+            if ((int)inp_emb.size() >= n_ctx) {
+                ERR("Too many tokens in input: %d tokens for a %d tokens context window!\n",(int)inp_emb.size(),n_ctx);
+                g_quit = true;
             }
             n_consumed = 0;
             n_remain = params.n_predict;

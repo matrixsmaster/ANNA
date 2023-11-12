@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.4.0"
+#define ANNA_VERSION "0.4.1"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -95,19 +95,20 @@ static string load_file(const string & fn)
     return out;
 }
 
-static int set_params(gpt_params* p, llama_sampling_params* sp, int argc, char* argv[])
+static int set_params(gpt_params* p, int argc, char* argv[])
 {
     int opt;
+    llama_sampling_params* sp = &p->sampling_params;
     p->model.clear();
     p->prompt.clear();
     p->seed = 0;
     p->n_threads = MYLLAMATHREADS;
     p->n_predict = -1;
     p->n_ctx = 4096;
-    //p->top_k = 40;
-    //p->top_p = 0.8;
+    sp->top_k = 40;
+    sp->top_p = 0.8;
+    sp->repeat_penalty = 1.2;
     sp->temp = -1;
-    //p->repeat_penalty = 1.2;
     p->n_batch = 512;
 
     while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSING:H:")) != -1) {
@@ -400,12 +401,11 @@ int main(int argc, char* argv[])
 
     // get CLI arguments
     gpt_params params;
-    llama_sampling_params sparms;
     if (argc < 2) {
         usage(argv[0]);
         return -1;
     }
-    if (set_params(&params,&sparms,argc,argv)) return -1;
+    if (set_params(&params,argc,argv)) return -1;
 
     // prepare logging if info is requested
     llama_log_set((g_info? NULL:anna_no_log),NULL);
@@ -437,7 +437,7 @@ int main(int argc, char* argv[])
     fill(context.begin(),context.end(),0);
     string output_line;
     string full_convo = params.prompt;
-    //llama_sampling_context * ctx_sampling = llama_sampling_init(params);
+    llama_sampling_context * ctx_sampling = llama_sampling_init(params);
 
     const llama_token tok_newline = llama_token_nl(ctx);
     DBG("Newline token = %d\n",tok_newline);
@@ -601,6 +601,7 @@ int main(int argc, char* argv[])
 
                 llama_token_data_array cand_p = {cand.data(),cand.size(),false};
 
+#if 0
                 //if (params.temp <= 0)
                     tok = llama_sample_token_greedy(ctx,&cand_p); // Select it using the "Greedy sampling" method
                 /*else {
@@ -611,8 +612,11 @@ int main(int argc, char* argv[])
                     llama_sample_temperature(ctx,&cand_p,params.temp);
                     tok = llama_sample_token_mirostat_v2(ctx,&cand_p,mirostat_tau,mirostat_eta,&mirostat_mu);
                 }*/
-
-                //tok = llama_sampling_sample(ctx_sampling,ctx,NULL);
+#else
+                tok = llama_sampling_sample(ctx_sampling,ctx,NULL);
+                llama_sampling_accept(ctx_sampling,ctx,tok);
+                DBG("last: %s\n",llama_token_to_str(ctx,ctx_sampling->prev.back()));
+#endif
 
 #if DEBUG_TIMING
                 auto sample_time = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - pre_sample);
@@ -810,6 +814,7 @@ int main(int argc, char* argv[])
     puts("");
 
     // don't forget to free the memory, even though the process is terminating anyway :D
+    llama_sampling_free(ctx_sampling);
     llama_free(ctx);
     llama_free_model(model);
     llama_backend_free();

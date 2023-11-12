@@ -306,11 +306,14 @@ llama.o: llama.cpp ggml.h ggml-alloc.h ggml-cuda.h llama.h
 common.o: common.cpp common.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+sampling.o: sampling.cpp sampling.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 clean:
 	rm -vrf *.o tests/*.o *.so *.dll benchmark-matmult build-info.h *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
 
 #
 # Examples
 #
-anna: anna.cpp                                       ggml.o llama.o common.o $(OBJS)
+anna: anna.cpp ggml.o llama.o common.o sampling.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -std=c++20 $(filter-out %.h,$^) -o $@ $(LDFLAGS)

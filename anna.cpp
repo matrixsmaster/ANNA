@@ -65,7 +65,8 @@ static const char* argstrings[] = {
     NULL
 };
 
-static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false, g_info = false, g_nonl = false;
+static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false, g_nonl = false;
+static int g_info = false;
 static string g_inbuf, g_tokenf, g_scache, g_uprefix, g_piecebuf, g_outcache, g_reqcache, g_terminator;
 static deque<string> g_sprompts;
 static vector<anna_requester> g_requesters;
@@ -164,7 +165,7 @@ static int set_params(gpt_params* p, llama_sampling_params* sp, int argc, char* 
             g_eos = true;
             break;
         case 'I':
-            g_info = true;
+            g_info++;
             break;
         case 'N':
             g_nonl = true;
@@ -443,7 +444,7 @@ int main(int argc, char* argv[])
 
     if (!g_tokenf.empty()) {
         // Special mode: start token enforcement
-        forced_start = ::llama_tokenize(ctx,g_tokenf,false);
+        forced_start = ::llama_tokenize(ctx,g_tokenf,false,true);
         DBG("Token enforcement: '%s' = ",g_tokenf.c_str());
         for (auto &i : forced_start) {
           DBG("%d (%s) ",i,llama_token_to_str(ctx,i));
@@ -453,7 +454,7 @@ int main(int argc, char* argv[])
     if (params.prompt.empty())
         skip_sampling = true;
     else {
-        params.prompt.insert(0,1,' '); // add space
+        //params.prompt.insert(0,1,' '); // ~add space~, no needed as tokenizer does it now
         inp_emb = ::llama_tokenize(ctx,params.prompt,true);
         prompt = inp_emb; // save first sequence as prompt
         DBG("Prompt size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),params.n_ctx-(int)inp_emb.size());
@@ -468,6 +469,12 @@ int main(int argc, char* argv[])
     }
 
     if (g_info) {
+        if (g_info > 1) {
+            puts("");
+            for (auto &i : inp_emb)
+                printf("%s",llama_token_to_str(ctx,i));
+            puts("\n");
+        }
         printf("\nPrompt size: %lu tokens\n",inp_emb.size());
         vector<llama_token> spt;
         for (auto & sp : g_sprompts) {

@@ -68,10 +68,6 @@ llama_token llama_sampling_sample(
 
     llama_token_data_array cur_p = { cur.data(), cur.size(), false };
 
-    if (ctx_cfg) {
-        llama_sample_classifier_free_guidance(ctx_main, &cur_p, ctx_cfg, params.cfg_scale);
-    }
-
     // apply penalties
     if (!prev.empty()) {
         const float nl_logit = logits[llama_token_nl(ctx_main)];
@@ -115,17 +111,6 @@ llama_token llama_sampling_sample(
             llama_sample_temp     (ctx_main, &cur_p, temp);
 
             id = llama_sample_token(ctx_main, &cur_p);
-
-            //{
-            //    const int n_top = 10;
-            //    LOG("top %d candidates:\n", n_top);
-
-            //    for (int i = 0; i < n_top; i++) {
-            //        const llama_token id = cur_p.data[i].id;
-            //        (void)id; // To avoid a warning that id is unused when logging is disabled.
-            //        LOG(" - %5d: '%12s' (%.3f)\n", id, llama_token_to_piece(ctx_main, id).c_str(), cur_p.data[i].p);
-            //    }
-            //}
 
             LOG("sampled token: %5d: '%s'\n", id, llama_token_to_piece(ctx_main, id).c_str());
         }

@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.4.1"
+#define ANNA_VERSION "0.4.2"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -105,13 +105,9 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     p->n_threads = MYLLAMATHREADS;
     p->n_predict = -1;
     p->n_ctx = 4096;
-    sp->top_k = 40;
-    sp->top_p = 0.8;
-    sp->repeat_penalty = 1.2;
-    sp->temp = -1;
     p->n_batch = 512;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSING:H:")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSING:H:M:")) != -1) {
         switch (opt) {
         case 'm':
             p->model = optarg;
@@ -178,6 +174,9 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             break;
         case 'H':
             // TODO: prompt Hub support
+            break;
+        case 'M':
+            sp->mirostat = atoi(optarg);
             break;
         default:
             usage(argv[0]);
@@ -433,8 +432,8 @@ int main(int argc, char* argv[])
 
     vector<llama_token> queue,prompt,inp_emb,forced_start;
     vector<llama_token> oldqueue,oldcontext;
-    vector<llama_token> context(n_ctx);
-    fill(context.begin(),context.end(),0);
+    //vector<llama_token> context(n_ctx);
+    //fill(context.begin(),context.end(),0);
     string output_line;
     string full_convo = params.prompt;
     llama_sampling_context * ctx_sampling = llama_sampling_init(params);
@@ -485,7 +484,7 @@ int main(int argc, char* argv[])
     }
 
     bool populate_cache = !g_scache.empty();
-    if (populate_cache && load_cache(ctx,n_past,context)) {
+    if (populate_cache && load_cache(ctx,n_past,ctx_sampling->prev)) {
         inp_emb.clear();
         populate_cache = false;
         llama_set_rng_seed(ctx,params.seed);
@@ -499,7 +498,7 @@ int main(int argc, char* argv[])
         if (!queue.empty()) {
             if (n_past + (int)queue.size() > n_ctx) {
                 const int nseed = llama_get_rng_seed(ctx);
-                if (reload_on_reset && load_cache(ctx,n_past,context)) {
+                if (reload_on_reset && load_cache(ctx,n_past,ctx_sampling->prev)) {
                     queue.clear();
                     inp_emb.clear();
                     llama_set_rng_seed(ctx,nseed);
@@ -511,9 +510,13 @@ int main(int argc, char* argv[])
                 const int n_left = n_past - (int)prompt.size();
                 //DBG("n_past = %d, prompt = %d, n_left = %d\n",n_past,(int)prompt.size(),n_left);
 
+                // FIXME: instead of reeval, we might shift kv cache:
+                //llama_kv_cache_seq_rm(ctx, 0, params.n_keep + 1, params.n_keep + n_discard + 1);
+                //llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
+
                 vector<llama_token> tmp = queue;
                 queue = prompt;
-                queue.insert(queue.end(),context.end()-n_left/2,context.end());
+                queue.insert(queue.end(),ctx_sampling->prev.end()-n_left/2,ctx_sampling->prev.end());
                 n_past = 0; // reset
                 DBG("\nqueue now = %d, n_left now = %d\n",(int)queue.size(),n_left);
             }
@@ -549,8 +552,9 @@ int main(int argc, char* argv[])
             //print_vec(ctx,inp_emb);
             while ((int)inp_emb.size() > n_consumed) {
                 queue.push_back(inp_emb[n_consumed]);
-                context.erase(context.begin());
-                context.push_back(inp_emb[n_consumed]);
+                //context.erase(context.begin());
+                //context.push_back(inp_emb[n_consumed]);
+                llama_sampling_accept(ctx_sampling,ctx,inp_emb[n_consumed]);
                 ++n_consumed;
                 if ((int)queue.size() >= params.n_batch) break;
             }
@@ -562,7 +566,7 @@ int main(int argc, char* argv[])
         // The model is ready now, so we can process one-shot actions
         if (!g_once) {
             g_once = true;
-            if (populate_cache) save_cache(ctx,n_past,context);
+            if (populate_cache) save_cache(ctx,n_past,ctx_sampling->prev);
         }
 
         llama_token tok;
@@ -592,6 +596,7 @@ int main(int argc, char* argv[])
 #if DEBUG_TIMING
                 auto pre_sample = chrono::steady_clock::now();
 #endif
+#if 0
                 float* logits = llama_get_logits(ctx);
                 vector<llama_token_data> cand;
                 cand.reserve(n_vocab);
@@ -601,7 +606,6 @@ int main(int argc, char* argv[])
 
                 llama_token_data_array cand_p = {cand.data(),cand.size(),false};
 
-#if 0
                 //if (params.temp <= 0)
                     tok = llama_sample_token_greedy(ctx,&cand_p); // Select it using the "Greedy sampling" method
                 /*else {
@@ -614,8 +618,8 @@ int main(int argc, char* argv[])
                 }*/
 #else
                 tok = llama_sampling_sample(ctx_sampling,ctx,NULL);
-                llama_sampling_accept(ctx_sampling,ctx,tok);
-                DBG("last: %s\n",llama_token_to_str(ctx,ctx_sampling->prev.back()));
+                //llama_sampling_accept(ctx_sampling,ctx,tok);
+                //DBG("last: %s\n",llama_token_to_str(ctx,ctx_sampling->prev.back()));
 #endif
 
 #if DEBUG_TIMING
@@ -630,11 +634,7 @@ int main(int argc, char* argv[])
             fflush(stdout);
             full_convo += llama_token_to_str(ctx,tok);
 
-            // In OG llama.cpp they pushed eos into global queue before replacing it for newline, and injecting into next embedding sequence
-            //context.erase(context.begin());
-            //context.push_back(tok);
-
-            // ... But we do it much better way :)
+            // Deal with EOS token
             if (tok == llama_token_eos(ctx)) {
                 DBG("*** EOS detected ***\n");
                 if (g_eos) {
@@ -643,8 +643,9 @@ int main(int argc, char* argv[])
                     tok = tok_newline;
             }
 
-            context.erase(context.begin());
-            context.push_back(tok);
+            //context.erase(context.begin());
+            //context.push_back(tok);
+            llama_sampling_accept(ctx_sampling,ctx,tok);
             queue.push_back(tok);
 
             // Now check for terminating condition or request condition
@@ -710,11 +711,6 @@ int main(int argc, char* argv[])
 
             DBG("Waiting for input (%d tokens consumed so far)\n",n_past);
 
-            if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix)) {
-                printf("%s",g_uprefix.c_str());
-                fflush(stdout);
-            }
-
             // Input next string or use next secondary prompt
             string inp_str;
             if (!g_sprompts.empty()) {
@@ -724,8 +720,13 @@ int main(int argc, char* argv[])
                     DBG("Newline token at the end of a secondary prompt, skipping sampling for the first round...\n");
                     skip_sampling = true;
                 }
-            } else
+            } else {
+                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !skip_sampling) {
+                    printf("%s",g_uprefix.c_str());
+                    fflush(stdout);
+                }
                 inp_str = get_input(&skip_sampling);
+            }
 
             DBG("String received: '%s', sampling skip = %d\n",inp_str.c_str(),skip_sampling);
             if (g_pipemode && !skip_sampling) {
@@ -752,7 +753,7 @@ int main(int argc, char* argv[])
                 continue;
 
             } else if (inp_str == "undo()\n") {
-                context = oldcontext;
+                ctx_sampling->prev = oldcontext;
                 queue = oldqueue;
                 n_past = old_past;
                 skip_sampling = true;
@@ -765,14 +766,14 @@ int main(int argc, char* argv[])
                     if (inp_str.back() == '\n') inp_str.pop_back();
                     string tmp = g_scache;
                     g_scache = inp_str;
-                    save_cache(ctx,n_past,context);
+                    save_cache(ctx,n_past,ctx_sampling->prev);
                     g_scache = tmp;
                 }
                 skip_sampling = true;
                 continue;
 
             } else if (inp_str == "print_context()\n") {
-                print_vec(ctx,context);
+                print_vec(ctx,ctx_sampling->prev);
                 skip_sampling = true;
                 continue;
 
@@ -792,7 +793,7 @@ int main(int argc, char* argv[])
                 params.prompt = inp_str;
                 prompt = inp_emb;
             } else {
-                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix))
+                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !skip_sampling)
                     inp_str = g_uprefix + inp_str;
                 DBG("Actual string to be tokenized: '%s'\n",inp_str.c_str());
                 inp_emb = ::llama_tokenize(ctx,inp_str,false);
@@ -806,7 +807,7 @@ int main(int argc, char* argv[])
             full_convo += inp_str;
 
             // save "undo point"
-            oldcontext = context;
+            oldcontext = ctx_sampling->prev;
             oldqueue = queue;
             old_past = n_past;
         }

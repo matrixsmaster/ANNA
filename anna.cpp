@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.4.2"
+#define ANNA_VERSION "0.4.3"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -426,7 +426,7 @@ int main(int argc, char* argv[])
     int n_remain = params.n_predict;
     int n_consumed = 0;
     int i_fstart = 0;
-    bool skip_sampling = false;
+    bool skip_sampling = false, was_skipped = false;
     bool no_input = false;
     bool reload_on_reset = false;
 
@@ -606,16 +606,7 @@ int main(int argc, char* argv[])
 
                 llama_token_data_array cand_p = {cand.data(),cand.size(),false};
 
-                //if (params.temp <= 0)
-                    tok = llama_sample_token_greedy(ctx,&cand_p); // Select it using the "Greedy sampling" method
-                /*else {
-                    // FIXME: make it more controllable, or throw it out completely
-                    const float mirostat_eta = 0.3f;
-                    const float mirostat_tau = 3.0f;
-                    float mirostat_mu = 2.0f * mirostat_tau;
-                    llama_sample_temperature(ctx,&cand_p,params.temp);
-                    tok = llama_sample_token_mirostat_v2(ctx,&cand_p,mirostat_tau,mirostat_eta,&mirostat_mu);
-                }*/
+                tok = llama_sample_token_greedy(ctx,&cand_p); // Select it using the "Greedy sampling" method
 #else
                 tok = llama_sampling_sample(ctx_sampling,ctx,NULL);
                 //llama_sampling_accept(ctx_sampling,ctx,tok);
@@ -696,6 +687,7 @@ int main(int argc, char* argv[])
         } else {
             user_turn = true;
             skip_sampling = false;
+            was_skipped = true;
         }
 
         if (tok == tok_newline || tok == llama_token_eos(ctx))
@@ -721,7 +713,7 @@ int main(int argc, char* argv[])
                     skip_sampling = true;
                 }
             } else {
-                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !skip_sampling) {
+                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !was_skipped) {
                     printf("%s",g_uprefix.c_str());
                     fflush(stdout);
                 }
@@ -736,6 +728,7 @@ int main(int argc, char* argv[])
 
             // Rudimentary internal "CLI"
             if (inp_str.empty() || inp_str == "\n") {
+                force_prefix = false; // don't force prefix after skipped user input
                 continue;
 
             } else if (inp_str == "load_file()\n") {
@@ -793,7 +786,7 @@ int main(int argc, char* argv[])
                 params.prompt = inp_str;
                 prompt = inp_emb;
             } else {
-                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !skip_sampling)
+                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !was_skipped)
                     inp_str = g_uprefix + inp_str;
                 DBG("Actual string to be tokenized: '%s'\n",inp_str.c_str());
                 inp_emb = ::llama_tokenize(ctx,inp_str,false);

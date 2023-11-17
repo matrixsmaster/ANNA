@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.4.3"
+#define ANNA_VERSION "0.4.3b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -474,7 +474,8 @@ int main(int argc, char* argv[])
                 printf("%s",llama_token_to_str(ctx,i));
             puts("\n");
         }
-        printf("\nPrompt size: %lu tokens\n",inp_emb.size());
+        printf("\nSeed: %d\n",params.seed);
+        printf("Prompt size: %lu tokens\n",inp_emb.size());
         vector<llama_token> spt;
         for (auto & sp : g_sprompts) {
             spt = ::llama_tokenize(ctx,sp,false);

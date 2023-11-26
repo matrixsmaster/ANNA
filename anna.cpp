@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.4.3b"
+#define ANNA_VERSION "0.4.4"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -62,12 +62,15 @@ static const char* argstrings[] = {
     "[-N](ignore newline flag)",
     "[-G number_of_layers_to_offload_to_GPU]",
     "[-H path_to_prompt_hub]",
+    "[-F AI/User]",
+    "[-M mirostat_version]",
     NULL
 };
 
 static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false, g_nonl = false;
-static int g_info = false;
-static string g_inbuf, g_tokenf, g_scache, g_uprefix, g_piecebuf, g_outcache, g_reqcache, g_terminator;
+static int g_info = 0, g_first = 0;
+static string g_inbuf, g_tokenf, g_scache, g_piecebuf, g_outcache, g_reqcache, g_terminator;
+static vector<string> g_uprefix;
 static deque<string> g_sprompts;
 static vector<anna_requester> g_requesters;
 static int g_request_active = 0;
@@ -107,7 +110,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     p->n_ctx = 4096;
     p->n_batch = 512;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSING:H:M:")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSING:H:F:M:")) != -1) {
         switch (opt) {
         case 'm':
             p->model = optarg;
@@ -137,7 +140,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             sp->temp = atof(optarg);
             break;
         case 'u':
-            g_uprefix = optarg;
+            g_uprefix.push_back(optarg);
             break;
         case 'x':
             p->n_ctx = atoi(optarg);
@@ -174,6 +177,9 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             break;
         case 'H':
             // TODO: prompt Hub support
+            break;
+        case 'F':
+            g_first = toupper(optarg[0]);
             break;
         case 'M':
             sp->mirostat = atoi(optarg);
@@ -492,8 +498,10 @@ int main(int argc, char* argv[])
         if (params.prompt.empty()) reload_on_reset = true;
     }
 
+    if (g_first) skip_sampling = (g_first != 'A');
+
     bool user_turn = skip_sampling;
-    bool force_prefix = false;
+    bool force_prefix = !skip_sampling;
     while (!g_quit) {
         //DBG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,queue.size());
         if (!queue.empty()) {
@@ -682,8 +690,15 @@ int main(int argc, char* argv[])
                     }
                 }
             }
-            if (!g_uprefix.empty() && check_last_piece(g_uprefix)) user_turn = true;
+            if (!g_uprefix.empty())
+                for (auto & _i : g_uprefix) {
+                    if (check_last_piece(_i)) {
+                        user_turn = true;
+                        break;
+                    }
+                }
             g_outcache += g_piecebuf;
+            was_skipped = false;
 
         } else {
             user_turn = true;
@@ -714,8 +729,8 @@ int main(int argc, char* argv[])
                     skip_sampling = true;
                 }
             } else {
-                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !was_skipped) {
-                    printf("%s",g_uprefix.c_str());
+                if (g_uprefix.size() == 1 && !full_convo.ends_with(g_uprefix.at(0)) && !was_skipped) {
+                    printf("%s",g_uprefix.at(0).c_str());
                     fflush(stdout);
                 }
                 inp_str = get_input(&skip_sampling);
@@ -766,6 +781,15 @@ int main(int argc, char* argv[])
                 skip_sampling = true;
                 continue;
 
+            } else if (inp_str == "add_user()\n") {
+                string uname = get_input(NULL);
+                if (uname.empty() || uname == "\n") continue;
+                if (uname.back() == '\n') uname.pop_back();
+                g_uprefix.push_back(uname);
+                DBG("User prefix '%s' added\n",uname.c_str());
+                skip_sampling = true;
+                continue;
+
             } else if (inp_str == "print_context()\n") {
                 print_vec(ctx,ctx_sampling->prev);
                 skip_sampling = true;
@@ -782,15 +806,15 @@ int main(int argc, char* argv[])
 
             if (params.prompt.empty()) {
                 // first input will be considered prompt now
-                inp_str.insert(0,1,' '); // add space
+                //inp_str.insert(0,1,' '); // add space
                 inp_emb = ::llama_tokenize(ctx,inp_str,true);
                 params.prompt = inp_str;
                 prompt = inp_emb;
             } else {
-                if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !was_skipped)
-                    inp_str = g_uprefix + inp_str;
+                if (g_uprefix.size() == 1 && !full_convo.ends_with(g_uprefix.at(0)) && !was_skipped)
+                    inp_str = g_uprefix.at(0) + inp_str;
                 DBG("Actual string to be tokenized: '%s'\n",inp_str.c_str());
-                inp_emb = ::llama_tokenize(ctx,inp_str,false);
+                inp_emb = ::llama_tokenize(ctx,inp_str,false,true);
             }
             if ((int)inp_emb.size() >= n_ctx) {
                 ERR("Too many tokens in input: %d tokens for a %d tokens context window!\n",(int)inp_emb.size(),n_ctx);

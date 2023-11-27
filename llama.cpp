@@ -9936,3 +9936,10 @@ static void llama_log_callback_default(ggml_log_level level, const char * text, 
     fputs(text, stderr);
     fflush(stderr);
 }
+
+void llama_adjust_rope_freq(struct llama_context * ctx, int requested_len)
+{
+    // A kludge for fixing non-existing RoPE scaling for larger contexts
+    if (requested_len > ctx->model.hparams.n_ctx_train)
+        ctx->cparams.rope_freq_scale = float(ctx->model.hparams.n_ctx_train) / float(requested_len);
+}

@@ -738,6 +738,9 @@ extern "C" {
 
     LLAMA_API void llama_dump_timing_info_yaml(FILE * stream, const struct llama_context * ctx);
 
+    // Update RoPE freq.
+    LLAMA_API void llama_adjust_rope_freq(struct llama_context * ctx, int requested_len);
+
 #ifdef __cplusplus
 }
 #endif

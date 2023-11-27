@@ -17,7 +17,7 @@
 #include "llama.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.4.4"
+#define ANNA_VERSION "0.4.4b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 
@@ -443,6 +443,7 @@ int main(int argc, char* argv[])
     string output_line;
     string full_convo = params.prompt;
     llama_sampling_context * ctx_sampling = llama_sampling_init(params);
+    llama_adjust_rope_freq(ctx,params.n_ctx);
 
     const llama_token tok_newline = llama_token_nl(ctx);
     DBG("Newline token = %d\n",tok_newline);

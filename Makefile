@@ -309,11 +309,11 @@ common.o: common.cpp common.h
 sampling.o: sampling.cpp sampling.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+clip.o: clip.cpp clip.h stb_image.h
+	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
+
 clean:
 	rm -vrf *.o tests/*.o *.so *.dll benchmark-matmult build-info.h *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
 
-#
-# Examples
-#
-anna: anna.cpp ggml.o llama.o common.o sampling.o $(OBJS)
+anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -std=c++20 $(filter-out %.h,$^) -o $@ $(LDFLAGS)

@@ -22,6 +22,13 @@
 
 #define CLIP_DEBUG
 
+#ifndef NDEBUG
+#define DBG(...) do { ERR("[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
+#else
+#define DBG(...)
+#endif
+#define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
+
 static std::string format(const char * fmt, ...) {
     va_list ap;
     va_list ap2;
@@ -90,7 +97,7 @@ static std::string format(const char * fmt, ...) {
 static int get_key_idx(const gguf_context * ctx, const char * key) {
     int i = gguf_find_key(ctx, key);
     if (i == -1) {
-        fprintf(stderr, "key %s not found in file\n", key);
+        ERR( "key %s not found in file\n", key);
         throw std::runtime_error(format("Missing required key: %s", key));
     }
 
@@ -230,7 +237,7 @@ struct clip_ctx {
 
 static ggml_cgraph * clip_image_build_graph(const clip_ctx * ctx, const clip_image_f32_batch * imgs) {
     if (!ctx->has_vision_encoder) {
-        printf("This gguf file seems to have no vision encoder\n");
+        DBG("This gguf file seems to have no vision encoder\n");
         return nullptr;
     }
 
@@ -475,15 +482,15 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
         const int idx_name = gguf_find_key(ctx, KEY_NAME);
         if (idx_name != -1) { // make name optional temporarily as some of the uploaded models missing it due to a bug
             const std::string name = gguf_get_val_str(ctx, idx_name);
-            printf("%s: model name:   %s\n", __func__, name.c_str());
+            DBG("%s: model name:   %s\n", __func__, name.c_str());
         }
-        printf("%s: description:  %s\n", __func__, description.c_str());
-        printf("%s: GGUF version: %d\n", __func__, gguf_get_version(ctx));
-        printf("%s: alignment:    %zu\n", __func__, gguf_get_alignment(ctx));
-        printf("%s: n_tensors:    %d\n", __func__, n_tensors);
-        printf("%s: n_kv:         %d\n", __func__, n_kv);
-        printf("%s: ftype:        %s\n", __func__, ftype_str.c_str());
-        printf("\n");
+        DBG("%s: description:  %s\n", __func__, description.c_str());
+        DBG("%s: GGUF version: %d\n", __func__, gguf_get_version(ctx));
+        DBG("%s: alignment:    %zu\n", __func__, gguf_get_alignment(ctx));
+        DBG("%s: n_tensors:    %d\n", __func__, n_tensors);
+        DBG("%s: n_kv:         %d\n", __func__, n_kv);
+        DBG("%s: ftype:        %s\n", __func__, ftype_str.c_str());
+        DBG("\n");
     }
 
     // kv
@@ -493,9 +500,9 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
         for (int i = 0; i < n_kv; ++i) {
             const char * key = gguf_get_key(ctx, i);
 
-            printf("%s: kv[%d]: key = %s\n", __func__, i, key);
+            DBG("%s: kv[%d]: key = %s\n", __func__, i, key);
         }
-        printf("\n");
+        DBG("\n");
     }
 
     // data
@@ -513,7 +520,7 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
             size_t padded_size = ggml_nbytes_pad(cur);
             ctx_size += padded_size;
             if (verbosity >= 3) {
-                printf("%s: tensor[%d]: n_dims = %d, name = %s, tensor_size=%zu, padded_size=%zu, offset=%zu\n", __func__, i,
+                DBG("%s: tensor[%d]: n_dims = %d, name = %s, tensor_size=%zu, padded_size=%zu, offset=%zu\n", __func__, i,
                        cur->n_dims, cur->name, tensor_size, padded_size, offset);
             }
         }
@@ -542,11 +549,11 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
         new_clip->use_gelu = gguf_get_val_bool(ctx, idx);
 
         if (verbosity >= 1) {
-            printf("%s: text_encoder:   %d\n", __func__, new_clip->has_text_encoder);
-            printf("%s: vision_encoder: %d\n", __func__, new_clip->has_vision_encoder);
-            printf("%s: llava_projector:  %d\n", __func__, new_clip->has_llava_projector);
-            printf("%s: model size:     %.2f MB\n", __func__, (ctx_size / 1024.0 / 1024.0));
-            printf("%s: metadata size:  %.2f MB\n", __func__, ggml_get_mem_size(meta) / 1024.0 / 1024.0);
+            DBG("%s: text_encoder:   %d\n", __func__, new_clip->has_text_encoder);
+            DBG("%s: vision_encoder: %d\n", __func__, new_clip->has_vision_encoder);
+            DBG("%s: llava_projector:  %d\n", __func__, new_clip->has_llava_projector);
+            DBG("%s: model size:     %.2f MB\n", __func__, (ctx_size / 1024.0 / 1024.0));
+            DBG("%s: metadata size:  %.2f MB\n", __func__, ggml_get_mem_size(meta) / 1024.0 / 1024.0);
         }
     }
 
@@ -560,14 +567,14 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
 
         new_clip->ctx = ggml_init(params);
         if (!new_clip->ctx) {
-            fprintf(stderr, "%s: ggml_init() failed\n", __func__);
+            ERR( "%s: ggml_init() failed\n", __func__);
             clip_free(new_clip);
             return nullptr;
         }
 
         auto fin = std::ifstream(fname, std::ios::binary);
         if (!fin) {
-            printf("cannot open model file for loading tensors\n");
+            DBG("cannot open model file for loading tensors\n");
             clip_free(new_clip);
             return nullptr;
         }
@@ -582,7 +589,7 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
             const size_t offset = gguf_get_data_offset(ctx) + gguf_get_tensor_offset(ctx, i);
             fin.seekg(offset, std::ios::beg);
             if (!fin) {
-                printf("%s: failed to seek for tensor %s\n", __func__, name);
+                DBG("%s: failed to seek for tensor %s\n", __func__, name);
                 clip_free(new_clip);
                 return nullptr;
             }
@@ -615,14 +622,14 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
         }
 
         if (verbosity >= 2) {
-            printf("\n%s: vision model hparams\n", __func__);
-            printf("image_size         %d\n", hparams.image_size);
-            printf("patch_size         %d\n", hparams.patch_size);
-            printf("v_hidden_size      %d\n", hparams.hidden_size);
-            printf("v_n_intermediate   %d\n", hparams.n_intermediate);
-            printf("v_projection_dim   %d\n", hparams.projection_dim);
-            printf("v_n_head           %d\n", hparams.n_head);
-            printf("v_n_layer          %d\n", hparams.n_layer);
+            DBG("\n%s: vision model hparams\n", __func__);
+            DBG("image_size         %d\n", hparams.image_size);
+            DBG("patch_size         %d\n", hparams.patch_size);
+            DBG("v_hidden_size      %d\n", hparams.hidden_size);
+            DBG("v_n_intermediate   %d\n", hparams.n_intermediate);
+            DBG("v_projection_dim   %d\n", hparams.projection_dim);
+            DBG("v_n_head           %d\n", hparams.n_head);
+            DBG("v_n_layer          %d\n", hparams.n_layer);
         }
 
         vision_model.patch_embeddings = get_tensor(new_clip->ctx, TN_PATCH_EMBD);
@@ -674,7 +681,7 @@ struct clip_ctx * clip_model_load(const char * fname, const int verbosity = 1) {
         new_clip->buf_alloc.resize(alloc_size);
         new_clip->alloc = ggml_allocr_new(new_clip->buf_alloc.data, new_clip->buf_alloc.size, tensor_alignment);
 
-        printf("%s: total allocated memory: %.2f MB\n", __func__, (new_clip->buf_compute.size + alloc_size)/1024.0/1024.0);
+        DBG("%s: total allocated memory: %.2f MB\n", __func__, (new_clip->buf_compute.size + alloc_size)/1024.0/1024.0);
     }
 
     return new_clip;
@@ -688,7 +695,7 @@ bool clip_image_load_from_file(const char * fname, clip_image_u8 * img) {
     int nx, ny, nc;
     auto data = stbi_load(fname, &nx, &ny, &nc, 3);
     if (!data) {
-        fprintf(stderr, "%s: failed to load '%s'\n", __func__, fname);
+        ERR( "%s: failed to load '%s'\n", __func__, fname);
         return false;
     }
 
@@ -707,7 +714,7 @@ bool clip_image_load_from_file(const char * fname, clip_image_u8 * img) {
 // TODO: implement bicubic interpolation instead of linear.
 bool clip_image_preprocess(const clip_ctx * ctx, const clip_image_u8 * img, clip_image_f32 * res, const bool pad2square) {
     if (!ctx->has_vision_encoder) {
-        printf("This gguf file seems to have no vision encoder\n");
+        DBG("This gguf file seems to have no vision encoder\n");
         return false;
     }
 
@@ -815,7 +822,7 @@ void clip_free(clip_ctx * ctx) {
 
 bool clip_image_encode(const clip_ctx * ctx, const int n_threads, clip_image_f32 * img, float * vec) {
     if (!ctx->has_vision_encoder) {
-        printf("This gguf file seems to have no vision encoder\n");
+        DBG("This gguf file seems to have no vision encoder\n");
         return false;
     }
 
@@ -828,7 +835,7 @@ bool clip_image_encode(const clip_ctx * ctx, const int n_threads, clip_image_f32
 bool clip_image_batch_encode(const clip_ctx * ctx, const int n_threads, const clip_image_f32_batch * imgs, float * vec) {
 
     if (!ctx->has_vision_encoder) {
-        printf("This gguf file seems to have no vision encoder\n");
+        DBG("This gguf file seems to have no vision encoder\n");
         return false;
     }
 
@@ -885,7 +892,7 @@ bool clip_model_quantize(const char * fname_inp, const char * fname_out, const i
         type = GGML_TYPE_Q8_0;
         break;
     default:
-        fprintf(stderr, "%s: invalid quantization type %d\n", __func__, itype);
+        ERR( "%s: invalid quantization type %d\n", __func__, itype);
         return false;
     };
 
@@ -963,7 +970,7 @@ bool clip_model_quantize(const char * fname_inp, const char * fname_out, const i
                 f32_data = (float *)conv_buf.data();
                 break;
             default:
-                printf("Please use an input file in f32 or f16\n");
+                DBG("Please use an input file in f32 or f16\n");
                 return false;
             }
 
@@ -991,7 +998,7 @@ bool clip_model_quantize(const char * fname_inp, const char * fname_out, const i
                     new_size = ggml_quantize_q8_0(f32_data, new_data, n_elms, cur->ne[0], hist_cur.data());
                 } break;
                 default: {
-                    fprintf(stderr, "%s: unsupported quantization type %d\n", __func__, new_type);
+                    ERR( "%s: unsupported quantization type %d\n", __func__, new_type);
                     return false;
                 }
             }
@@ -1015,7 +1022,7 @@ bool clip_model_quantize(const char * fname_inp, const char * fname_out, const i
             fout.put(0);
         }
 
-        printf("%s: n_dims = %d | quantize=%d | size = %f MB -> %f MB\n", name.c_str(), cur->n_dims, quantize,
+        DBG("%s: n_dims = %d | quantize=%d | size = %f MB -> %f MB\n", name.c_str(), cur->n_dims, quantize,
                orig_size / 1024.0 / 1024.0, new_size / 1024.0 / 1024.0);
     }
 
@@ -1031,19 +1038,19 @@ bool clip_model_quantize(const char * fname_inp, const char * fname_out, const i
     gguf_free(ctx_out);
 
     {
-        printf("%s: original size  = %8.2f MB\n", __func__, total_size_org / 1024.0 / 1024.0);
-        printf("%s: quantized size  = %8.2f MB\n", __func__, total_size_new / 1024.0 / 1024.0);
+        DBG("%s: original size  = %8.2f MB\n", __func__, total_size_org / 1024.0 / 1024.0);
+        DBG("%s: quantized size  = %8.2f MB\n", __func__, total_size_new / 1024.0 / 1024.0);
 
         int64_t sum_all = 0;
         for (size_t i = 0; i < hist_all.size(); ++i) {
             sum_all += hist_all[i];
         }
 
-        printf("%s: hist: ", __func__);
+        DBG("%s: hist: ", __func__);
         for (size_t i = 0; i < hist_all.size(); ++i) {
-            printf("%5.3f ", hist_all[i] / (float)sum_all);
+            DBG("%5.3f ", hist_all[i] / (float)sum_all);
         }
-        printf("\n");
+        DBG("\n");
     }
 
     return true;

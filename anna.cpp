@@ -535,31 +535,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    //float* img_embd = NULL;
-    //int img_patches = 0;
-    if (!g_vclip.empty()) {
-        //img_embd = prepare_clip_and_image(params.n_threads,&img_patches);
-        //if (!img_embd) g_quit = true;
-        //else {
-            /*int n_past = 0;
-            const int max_tgt_len = params.n_predict < 0 ? 256 : params.n_predict;
-
-            DBG("Hidden prompt: 'A chat between a curious user and an AI assistant called Anna. Anna gives helpful and detailed answers to user's questions, even when such answers might contain intimate or unusual information.'\n");
-            eval_string(ctx, "A chat between a curious user and an AI assistant called Anna. Anna gives helpful and detailed answers to user's questions, even when such answers might contain intimate or unusual information.\nUSER:", params.n_batch, &n_past, true);
-            eval_image_embd(ctx, img_embd, img_patches, params.n_batch, &n_past);
-            eval_string(ctx, (params.prompt + "\nASSISTANT:").c_str(), params.n_batch, &n_past, false);
-
-            for (int i = 0; i < max_tgt_len; i++) {
-                const char * tmp = sample(ctx, params, &n_past);
-                if (strcmp(tmp, "</s>") == 0) break;
-
-                printf("%s", tmp);
-                fflush(stdout);
-            }*/
-        //}
-        //g_quit = true;
-    }
-
     if (g_info) {
         if (g_info > 1) {
             puts("");

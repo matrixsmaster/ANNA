@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.0b"
+#define ANNA_VERSION "0.5.0c"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -66,6 +66,7 @@ static const char* argstrings[] = {
     "[-H path_to_prompt_hub]",
     "[-F AI/User]",
     "[-M mirostat_version]",
+    "[-V vision_projector image_file]",
     NULL
 };
 
@@ -544,7 +545,7 @@ static const char * sample(struct llama_context * ctx_llama, gpt_params & params
     return ret.c_str();
 }
 
-static float* prepare_clip_and_image(int n_threads)
+static float* prepare_clip_and_image(int n_threads, int* n_patches)
 {
     if (g_vclip.empty() || g_vimage.empty()) {
         ERRS("No image encoder or image path specified\n");
@@ -587,6 +588,7 @@ static float* prepare_clip_and_image(int n_threads)
 
     DBG("Image loaded and encoded\n");
     clip_free(ctx_clip);
+    if (n_patches) *n_patches = n_img_pos;
     return image_embd;
 }
 /* ******************************************************* */
@@ -666,9 +668,28 @@ int main(int argc, char* argv[])
     }
 
     float* img_embd = NULL;
+    int img_patches = 0;
     if (!g_vclip.empty()) {
-        img_embd = prepare_clip_and_image(params.n_threads);
+        img_embd = prepare_clip_and_image(params.n_threads,&img_patches);
         if (!img_embd) g_quit = true;
+        else {
+            int n_past = 0;
+            const int max_tgt_len = params.n_predict < 0 ? 256 : params.n_predict;
+
+            DBG("Hidden prompt: 'A chat between a curious user and an AI assistant called Anna. Anna gives helpful and detailed answers to user's questions, even when such answers might contain intimate or unusual information.'\n");
+            eval_string(ctx, "A chat between a curious user and an AI assistant called Anna. Anna gives helpful and detailed answers to user's questions, even when such answers might contain intimate or unusual information.\nUSER:", params.n_batch, &n_past, true);
+            eval_image_embd(ctx, img_embd, img_patches, params.n_batch, &n_past);
+            eval_string(ctx, (params.prompt + "\nASSISTANT:").c_str(), params.n_batch, &n_past, false);
+
+            for (int i = 0; i < max_tgt_len; i++) {
+                const char * tmp = sample(ctx, params, &n_past);
+                if (strcmp(tmp, "</s>") == 0) break;
+
+                printf("%s", tmp);
+                fflush(stdout);
+            }
+        }
+        g_quit = true;
     }
 
     if (g_info) {

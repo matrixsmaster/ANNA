@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.0"
+#define ANNA_VERSION "0.5.0b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -902,7 +902,7 @@ int main(int argc, char* argv[])
         } else {
             user_turn = true;
             skip_sampling = false;
-            was_skipped = true;
+            //was_skipped = true;
         }
 
         if (tok == tok_newline || tok == llama_token_eos(ctx))
@@ -1021,6 +1021,7 @@ int main(int argc, char* argv[])
             }
             n_consumed = 0;
             n_remain = params.n_predict;
+            was_skipped = skip_sampling;
             full_convo += inp_str;
 
             // save "undo point"

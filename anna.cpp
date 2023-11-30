@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.0c"
+#define ANNA_VERSION "0.5.1"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -28,8 +28,6 @@
 #else
 #define DBG(...)
 #endif
-
-#define DEBUG_TIMING 0
 
 #define MAX_INPUT_LEN 2048
 #define MAX_INPUT_WAIT_MS 250
@@ -57,23 +55,23 @@ static const char* argstrings[] = {
     "[-u user_input_prefix]",
     "[-x context_length]",
     "[-r request_prefix request_suffix request_command]",
+    "[-v] (verbose flag)",
     "[-T terminator_string]",
-    "[-P](pipeline flag)",
-    "[-S](use BOS/EOS tokens flag)",
-    "[-I](info flag)",
-    "[-N](ignore newline flag)",
+    "[-P] (pipeline flag)",
+    "[-S] (use BOS/EOS tokens flag)",
+    "[-N] (ignore newline flag)",
     "[-G number_of_layers_to_offload_to_GPU]",
     "[-H path_to_prompt_hub]",
     "[-F AI/User]",
     "[-M mirostat_version]",
-    "[-V vision_projector image_file]",
+    "[-V vision_projector]",
+    "[-i image_file]",
     NULL
 };
 
 static bool g_once = false, g_quit = false, g_pipemode = false, g_eos = false, g_nonl = false;
 static int g_info = 0, g_first = 0;
-static string g_inbuf, g_tokenf, g_scache, g_piecebuf, g_outcache, g_reqcache, g_terminator;
-static string g_vclip, g_vimage;
+static string g_inbuf, g_tokenf, g_scache, g_piecebuf, g_outcache, g_reqcache, g_terminator, g_vclip;
 static vector<string> g_uprefix;
 static deque<string> g_sprompts;
 static vector<anna_requester> g_requesters;
@@ -114,7 +112,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     p->n_ctx = 4096;
     p->n_batch = 512;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:T:PSING:H:F:M:V:")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:vT:PSNG:H:F:M:V:i:")) != -1) {
         switch (opt) {
         case 'm':
             p->model = optarg;
@@ -159,6 +157,9 @@ static int set_params(gpt_params* p, int argc, char* argv[])
                 DBG("Requester added: ['%s' / '%s'] -> '%s'\n",ar.prefix.c_str(),ar.suffix.c_str(),ar.command.c_str());
             }
             break;
+        case 'v':
+            g_info++;
+            break;
         case 'T':
             g_terminator = optarg;
             break;
@@ -167,9 +168,6 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             break;
         case 'S':
             g_eos = true;
-            break;
-        case 'I':
-            g_info++;
             break;
         case 'N':
             g_nonl = true;
@@ -189,9 +187,10 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             sp->mirostat = atoi(optarg);
             break;
         case 'V':
-            // FIXME: temporary implementation just to check it out
-            g_vclip = argv[optind-1];
-            g_vimage = argv[optind++];
+            g_vclip = optarg;
+            break;
+        case 'i':
+            g_sprompts.push_back(string("::") + optarg);
             break;
         default:
             usage(argv[0]);
@@ -409,147 +408,11 @@ static void anna_no_log(ggml_log_level level, const char * text, void * user_dat
     /* NOTHING TO SEE HERE */
 }
 
-/* LLaVA support test, ignore messy code below this line */
-static bool eval_image_embd(llama_context * ctx_llama, float * embd, int N, int n_batch, int * n_past) {
-    int n_embd  = llama_n_embd(llama_get_model(ctx_llama));
-
-    for (int i = 0; i < N; i += n_batch) {
-        int n_eval = N - i;
-        if (n_eval > n_batch) {
-            n_eval = n_batch;
-        }
-        llama_batch batch = {int32_t(n_eval), nullptr, (embd+i*n_embd), nullptr, nullptr, nullptr, nullptr, *n_past, 1, 0, };
-        if (llama_decode(ctx_llama, batch)) {
-            fprintf(stderr, "%s : failed to eval\n", __func__);
-            return false;
-        }
-        *n_past += n_eval;
-    }
-    return true;
-}
-
-static bool eval_tokens(struct llama_context * ctx_llama, std::vector<llama_token> tokens, int n_batch, int * n_past) {
-    int N = (int) tokens.size();
-    for (int i = 0; i < N; i += n_batch) {
-        int n_eval = (int) tokens.size() - i;
-        if (n_eval > n_batch) {
-            n_eval = n_batch;
-        }
-        if (llama_decode(ctx_llama, llama_batch_get_one(&tokens[i], n_eval, *n_past, 0))) {
-            fprintf(stderr, "%s : failed to eval\n", __func__);
-            return false;
-        }
-        *n_past += n_eval;
-    }
-    return true;
-}
-
-static bool eval_id(struct llama_context * ctx_llama, int id, int * n_past) {
-    std::vector<llama_token> tokens;
-    tokens.push_back(id);
-    return eval_tokens(ctx_llama, tokens, 1, n_past);
-}
-
-static bool eval_string(struct llama_context * ctx_llama, const char* str, int n_batch, int * n_past, bool add_bos){
-    std::string              str2     = str;
-    std::vector<llama_token> embd_inp = ::llama_tokenize(ctx_llama, str2, add_bos);
-    eval_tokens(ctx_llama, embd_inp, n_batch, n_past);
-    return true;
-}
-
-// TODO: use common/sampling.h
-static llama_token sample_id(llama_context * ctx_llama, gpt_params & params) {
-      // out of user input, sample next token
-    const float   temp      = params.sampling_params.temp;
-    const int32_t top_k     = params.sampling_params.top_k <= 0 ? llama_n_vocab(llama_get_model(ctx_llama)) : params.sampling_params.top_k;
-    const float   top_p     = params.sampling_params.top_p;
-    const float   tfs_z     = params.sampling_params.tfs_z;
-    const float   typical_p = params.sampling_params.typical_p;
-      // const int32_t repeat_last_n   = params.sampling_params.repeat_last_n < 0 ? n_ctx : params.sampling_params.repeat_last_n;
-      // const float   repeat_penalty  = params.sampling_params.repeat_penalty;
-      // const float   alpha_presence  = params.sampling_params.presence_penalty;
-      // const float   alpha_frequency = params.sampling_params.frequency_penalty;
-    const int     mirostat     = params.sampling_params.mirostat;
-    const float   mirostat_tau = params.sampling_params.mirostat_tau;
-    const float   mirostat_eta = params.sampling_params.mirostat_eta;
-      // const bool    penalize_nl     = params.sampling_params.penalize_nl;
-
-    llama_token id = 0;
-    {
-        auto logits  = llama_get_logits(ctx_llama);
-        auto n_vocab = llama_n_vocab(llama_get_model(ctx_llama));
-
-          // Apply params.logit_bias map
-        for (auto it = params.sampling_params.logit_bias.begin(); it != params.sampling_params.logit_bias.end(); it++) {
-            logits[it->first] += it->second;
-        }
-
-        std::vector<llama_token_data> candidates;
-        candidates.reserve(n_vocab);
-        for (llama_token token_id = 0; token_id < n_vocab; token_id++) {
-            candidates.emplace_back(llama_token_data{token_id, logits[token_id], 0.0f});
-        }
-
-        llama_token_data_array candidates_p = { candidates.data(), candidates.size(), false };
-
-          // TODO: Apply penalties
-          // float nl_logit = logits[llama_token_nl(ctx)];
-          // auto last_n_repeat = std::min(std::min((int)last_n_tokens.size(), repeat_last_n), n_ctx);
-          // llama_sample_repetition_penalty(ctx, &candidates_p,
-          //      last_n_tokens.data() + last_n_tokens.size() - last_n_repeat,
-          //      last_n_repeat, repeat_penalty);
-          // llama_sample_frequency_and_presence_penalties(ctx, &candidates_p,
-          // last_n_tokens.data() + last_n_tokens.size() - last_n_repeat,
-          // last_n_repeat, alpha_frequency, alpha_presence);
-          // if (!penalize_nl) {
-          //     logits[llama_token_nl(ctx)] = nl_logit;
-          // }
-
-        if (temp <= 0) {
-              // Greedy sampling
-            id = llama_sample_token_greedy(ctx_llama, &candidates_p);
-        } else {
-            if (mirostat == 1) {
-                static float mirostat_mu = 2.0f * mirostat_tau;
-                const  int mirostat_m    = 100;
-                llama_sample_temp(ctx_llama, &candidates_p, temp);
-                id = llama_sample_token_mirostat(ctx_llama, &candidates_p, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
-            } else if (mirostat == 2) {
-                static float mirostat_mu = 2.0f * mirostat_tau;
-                llama_sample_temp(ctx_llama, &candidates_p, temp);
-                id = llama_sample_token_mirostat_v2(ctx_llama, &candidates_p, mirostat_tau, mirostat_eta, &mirostat_mu);
-            } else {
-                  // Temperature sampling
-                llama_sample_top_k(ctx_llama, &candidates_p, top_k, 1);
-                llama_sample_tail_free(ctx_llama, &candidates_p, tfs_z, 1);
-                llama_sample_typical(ctx_llama, &candidates_p, typical_p, 1);
-                llama_sample_top_p(ctx_llama, &candidates_p, top_p, 1);
-                llama_sample_temp(ctx_llama, &candidates_p, temp);
-                id = llama_sample_token(ctx_llama, &candidates_p);
-            }
-        }
-    }
-
-    return id;
-}
-
-static const char * sample(struct llama_context * ctx_llama, gpt_params & params, int * n_past) {
-    int id = sample_id(ctx_llama, params);
-    static std::string ret;
-    if (id == llama_token_eos(ctx_llama)) {
-        ret = "</s>";
-    } else {
-        ret = llama_token_to_piece(ctx_llama, id);
-    }
-    eval_id(ctx_llama, id, n_past);
-    return ret.c_str();
-}
-
-static float* prepare_clip_and_image(int n_threads, int* n_patches)
+static bool prepare_clip_and_image(int n_threads, string imgfile, vector<float> & embs)
 {
-    if (g_vclip.empty() || g_vimage.empty()) {
+    if (g_vclip.empty() || imgfile.empty()) {
         ERRS("No image encoder or image path specified\n");
-        return NULL;
+        return false;
     }
 
     auto ctx_clip = clip_model_load(g_vclip.c_str(),g_info);
@@ -558,40 +421,44 @@ static float* prepare_clip_and_image(int n_threads, int* n_patches)
     clip_image_u8 img;
     clip_image_f32 img_res;
 
-    if (!clip_image_load_from_file(g_vimage.c_str(),&img)) {
-        ERR("Unable to load image '%s'",g_vimage.c_str());
+    if (!clip_image_load_from_file(imgfile.c_str(),&img)) {
+        ERR("Unable to load image '%s'",imgfile.c_str());
         clip_free(ctx_clip);
-        return NULL;
+        return false;
     }
 
     if (!clip_image_preprocess(ctx_clip,&img,&img_res,true)) {
         ERRS("Unable to preprocess image\n");
         clip_free(ctx_clip);
-        return NULL;
+        return false;
     }
 
     int n_img_pos  = clip_n_patches(ctx_clip);
     int n_img_embd = clip_n_mmproj_embd(ctx_clip);
-    float* image_embd = (float*)malloc(clip_embd_nbytes(ctx_clip));
-    if (!image_embd) {
-        ERRS("Unable to allocate memory for image embeddings!\n");
-        clip_free(ctx_clip);
-        return NULL;
-    }
-
-    if (!clip_image_encode(ctx_clip,n_threads,&img_res,image_embd)) {
+    embs.resize(clip_n_patches(ctx_clip) * clip_n_mmproj_embd(ctx_clip));
+    if (!clip_image_encode(ctx_clip,n_threads,&img_res,embs.data())) {
         ERRS("Unable to encode image\n");
         clip_free(ctx_clip);
-        free(image_embd);
-        return NULL;
+        return false;
     }
 
     DBG("Image loaded and encoded\n");
     clip_free(ctx_clip);
-    if (n_patches) *n_patches = n_img_pos;
-    return image_embd;
+    return true;
 }
-/* ******************************************************* */
+
+static llama_batch batch_embeddings(int n_tokens, float* embeds, int n_past)
+{
+    llama_batch r;
+    memset(&r,0,sizeof(r));
+
+    r.n_tokens = n_tokens;
+    r.embd = embeds;
+    r.all_pos_0 = n_past;
+    r.all_pos_1 = 1;
+
+    return r;
+}
 
 int main(int argc, char* argv[])
 {
@@ -631,6 +498,7 @@ int main(int argc, char* argv[])
 
     vector<llama_token> queue,prompt,inp_emb,forced_start;
     vector<llama_token> oldqueue,oldcontext;
+    vector<float> ext_emb;
     //vector<llama_token> context(n_ctx);
     //fill(context.begin(),context.end(),0);
     string output_line;
@@ -667,13 +535,13 @@ int main(int argc, char* argv[])
         }
     }
 
-    float* img_embd = NULL;
-    int img_patches = 0;
+    //float* img_embd = NULL;
+    //int img_patches = 0;
     if (!g_vclip.empty()) {
-        img_embd = prepare_clip_and_image(params.n_threads,&img_patches);
-        if (!img_embd) g_quit = true;
-        else {
-            int n_past = 0;
+        //img_embd = prepare_clip_and_image(params.n_threads,&img_patches);
+        //if (!img_embd) g_quit = true;
+        //else {
+            /*int n_past = 0;
             const int max_tgt_len = params.n_predict < 0 ? 256 : params.n_predict;
 
             DBG("Hidden prompt: 'A chat between a curious user and an AI assistant called Anna. Anna gives helpful and detailed answers to user's questions, even when such answers might contain intimate or unusual information.'\n");
@@ -687,9 +555,9 @@ int main(int argc, char* argv[])
 
                 printf("%s", tmp);
                 fflush(stdout);
-            }
-        }
-        g_quit = true;
+            }*/
+        //}
+        //g_quit = true;
     }
 
     if (g_info) {
@@ -703,6 +571,7 @@ int main(int argc, char* argv[])
         printf("Prompt size: %lu tokens\n",inp_emb.size());
         vector<llama_token> spt;
         for (auto & sp : g_sprompts) {
+            if (sp.starts_with("::")) continue;
             spt = ::llama_tokenize(ctx,sp,false);
             printf("Next prompt size: %lu tokens\n",spt.size());
         }
@@ -723,12 +592,22 @@ int main(int argc, char* argv[])
     bool force_prefix = !skip_sampling;
     bool image_served = false;
     while (!g_quit) {
-        //DBG("Main loop: n_remain = %d, embedding size = %ld\n",n_remain,queue.size());
-        if (!queue.empty()) {
-            if (n_past + (int)queue.size() > n_ctx) {
+        //DBG("Main loop: n_remain = %d, queue size = %ld\n",n_remain,queue.size());
+        if (!queue.empty() || !ext_emb.empty()) {
+            int n_embd  = llama_n_embd(llama_get_model(ctx));
+            int n_ext_emb = (int)ext_emb.size() / n_embd;
+
+            // check context window
+            if (n_past + (int)queue.size() + n_ext_emb > n_ctx) {
+                if (!n_past) {
+                    ERR("Impossible queue length for the context window size: queue = %lu, ext_emb = %d\n",queue.size(),n_ext_emb);
+                    break;
+                }
+                DBG("Context overflow: n_past = %d, queue = %lu, ext_emb = %d\n",n_past,queue.size(),n_ext_emb);
                 const int nseed = llama_get_rng_seed(ctx);
                 if (reload_on_reset && load_cache(ctx,n_past,ctx_sampling->prev)) {
                     queue.clear();
+                    ext_emb.clear();
                     inp_emb.clear();
                     llama_set_rng_seed(ctx,nseed);
                     n_remain = params.n_predict;
@@ -737,7 +616,6 @@ int main(int argc, char* argv[])
                 }
 
                 const int n_left = n_past - (int)prompt.size();
-                //DBG("n_past = %d, prompt = %d, n_left = %d\n",n_past,(int)prompt.size(),n_left);
 
                 // FIXME: instead of reeval, we might shift kv cache:
                 //llama_kv_cache_seq_rm(ctx, 0, params.n_keep + 1, params.n_keep + n_discard + 1);
@@ -748,32 +626,38 @@ int main(int argc, char* argv[])
                 queue.insert(queue.end(),ctx_sampling->prev.end()-n_left/2,ctx_sampling->prev.end());
                 n_past = 0; // reset
                 DBG("\nqueue now = %d, n_left now = %d\n",(int)queue.size(),n_left);
+                continue;
             }
 
+            // token queue
             for (int i = 0; i < (int)queue.size(); i+=params.n_batch) {
                 int n_eval = (int)queue.size() - i;
                 if (n_eval > params.n_batch) n_eval = params.n_batch;
-#if 0
-                DBG("Evaluating %d tokens (n_past = %d now), starting from '%s' (%d)...\n",n_eval,n_past,llama_token_to_str(ctx,queue[i]),queue[i]);
-                DBG("Calling eval( ");
-                for (int j = 0; j < n_eval; j++) DBG("%d (%s) ",queue[i+j],llama_token_to_str(ctx,queue[i+j]));
-                DBG(")\nn_past = %d, n_threads = %d\n",n_past,params.n_threads);
-                auto pre_eval = chrono::steady_clock::now();
-#elif DEBUG_TIMING
-                auto pre_eval = chrono::steady_clock::now();
-#endif
-                if (llama_eval(ctx,&queue[i],n_eval,n_past)) {
+
+                if (llama_decode(ctx,llama_batch_get_one(&queue[i],n_eval,n_past,0))) {
+                //if (llama_eval(ctx,&queue[i],n_eval,n_past)) {
                     ERR("Failed to eval '%s'",llama_token_to_str(ctx,queue[i]));
-                    return 1;
+                    g_quit = true;
+                    break;
                 }
-#if DEBUG_TIMING
-                auto eval_time = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - pre_eval);
-                DBG("Eval time = %lu\n",eval_time.count());
-#endif
+                n_past += n_eval;
+            }
+
+            // external embeddings
+            for (int i = 0; i < n_ext_emb; i+=params.n_batch) {
+                int n_eval = n_ext_emb - i;
+                if (n_eval > params.n_batch) n_eval = params.n_batch;
+
+                if (llama_decode(ctx,batch_embeddings(n_eval,&ext_emb[i*n_embd],n_past))) {
+                    ERR("Failed to eval '%s'",llama_token_to_str(ctx,queue[i]));
+                    g_quit = true;
+                    break;
+                }
                 n_past += n_eval;
             }
         }
         queue.clear();
+        ext_emb.clear();
 
         // A kludge to replicate same batching as in llama.cpp - do input embedding after finalizing previous local queue
         if (!inp_emb.empty()) {
@@ -822,30 +706,10 @@ int main(int argc, char* argv[])
 
             // usual sampling
             if (tok < 0) {
-#if DEBUG_TIMING
-                auto pre_sample = chrono::steady_clock::now();
-#endif
-#if 0
-                float* logits = llama_get_logits(ctx);
-                vector<llama_token_data> cand;
-                cand.reserve(n_vocab);
-
-                for (llama_token token_id = 0; token_id < n_vocab; token_id++)
-                    cand.emplace_back(llama_token_data{token_id,logits[token_id],0.0f});
-
-                llama_token_data_array cand_p = {cand.data(),cand.size(),false};
-
-                tok = llama_sample_token_greedy(ctx,&cand_p); // Select it using the "Greedy sampling" method
-#else
                 tok = llama_sampling_sample(ctx_sampling,ctx,NULL);
                 //llama_sampling_accept(ctx_sampling,ctx,tok);
                 //DBG("last: %s\n",llama_token_to_str(ctx,ctx_sampling->prev.back()));
-#endif
 
-#if DEBUG_TIMING
-                auto sample_time = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - pre_sample);
-                DBG("Sample time = %lu\n",sample_time.count());
-#endif
                 //DBG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
             }
 
@@ -944,7 +808,18 @@ int main(int argc, char* argv[])
             if (!g_sprompts.empty()) {
                 inp_str = g_sprompts.front();
                 g_sprompts.pop_front();
-                if (inp_str.ends_with("\n")) {
+                DBG("Using secondary prompt '%s'\n",inp_str.c_str());
+                if (inp_str.starts_with("::")) {
+                    // image embedding requested
+                    inp_str.erase(0,2);
+                    DBG("Loading image file '%s'\n",inp_str.c_str());
+                    ext_emb.clear();
+                    if (!prepare_clip_and_image(params.n_threads,inp_str,ext_emb)) {
+                        ERR("Unable to load or convert image file '%s'",inp_str.c_str());
+                        inp_str.clear();
+                    }
+                    skip_sampling = true; // never sample right after the image
+                } else if (inp_str.ends_with("\n")) {
                     DBG("Newline token at the end of a secondary prompt, skipping sampling for the first round...\n");
                     skip_sampling = true;
                 }
@@ -969,7 +844,7 @@ int main(int argc, char* argv[])
 
             } else if (inp_str == "load_file()\n") {
                 do {
-                    printf("Enter file name\n");
+                    printf("Enter text file name\n");
                     inp_str = get_input(NULL);
                     if (inp_str.empty() || inp_str == "\n") break;
                     if (inp_str.back() == '\n') inp_str.pop_back();
@@ -989,7 +864,7 @@ int main(int argc, char* argv[])
                 continue;
 
             } else if (inp_str == "save()\n") {
-                printf("Enter file name\n");
+                printf("Enter state cache file name\n");
                 inp_str = get_input(NULL);
                 if (!inp_str.empty() && inp_str != "\n") {
                     if (inp_str.back() == '\n') inp_str.pop_back();
@@ -1007,6 +882,19 @@ int main(int argc, char* argv[])
                 if (uname.back() == '\n') uname.pop_back();
                 g_uprefix.push_back(uname);
                 DBG("User prefix '%s' added\n",uname.c_str());
+                skip_sampling = true;
+                continue;
+
+            } else if (inp_str == "image()\n") {
+                if (g_vclip.empty()) {
+                    ERRS("Unable to load image file: vision projector file was not specified at startup!\n");
+                } else {
+                    printf("Enter image file name\n");
+                    inp_str = get_input(NULL);
+                    if (!inp_str.empty() && inp_str != "\n") {
+                        //TODO
+                    }
+                }
                 skip_sampling = true;
                 continue;
 
@@ -1054,7 +942,6 @@ int main(int argc, char* argv[])
     puts("");
 
     // don't forget to free the memory, even though the process is terminating anyway :D
-    if (img_embd) free(img_embd);
     llama_sampling_free(ctx_sampling);
     llama_free(ctx);
     llama_free_model(model);

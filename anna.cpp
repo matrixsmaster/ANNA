@@ -415,35 +415,44 @@ static bool prepare_clip_and_image(int n_threads, string imgfile, vector<float> 
         return false;
     }
 
-    auto ctx_clip = clip_model_load(g_vclip.c_str(),g_info);
+    clip_ctx* ctx_clip = NULL;
+    try {
+        ctx_clip = clip_model_load(g_vclip.c_str(),g_info);
 
-    // load and preprocess the image
-    clip_image_u8 img;
-    clip_image_f32 img_res;
+        // load and preprocess the image
+        clip_image_u8 img;
+        clip_image_f32 img_res;
 
-    if (!clip_image_load_from_file(imgfile.c_str(),&img)) {
-        ERR("Unable to load image '%s'",imgfile.c_str());
+        if (!clip_image_load_from_file(imgfile.c_str(),&img)) {
+            ERR("Unable to load image '%s'",imgfile.c_str());
+            clip_free(ctx_clip);
+            return false;
+        }
+
+        if (!clip_image_preprocess(ctx_clip,&img,&img_res,true)) {
+            ERRS("Unable to preprocess image\n");
+            clip_free(ctx_clip);
+            return false;
+        }
+
+        int n_img_pos  = clip_n_patches(ctx_clip);
+        int n_img_embd = clip_n_mmproj_embd(ctx_clip);
+        embs.resize(clip_n_patches(ctx_clip) * clip_n_mmproj_embd(ctx_clip));
+        if (!clip_image_encode(ctx_clip,n_threads,&img_res,embs.data())) {
+            ERRS("Unable to encode image\n");
+            clip_free(ctx_clip);
+            return false;
+        }
+
+        DBG("Image loaded and encoded\n");
         clip_free(ctx_clip);
+
+    } catch (const std::exception & err) {
+        ERR("Error creating image embeddings: %s\n",err.what());
+        if (ctx_clip) clip_free(ctx_clip);
         return false;
     }
 
-    if (!clip_image_preprocess(ctx_clip,&img,&img_res,true)) {
-        ERRS("Unable to preprocess image\n");
-        clip_free(ctx_clip);
-        return false;
-    }
-
-    int n_img_pos  = clip_n_patches(ctx_clip);
-    int n_img_embd = clip_n_mmproj_embd(ctx_clip);
-    embs.resize(clip_n_patches(ctx_clip) * clip_n_mmproj_embd(ctx_clip));
-    if (!clip_image_encode(ctx_clip,n_threads,&img_res,embs.data())) {
-        ERRS("Unable to encode image\n");
-        clip_free(ctx_clip);
-        return false;
-    }
-
-    DBG("Image loaded and encoded\n");
-    clip_free(ctx_clip);
     return true;
 }
 

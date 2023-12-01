@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.1"
+#define ANNA_VERSION "0.5.1a"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -841,20 +841,32 @@ int main(int argc, char* argv[])
                 continue;
 
             } else if (inp_str == "undo()\n") {
+                // FIXME: these leftovers from the old version with controllable eval() doesn't work anymore
+                // need to use llama_kv_cache_seq_rm()
                 ctx_sampling->prev = oldcontext;
                 queue = oldqueue;
                 n_past = old_past;
                 skip_sampling = true;
                 continue;
 
-            } else if (inp_str == "save()\n") {
+            } else if (inp_str == "save()\n" || inp_str == "load\n") {
+                bool load = (inp_str[0] == 'l');
                 printf("Enter state cache file name\n");
                 inp_str = get_input(NULL);
                 if (!inp_str.empty() && inp_str != "\n") {
                     if (inp_str.back() == '\n') inp_str.pop_back();
                     string tmp = g_scache;
                     g_scache = inp_str;
-                    save_cache(ctx,n_past,ctx_sampling->prev);
+                    if (load)
+                        if (load_cache(ctx,n_past,ctx_sampling->prev)) {
+                            queue.clear();
+                            ext_emb.clear();
+                            inp_emb.clear();
+                            n_remain = params.n_predict;
+                        } else
+                            ERR("Unable to load state from '%s'\n",g_scache.c_str());
+                    else
+                        save_cache(ctx,n_past,ctx_sampling->prev);
                     g_scache = tmp;
                 }
                 skip_sampling = true;
@@ -876,7 +888,12 @@ int main(int argc, char* argv[])
                     printf("Enter image file name\n");
                     inp_str = get_input(NULL);
                     if (!inp_str.empty() && inp_str != "\n") {
-                        //TODO
+                        if (inp_str.back() == '\n') inp_str.pop_back();
+                        DBG("Loading image file '%s'\n",inp_str.c_str());
+                        ext_emb.clear();
+                        if (!prepare_clip_and_image(params.n_threads,inp_str,ext_emb))
+                            ERR("Unable to load or convert image file '%s'",inp_str.c_str());
+                        inp_str.clear();
                     }
                 }
                 skip_sampling = true;

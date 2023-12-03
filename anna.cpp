@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.1b"
+#define ANNA_VERSION "0.5.2"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -377,13 +377,13 @@ static bool check_last_piece(string & pattern)
 
 static void print_vec(llama_context* ctx, vector<llama_token> & vec)
 {
-    DBG("-------------------------\n");
+    printf("-------------------------\n");
     string s;
     for (auto & i: vec) {
         if (i) s += llama_token_to_str(ctx,i);
     }
-    DBG("%s\n",s.c_str());
-    DBG("-------------------------\n");
+    printf("%s\n",s.c_str());
+    printf("-------------------------\n");
 }
 
 static string run_request()
@@ -533,6 +533,7 @@ int main(int argc, char* argv[])
         //params.prompt.insert(0,1,' '); // ~add space~, no needed as tokenizer does it now
         inp_emb = ::llama_tokenize(ctx,params.prompt,true);
         prompt = inp_emb; // save first sequence as prompt
+        params.n_keep = prompt.size(); // always keep the prompt
         DBG("Prompt size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),params.n_ctx-(int)inp_emb.size());
         if ((int)inp_emb.size() >= n_ctx) {
             ERR("Too many tokens in prompt: %d tokens in prompt for a %d tokens context window!\n",(int)inp_emb.size(),n_ctx);
@@ -588,7 +589,7 @@ int main(int argc, char* argv[])
                     break;
                 }
                 DBG("Context overflow: n_past = %d, queue = %lu, ext_emb = %d\n",n_past,queue.size(),n_ext_emb);
-                const int nseed = llama_get_rng_seed(ctx);
+                int nseed = llama_get_rng_seed(ctx);
                 if (reload_on_reset && load_cache(ctx,n_past,ctx_sampling->prev)) {
                     queue.clear();
                     ext_emb.clear();
@@ -599,17 +600,14 @@ int main(int argc, char* argv[])
                     continue;
                 }
 
-                const int n_left = n_past - (int)prompt.size();
+                int n_left    = n_past - params.n_keep - 1;
+                int n_discard = n_left/2;
+                DBG("n_past = %d, n_left = %d, n_discard = %d\n",n_past,n_left,n_discard);
 
-                // FIXME: instead of reeval, we might shift kv cache:
-                //llama_kv_cache_seq_rm(ctx, 0, params.n_keep + 1, params.n_keep + n_discard + 1);
-                //llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
+                llama_kv_cache_seq_rm(ctx,0,params.n_keep + 1,params.n_keep + n_discard + 1);
+                llama_kv_cache_seq_shift(ctx,0,params.n_keep + 1 + n_discard,n_past,-n_discard);
 
-                vector<llama_token> tmp = queue;
-                queue = prompt;
-                queue.insert(queue.end(),ctx_sampling->prev.end()-n_left/2,ctx_sampling->prev.end());
-                n_past = 0; // reset
-                DBG("\nqueue now = %d, n_left now = %d\n",(int)queue.size(),n_left);
+                n_past -= n_discard;
                 continue;
             }
 
@@ -908,6 +906,12 @@ int main(int argc, char* argv[])
 
             } else if (inp_str == "print_queue()\n") {
                 print_vec(ctx,queue);
+                skip_sampling = true;
+                continue;
+
+            } else if (inp_str == "stats()\n") {
+                // TODO: extend this
+                printf("n_past = %d\n",n_past);
                 skip_sampling = true;
                 continue;
             }

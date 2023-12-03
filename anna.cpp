@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.1a"
+#define ANNA_VERSION "0.5.1b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -618,9 +618,10 @@ int main(int argc, char* argv[])
                 int n_eval = (int)queue.size() - i;
                 if (n_eval > params.n_batch) n_eval = params.n_batch;
 
-                if (llama_decode(ctx,llama_batch_get_one(&queue[i],n_eval,n_past,0))) {
+                int r = llama_decode(ctx,llama_batch_get_one(&queue[i],n_eval,n_past,0));
+                if (r) {
                 //if (llama_eval(ctx,&queue[i],n_eval,n_past)) {
-                    ERR("Failed to eval '%s'",llama_token_to_str(ctx,queue[i]));
+                    ERR("Failed to eval token %d ('%s') - error %d",queue[i],llama_token_to_str(ctx,queue[i]),r);
                     g_quit = true;
                     break;
                 }
@@ -632,8 +633,9 @@ int main(int argc, char* argv[])
                 int n_eval = n_ext_emb - i;
                 if (n_eval > params.n_batch) n_eval = params.n_batch;
 
-                if (llama_decode(ctx,batch_embeddings(n_eval,&ext_emb[i*n_embd],n_past))) {
-                    ERR("Failed to eval '%s'",llama_token_to_str(ctx,queue[i]));
+                int r = llama_decode(ctx,batch_embeddings(n_eval,&ext_emb[i*n_embd],n_past));
+                if (r) {
+                    ERR("Failed to embed #%d (error %d)",i,r);
                     g_quit = true;
                     break;
                 }

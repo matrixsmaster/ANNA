@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.2"
+#define ANNA_VERSION "0.5.2a"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -878,6 +878,15 @@ int main(int argc, char* argv[])
                 if (uname.back() == '\n') uname.pop_back();
                 g_uprefix.push_back(uname);
                 DBG("User prefix '%s' added\n",uname.c_str());
+                skip_sampling = true;
+                continue;
+
+            } else if (inp_str == "force()\n") {
+                inp_str = get_input(NULL);
+                if (inp_str.empty() || inp_str == "\n") continue;
+                if (inp_str.back() == '\n') inp_str.pop_back();
+                forced_start = ::llama_tokenize(ctx,inp_str,false,true);
+                DBG("Token enforcement: '%s' = ",inp_str.c_str());
                 skip_sampling = true;
                 continue;
 

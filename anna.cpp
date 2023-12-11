@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.2a"
+#define ANNA_VERSION "0.5.3"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -219,11 +219,11 @@ static const char* llama_token_to_str(llama_context* ctx, llama_token token)
  * Protocol:
  * Newline - end of string. Doesn't neccessarily mean newline itself will be present in the out string.
  * Last symbol before newline changes behavior of this function, and batching in general:
- * \ - Suppress newline, run batch, run sampling
+ * \ - Suppress newline, run batch, run sampling, don't force the prefix (if exists)
  * $ - Put newline in, run batch, don't run sampling
  * @ - Put newline in, don't run batch or sampling, buffer the input
  * */
-static string get_input(bool* skip_next)
+static string get_input(bool* skip_next, bool* force_prefix)
 {
     string s;
     ssize_t n = -1;
@@ -239,6 +239,8 @@ static string get_input(bool* skip_next)
                 case '\\':
                     s.pop_back();
                     s.pop_back();
+                    if (skip_next) *skip_next = false;
+                    if (force_prefix) *force_prefix = false;
                     break;
                 case '$':
                     *(s.end()-2) = '\n';
@@ -248,7 +250,7 @@ static string get_input(bool* skip_next)
                 case '@':
                     *(s.end()-2) = '\n';
                     s.pop_back();
-                    return s + get_input(skip_next);
+                    return s + get_input(skip_next,force_prefix);
                 }
             }
             break;
@@ -812,7 +814,7 @@ int main(int argc, char* argv[])
                     printf("%s",g_uprefix.at(0).c_str());
                     fflush(stdout);
                 }
-                inp_str = get_input(&skip_sampling);
+                inp_str = get_input(&skip_sampling,&force_prefix);
             }
 
             DBG("String received: '%s', sampling skip = %d\n",inp_str.c_str(),skip_sampling);
@@ -829,7 +831,7 @@ int main(int argc, char* argv[])
             } else if (inp_str == "load_file()\n") {
                 do {
                     printf("Enter text file name\n");
-                    inp_str = get_input(NULL);
+                    inp_str = get_input(NULL,NULL);
                     if (inp_str.empty() || inp_str == "\n") break;
                     if (inp_str.back() == '\n') inp_str.pop_back();
                     inp_str = load_file(inp_str);
@@ -852,7 +854,7 @@ int main(int argc, char* argv[])
             } else if (inp_str == "save()\n" || inp_str == "load\n") {
                 bool load = (inp_str[0] == 'l');
                 printf("Enter state cache file name\n");
-                inp_str = get_input(NULL);
+                inp_str = get_input(NULL,NULL);
                 if (!inp_str.empty() && inp_str != "\n") {
                     if (inp_str.back() == '\n') inp_str.pop_back();
                     string tmp = g_scache;
@@ -873,7 +875,7 @@ int main(int argc, char* argv[])
                 continue;
 
             } else if (inp_str == "add_user()\n") {
-                string uname = get_input(NULL);
+                string uname = get_input(NULL,NULL);
                 if (uname.empty() || uname == "\n") continue;
                 if (uname.back() == '\n') uname.pop_back();
                 g_uprefix.push_back(uname);
@@ -882,11 +884,15 @@ int main(int argc, char* argv[])
                 continue;
 
             } else if (inp_str == "force()\n") {
-                inp_str = get_input(NULL);
-                if (inp_str.empty() || inp_str == "\n") continue;
-                if (inp_str.back() == '\n') inp_str.pop_back();
-                forced_start = ::llama_tokenize(ctx,inp_str,false,true);
-                DBG("Token enforcement: '%s' = ",inp_str.c_str());
+                inp_str = get_input(NULL,NULL);
+                if (inp_str.empty() || inp_str == "\n") {
+                    forced_start.clear();
+                    DBG("Token enforcement removed\n");
+                } else {
+                    if (inp_str.back() == '\n') inp_str.pop_back();
+                    forced_start = ::llama_tokenize(ctx,inp_str,false,true);
+                    DBG("Token enforcement: '%s' = ",inp_str.c_str());
+                }
                 skip_sampling = true;
                 continue;
 
@@ -895,7 +901,7 @@ int main(int argc, char* argv[])
                     ERRS("Unable to load image file: vision projector file was not specified at startup!\n");
                 } else {
                     printf("Enter image file name\n");
-                    inp_str = get_input(NULL);
+                    inp_str = get_input(NULL,NULL);
                     if (!inp_str.empty() && inp_str != "\n") {
                         if (inp_str.back() == '\n') inp_str.pop_back();
                         DBG("Loading image file '%s'\n",inp_str.c_str());

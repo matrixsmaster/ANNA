@@ -15,6 +15,13 @@ public:
     MainWnd(QWidget *parent = nullptr);
     ~MainWnd();
 
+private slots:
+    void on_actionSimple_view_triggered();
+
+    void on_actionAdvanced_view_triggered();
+
+    void on_actionProfessional_view_triggered();
+
 private:
     Ui::MainWnd *ui;
 };

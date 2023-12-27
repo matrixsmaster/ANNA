@@ -44,10 +44,10 @@
         </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="lineEdit"/>
+        <widget class="QLineEdit" name="ModelPath"/>
        </item>
        <item>
-        <widget class="QPushButton" name="pushButton">
+        <widget class="QPushButton" name="ModelFindButton">
          <property name="maximumSize">
           <size>
            <width>27</width>
@@ -75,7 +75,7 @@
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
-           <widget class="QComboBox" name="comboBox">
+           <widget class="QComboBox" name="AINameBox">
             <property name="minimumSize">
              <size>
               <width>40</width>
@@ -91,12 +91,12 @@
            </widget>
           </item>
           <item>
-           <widget class="QTextEdit" name="textEdit"/>
+           <widget class="QTextEdit" name="ChatLog"/>
           </item>
          </layout>
         </item>
         <item>
-         <widget class="QListWidget" name="listWidget">
+         <widget class="QListWidget" name="AttachmentsList">
           <property name="minimumSize">
            <size>
             <width>64</width>
@@ -121,7 +121,7 @@
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_4">
           <item>
-           <widget class="QComboBox" name="comboBox_2">
+           <widget class="QComboBox" name="UserNameBox">
             <property name="minimumSize">
              <size>
               <width>40</width>
@@ -137,12 +137,12 @@
            </widget>
           </item>
           <item>
-           <widget class="QPlainTextEdit" name="plainTextEdit"/>
+           <widget class="QPlainTextEdit" name="UserInput"/>
           </item>
          </layout>
         </item>
         <item>
-         <widget class="QFrame" name="frame_2">
+         <widget class="QFrame" name="UserInputOptions">
           <property name="minimumSize">
            <size>
             <width>140</width>
@@ -163,42 +163,42 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_3">
            <item>
-            <widget class="QPushButton" name="pushButton_2">
+            <widget class="QPushButton" name="SendButton">
              <property name="text">
               <string>Send</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="checkBox">
+            <widget class="QCheckBox" name="NewlineCheck">
              <property name="text">
               <string>no newline</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="checkBox_2">
+            <widget class="QCheckBox" name="SamplingCheck">
              <property name="text">
               <string>no sampling</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButton_3">
+            <widget class="QPushButton" name="AttachButton">
              <property name="text">
               <string>Attach...</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QRadioButton" name="radioButton">
+            <widget class="QRadioButton" name="BeforeRadio">
              <property name="text">
               <string>Before</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QRadioButton" name="radioButton_2">
+            <widget class="QRadioButton" name="AfterRadio">
              <property name="text">
               <string>After</string>
              </property>

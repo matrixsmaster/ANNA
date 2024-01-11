@@ -1,3 +1,14 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <inttypes.h>
+#include <math.h>
+#include <string.h>
+#include <time.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include "brain.h"
 
 #ifndef NDEBUG
@@ -8,9 +19,12 @@
 
 using namespace std;
 
+static int users = 0;
+
 AnnaBrain::AnnaBrain(AnnaConfig* cfg)
 {
     if (!cfg) return; // leave in partially initialized state, so it can be safely deleted later
+    config = *cfg;
 
     // set logging if info is requested
     llama_log_set((cfg->verbose_level? NULL:anna_no_log),NULL);
@@ -22,14 +36,14 @@ AnnaBrain::AnnaBrain(AnnaConfig* cfg)
     // load the model
     tie(model,ctx) = llama_init_from_gpt_params(cfg->params);
     if (!model) {
-        internal_error = myformat("Failed to load model '%s'",params.model.c_str());
+        internal_error = myformat("Failed to load model '%s'",cfg->params.model.c_str());
         state = ANNA_ERROR;
         return;
     }
 
     // initialize sampling
-    ctx_sp = llama_sampling_init(params);
-    state = ANNA_INITIALIZED;
+    ctx_sp = llama_sampling_init(cfg->params);
+    state = ANNA_READY;
 }
 
 AnnaBrain::~AnnaBrain()
@@ -40,63 +54,57 @@ AnnaBrain::~AnnaBrain()
     backend_free();
 }
 
-AnnaBrain::backend_init()
+void AnnaBrain::backend_init()
 {
     if (!users) llama_backend_init(false);
     users++;
 }
 
-AnnaBrain::backend_free()
+void AnnaBrain::backend_free()
 {
     if (--users <= 0) llama_backend_free();
 }
 
-static string AnnaBrain::myformat(const char* fmt, ...)
+string AnnaBrain::myformat(const char* fmt, ...)
 {
     string res;
     res.resize(ANNA_FORMAT_DEF_CHARS);
     va_list vl;
     va_start(vl,fmt);
-    vsnprintf(res.c_str(),res.size(),fmt,vl);
+    vsnprintf((char*)&(res[0]),res.size(),fmt,vl); // tricky avoidance of a known "issue"
     va_end(vl);
     return res;
 }
 
 void AnnaBrain::Evaluate()
 {
+    if (state != ANNA_READY && state != ANNA_PROCESSING) return;
+    DBG("EVALUATE\n");
+
     if (!queue.empty()) {
         if (n_past + (int)queue.size() > llama_n_ctx(ctx)) {
-            const int nseed = llama_get_rng_seed(ctx);
-            if (reload_on_reset && load_cache(ctx,n_past,ctx_sampling->prev)) {
-                queue.clear();
-                inp_emb.clear();
-                llama_set_rng_seed(ctx,nseed);
-                n_remain = params.n_predict;
-                DBG("State reloaded from cache due to context overflow. nseed = %d, n_past = %d\n",nseed,n_past);
-                continue;
-            }
-
-            const int n_left = n_past - (int)prompt.size();
+            int n_left = n_past - (int)prompt.size();
             //DBG("n_past = %d, prompt = %d, n_left = %d\n",n_past,(int)prompt.size(),n_left);
 
             // FIXME: instead of reeval, we might shift kv cache:
-            //llama_kv_cache_seq_rm(ctx, 0, params.n_keep + 1, params.n_keep + n_discard + 1);
-            //llama_kv_cache_seq_shift(ctx, 0, params.n_keep + 1 + n_discard, n_past, -n_discard);
+            //llama_kv_cache_seq_rm(ctx, 0, config.params.n_keep + 1, config.params.n_keep + n_discard + 1);
+            //llama_kv_cache_seq_shift(ctx, 0, config.params.n_keep + 1 + n_discard, n_past, -n_discard);
 
-            vector<llama_token> tmp = queue;
+            //vector<llama_token> tmp = queue;
             queue = prompt;
-            queue.insert(queue.end(),ctx_sampling->prev.end()-n_left/2,ctx_sampling->prev.end());
+            queue.insert(queue.end(),ctx_sp->prev.end()-n_left/2,ctx_sp->prev.end());
             n_past = 0; // reset
             DBG("\nqueue now = %d, n_left now = %d\n",(int)queue.size(),n_left);
         }
 
-        for (int i = 0; i < (int)queue.size(); i+=params.n_batch) {
+        for (int i = 0; i < (int)queue.size(); i+=config.params.n_batch) {
             int n_eval = (int)queue.size() - i;
-            if (n_eval > params.n_batch) n_eval = params.n_batch;
+            if (n_eval > config.params.n_batch) n_eval = config.params.n_batch;
 
             if (llama_eval(ctx,&queue[i],n_eval,n_past)) {
-                ERR("Failed to eval '%s'",llama_token_to_str(ctx,queue[i]));
-                return 1;
+                internal_error = myformat("Failed to eval '%s'",TokenToStr(queue[i]));
+                state = ANNA_ERROR;
+                return;
             }
 
             n_past += n_eval;
@@ -104,96 +112,63 @@ void AnnaBrain::Evaluate()
     }
     queue.clear();
 
-    // A kludge to replicate same batching as in llama.cpp - do input embedding after finalizing previous local queue
     if (!inp_emb.empty()) {
-        //DBG("Doing input embedding!\n");
-        //print_vec(ctx,inp_emb);
         while ((int)inp_emb.size() > n_consumed) {
             queue.push_back(inp_emb[n_consumed]);
-            //context.erase(context.begin());
-            //context.push_back(inp_emb[n_consumed]);
-            llama_sampling_accept(ctx_sampling,ctx,inp_emb[n_consumed]);
+            llama_sampling_accept(ctx_sp,ctx,inp_emb[n_consumed]);
             ++n_consumed;
-            if ((int)queue.size() >= params.n_batch) break;
+            if ((int)queue.size() >= config.params.n_batch) break;
         }
 
         if (n_consumed >= (int)inp_emb.size()) inp_emb.clear();
-        continue;
-    }
+        state = ANNA_PROCESSING;
+    } else
+        state = ANNA_READY;
 }
 
 void AnnaBrain::Generate()
 {
+    if (state != ANNA_READY) return;
+    DBG("GENERATE\n");
+
     llama_token tok = -1;
 
     // token enforcement
-    if ((force_prefix && !forced_start.empty()) || (i_fstart > 0)) {
-        if (i_fstart < (int)forced_start.size()) {
-            tok = forced_start[i_fstart++];
-            DBG("Enforcing token %d...\n",tok);
-        } else {
-            i_fstart = 0;
-            force_prefix = false;
-        }
+    if (!forced_start.empty()) {
+        tok = forced_start.front();
+        forced_start.pop_front();
+        DBG("Enforcing token %d...\n",tok);
     }
 
     // prediction max length reached, force EOS
     if (--n_remain == 0) {
-        if (no_input) break; // prevent infinite generation in non-interactive mode
         tok = llama_token_eos(ctx);
-        n_remain = params.n_predict;
+        n_remain = config.params.n_predict; // reset for next round
     }
 
     // usual sampling
-    if (tok < 0) {
-
-        tok = llama_sampling_sample(ctx_sampling,ctx,NULL);
-        //llama_sampling_accept(ctx_sampling,ctx,tok);
-        //DBG("last: %s\n",llama_token_to_str(ctx,ctx_sampling->prev.back()));
-
-        //DBG("Sampled token %d '%s'\n",tok,llama_token_to_str(ctx,tok));
-    }
-
-    // Print the next token and always flush the stdout buffer to force the printing
-    printf("%s",llama_token_to_str(ctx,tok));
-    fflush(stdout);
-    full_convo += llama_token_to_str(ctx,tok);
+    if (tok < 0) tok = llama_sampling_sample(ctx_sp,ctx,NULL);
 
     // Deal with EOS token
     if (tok == llama_token_eos(ctx)) {
         DBG("*** EOS detected ***\n");
-        if (g_eos) {
-            if (no_input) break; // don't ignore EOS in non-interactive mode if EOS flag is set
-        } else
-            tok = tok_newline;
+        if (config.convert_eos_to_nl) tok = llama_token_nl(ctx);
+        state = ANNA_TURNOVER; // turn over to the user or any other external information supplier
     }
 
-    llama_sampling_accept(ctx_sampling,ctx,tok);
+    llama_sampling_accept(ctx_sp,ctx,tok);
     queue.push_back(tok);
+    accumulator += llama_token_to_piece(ctx,tok);
 }
 
-AnnaState AnnaBrain::Processing(skip_sampling)
+AnnaState AnnaBrain::Processing(bool skip_sampling)
 {
-    DBG("Main loop: n_remain = %d, queue size = %ld\n",n_remain,queue.size());
+    //DBG("Main loop: n_remain = %d, queue size = %ld\n",n_remain,queue.size());
 
-    if (state == ANNA_ERROR) return;
     Evaluate();
-    if (state == ANNA_ERROR) return;
-    if (!skip_sampling)
-        Generate();
+    if (!skip_sampling) Generate();
 
     return state;
-}
-
-void AnnaBrain::setForcedStart(string str)
-{
-    forced_start = ::llama_tokenize(ctx,str,false,true);
-#ifndef NDEBUG
-    DBG("Token enforcement: '%s' = ",g_tokenf.c_str());
-    for (auto &i : forced_start) {
-      DBG("%d (%s) ",i,llama_token_to_str(ctx,i));
-    }
-#endif
 }
 
 string AnnaBrain::getOutput()
@@ -205,49 +180,65 @@ string AnnaBrain::getOutput()
 
 void AnnaBrain::setInput(string inp)
 {
-    inp_emb = ::llama_tokenize(ctx,params.prompt,true);
-    prompt = inp_emb; // save first sequence as prompt
-    DBG("Prompt size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),params.llama_n_ctx(ctx)-(int)inp_emb.size());
-    if ((int)inp_emb.size() >= llama_n_ctx(ctx)) {
-        ERR("Too many tokens in prompt: %d tokens in prompt for a %d tokens context window!\n",(int)inp_emb.size(),llama_n_ctx(ctx));
-        g_quit = true;
-    }
-    if (inp_emb.back() == tok_newline) {
-        DBG("Newline token at the end of the prompt, skipping sampling for the first round...\n");
-        skip_sampling = true;
+    if (state == ANNA_TURNOVER) state = ANNA_READY; // revert the state
+    else if (state != ANNA_READY) return;
+
+    DBG("Input: '%s'\n",inp.c_str());
+    auto emb = ::llama_tokenize(ctx,inp,true);
+    if (emb.empty()) return;
+    if ((int)emb.size() >= llama_n_ctx(ctx)) {
+        internal_error = myformat("Too many tokens in input: %d tokens for a %d tokens context window!\n",(int)emb.size(),llama_n_ctx(ctx));
+        state = ANNA_ERROR;
     }
 
-    if (params.prompt.empty()) {
-            // first input will be considered prompt now
-            inp_str.insert(0,1,' '); // add space
-            inp_emb = ::llama_tokenize(ctx,inp_str,true);
-            params.prompt = inp_str;
-            prompt = inp_emb;
-        } else {
-            if (!g_uprefix.empty() && !full_convo.ends_with(g_uprefix) && !skip_sampling)
-                inp_str = g_uprefix + inp_str;
-            DBG("Actual string to be tokenized: '%s'\n",inp_str.c_str());
-            inp_emb = ::llama_tokenize(ctx,inp_str,false);
-        }
-        if ((int)inp_emb.size() >= llama_n_ctx(ctx)) {
-            ERR("Too many tokens in input: %d tokens for a %d tokens context window!\n",(int)inp_emb.size(),llama_n_ctx(ctx));
-            g_quit = true;
-        }
-        n_consumed = 0;
-        n_remain = params.n_predict;
+    inp_emb.insert(inp_emb.end(),emb.begin(),emb.end());
+    //DBG("Input size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),llama_n_ctx(ctx)-(int)inp_emb.size());
+    DBG("Input size: %d tokens\n",(int)inp_emb.size());
+    n_consumed = 0;
+    n_remain = config.params.n_predict;
 
-            // save "undo point"
-        oldcontext = ctx_sampling->prev;
-        oldqueue = queue;
-        old_past = n_past;
+    // save "undo point"
+    oldcontext = ctx_sp->prev;
+    oldqueue = queue;
+    old_past = n_past;
+
+    if (prompt.empty()) prompt = emb; // save the first sequence as prompt
+}
+
+void AnnaBrain::Undo()
+{
+    ctx_sp->prev = oldcontext;
+    queue = oldqueue;
+    n_past = old_past;
+}
+
+void AnnaBrain::setPrefix(string str)
+{
+    if (state != ANNA_READY) return;
+
+    DBG("Token enforcement: '%s' = ",str.c_str());
+    auto tmp = ::llama_tokenize(ctx,str,false,true);
+    for (auto &i : tmp) {
+        forced_start.push_back(i);
+        DBG("%d (%s) ",i,TokenToStr(i));
+    }
+}
+
+const char* AnnaBrain::TokenToStr(llama_token token)
+{
+    piecebuf = llama_token_to_piece(ctx,token);
+    return piecebuf.c_str();
 }
 
 bool AnnaBrain::SaveState(std::string fname)
 {
-    int fd = open(g_scache.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
+    if (state == ANNA_NOT_INITIALIZED) return false;
+
+    int fd = open(fname.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
     if (fd < 0) {
-        ERR("Unable to open file '%s' for writing",g_scache.c_str());
-        return;
+        internal_error = myformat("Unable to open file '%s' for writing",fname.c_str());
+        state = ANNA_ERROR;
+        return false;
     }
 
     uint32_t dsize = llama_get_state_size(ctx);
@@ -255,15 +246,17 @@ bool AnnaBrain::SaveState(std::string fname)
     uint32_t total = sizeof(int) + csize + 4 + dsize;
 
     if (ftruncate(fd,total)) {
-        ERR("Unable to truncate to %u\n",total);
-        return;
+        internal_error = myformat("Unable to truncate to %u\n",total);
+        state = ANNA_ERROR;
+        return false;
     }
     uint8_t* data = (uint8_t*)mmap(NULL,total,PROT_WRITE,MAP_SHARED,fd,0);
 
     close(fd);
     if (data == MAP_FAILED) {
-        ERR("Unable to map WR memory for cache buffer (%u bytes)",total);
-        return;
+        internal_error = myformat("Unable to map WR memory for cache buffer (%u bytes)",total);
+        state = ANNA_ERROR;
+        return false;
     }
 
     uint8_t* ptr = data;
@@ -273,8 +266,8 @@ bool AnnaBrain::SaveState(std::string fname)
     ptr += sizeof(int);
 
     // 2. context tokens
-    context.resize(llama_n_ctx(ctx));
-    memcpy(ptr,context.data(),csize);
+    ctx_sp->prev.resize(llama_n_ctx(ctx));
+    memcpy(ptr,ctx_sp->prev.data(),csize);
     ptr += csize;
 
     // 3. state data size
@@ -285,14 +278,17 @@ bool AnnaBrain::SaveState(std::string fname)
     llama_copy_state_data(ctx,ptr);
     munmap(data,total);
 
-    DBG("Cache (%u bytes) saved to %s\n",total,g_scache.c_str());
+    DBG("Cache (%u bytes) saved to %s\n",total,fname.c_str());
+    return true;
 }
 
 bool AnnaBrain::LoadState(std::string fname)
 {
-    int fd = open(g_scache.c_str(),O_RDONLY|O_DIRECT);
+    if (state == ANNA_NOT_INITIALIZED) return false;
+
+    int fd = open(fname.c_str(),O_RDONLY|O_DIRECT);
     if (fd < 0) {
-        DBG("Cache file doesn't exist, so it will be populated after processing the prompt.\n");
+        DBG("Cache file doesn't exist. This might or might not be an error.\n");
         return false;
     }
 
@@ -302,12 +298,14 @@ bool AnnaBrain::LoadState(std::string fname)
 
     struct stat sb;
     if (fstat(fd,&sb)) {
-        ERR("Unable to stat() cache buffer (err %d)",errno);
+        internal_error = myformat("Unable to stat() cache buffer (err %d)",errno);
+        state = ANNA_ERROR;
         close(fd);
         return false;
     }
     if (sb.st_size != total) {
-        ERR("Unexpected cache file size! (expected %u, got %lu)",total,sb.st_size);
+        internal_error = myformat("Unexpected cache file size! (expected %u, got %lu)",total,sb.st_size);
+        state = ANNA_ERROR;
         close(fd);
         return false;
     }
@@ -316,7 +314,8 @@ bool AnnaBrain::LoadState(std::string fname)
 
     close(fd);
     if (data == MAP_FAILED) {
-        ERR("Unable to map RD memory for cache buffer (%u bytes)",total);
+        internal_error = myformat("Unable to map RD memory for cache buffer (%u bytes)",total);
+        state = ANNA_ERROR;
         return false;
     }
 
@@ -327,8 +326,8 @@ bool AnnaBrain::LoadState(std::string fname)
     ptr += sizeof(int);
 
     // 2. context tokens
-    context.resize(llama_n_ctx(ctx));
-    memcpy(context.data(),ptr,csize);
+    ctx_sp->prev.resize(llama_n_ctx(ctx));
+    memcpy(ctx_sp->prev.data(),ptr,csize);
     ptr += csize;
 
     // 3. state data size
@@ -339,6 +338,11 @@ bool AnnaBrain::LoadState(std::string fname)
     llama_set_state_data(ctx,ptr);
     munmap(data,total);
 
-    DBG("Cache (%u bytes) loaded from %s\n",dsize,g_scache.c_str());
+    DBG("Cache (%u bytes) loaded from %s\n",dsize,fname.c_str());
     return true;
+}
+
+void AnnaBrain::anna_no_log(ggml_log_level level, const char * text, void * user_data)
+{
+    // This is an empty function
 }

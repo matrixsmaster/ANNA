@@ -1,9 +1,10 @@
 #CC=clang-14
 #CXX=clang++-14
-LLAMA_CUBLAS=1
-#LLAMA_DEBUG=1
+#LLAMA_CUBLAS=1
+LLAMA_DEBUG=1
 
-all: anna
+all: anna libanna.a
+.PHONY: all
 
 # Define the default target now so that it is always the first target
 BUILD_TARGETS = anna
@@ -28,11 +29,6 @@ endif
 MK_CPPFLAGS = -I. -Icommon
 MK_CFLAGS   = -std=c11   -fPIC
 MK_CXXFLAGS = -std=c++11 -fPIC
-
-# -Ofast tends to produce faster code, but may not be available for some compilers.
-MK_CFLAGS        += -Ofast
-MK_HOST_CXXFLAGS += -Ofast
-MK_CUDA_CXXFLAGS += -O3
 
 # clock_gettime came in POSIX.1b (1993)
 # CLOCK_MONOTONIC came in POSIX.1-2001 / SUSv3 as optional
@@ -82,6 +78,10 @@ ifdef LLAMA_DEBUG
 	MK_LDFLAGS  += -g
 else
 	MK_CPPFLAGS += -DNDEBUG
+	# -Ofast tends to produce faster code, but may not be available for some compilers.
+	MK_CFLAGS        += -Ofast
+	MK_HOST_CXXFLAGS += -Ofast
+	MK_CUDA_CXXFLAGS += -O3
 endif
 
 ifdef LLAMA_SERVER_VERBOSE
@@ -167,17 +167,6 @@ else
 	MK_CXXFLAGS += -Wno-format-truncation -Wno-array-bounds
 endif
 
-# library name prefix
-ifneq ($(_WIN32),1)
-	LIB_PRE := lib
-endif
-
-# Dynamic Shared Object extension
-ifneq ($(_WIN32),1)
-	DSO_EXT := .so
-else
-	DSO_EXT := .dll
-endif
 
 # Architecture specific
 # TODO: probably these flags need to be tweaked on some architectures
@@ -286,7 +275,7 @@ $(info I CXX:       $(CXXV))
 $(info )
 
 #
-# Build library
+# Build stuff
 #
 
 ggml.o: ggml.c ggml.h ggml-cuda.h
@@ -312,11 +301,14 @@ sampling.o: sampling.cpp sampling.h
 clip.o: clip.cpp clip.h stb_image.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
+brain.o: brain.cpp brain.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 clean:
 	rm -vrf *.o tests/*.o *.so *.dll benchmark-matmult build-info.h *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
 
 anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -std=c++20 $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
-libanna.a: ggml.o llama.o common.o sampling.o clip.o $(OBJS)
+libanna.a: ggml.o llama.o common.o sampling.o clip.o brain.o $(OBJS)
 	ar cru $@ $^

@@ -88,10 +88,17 @@
               <height>27</height>
              </size>
             </property>
+            <property name="editable">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item>
-           <widget class="QTextEdit" name="ChatLog"/>
+           <widget class="QTextEdit" name="ChatLog">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -133,6 +140,9 @@
               <width>65536</width>
               <height>27</height>
              </size>
+            </property>
+            <property name="editable">
+             <bool>true</bool>
             </property>
            </widget>
           </item>

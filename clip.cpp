@@ -23,7 +23,7 @@
 #define CLIP_DEBUG
 
 #ifndef NDEBUG
-#define DBG(...) do { ERR("[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
+#define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
 #else
 #define DBG(...)
 #endif

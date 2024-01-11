@@ -31,3 +31,7 @@ DEPENDPATH += $$PWD/../
 
 win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../anna.lib
 else:unix:!macx|win32-g++: PRE_TARGETDEPS += $$PWD/../libanna.a
+
+# Testing building with CUDA
+LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -L/targets/x86_64-linux/lib
+LIBS += -lcublas -lculibos -lcudart -lcublasLt -lpthread

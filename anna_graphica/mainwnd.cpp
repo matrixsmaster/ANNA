@@ -43,6 +43,9 @@ void MainWnd::LoadLLM(const QString &fn)
     p->n_batch = 512;
     p->n_gpu_layers = 0; //43;
 
+    ui->statusbar->showMessage("Loading LLM file... Please wait!");
+    qApp->processEvents();
+
     brain = new AnnaBrain(&c);
     if (brain->getState() != ANNA_READY) {
         ui->statusbar->showMessage("Unable to load LLM file!");
@@ -50,7 +53,7 @@ void MainWnd::LoadLLM(const QString &fn)
         brain = nullptr;
         return;
     }
-    ui->statusbar->showMessage("LLM loaded");
+    ui->statusbar->showMessage("LLM file loaded");
 
     //dialog.clear();
     brain->setInput(p->prompt);
@@ -76,6 +79,7 @@ void MainWnd::Generate()
     bool skips = false;
     std::string str,convo;
     QString old = ui->ChatLog->toMarkdown();
+    //ForceAIName(ui->AINameBox->currentText());
 
     while (brain) {
         AnnaState s = brain->Processing(skips);
@@ -98,13 +102,15 @@ void MainWnd::Generate()
             break;
         }
 
-        ui->statusbar->showMessage(QString::fromStdString(AnnaBrain::state_to_string(s)));
+        ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::state_to_string(s)));
         ui->ChatLog->setMarkdown(old + QString::fromStdString(convo));
+        // TODO: autoscroll
         if (s == ANNA_TURNOVER) break;
         qApp->processEvents();
     }
 
     ui->ChatLog->setMarkdown(old + QString::fromStdString(convo) + "\n");
+    // TODO: autoscroll
 }
 
 
@@ -156,10 +162,28 @@ void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
 
-    QString usr = ui->UserNameBox->currentText() + " " + ui->UserInput->toPlainText();
-    ui->ChatLog->setMarkdown(ui->ChatLog->toMarkdown() + usr + "\n");
+    QString usr, line, log = ui->ChatLog->toMarkdown();
+    if (!ui->ChatLog->toPlainText().endsWith("\n")) {
+        usr = "\n";
+        if (!ui->NewlineCheck->isChecked()) log += "\n**";
+        else log += "\n";
+    }
+
+    line = ui->UserNameBox->currentText() + " " + ui->UserInput->toPlainText();
+    usr += line;
+    log += line;
+
+    if (!ui->NewlineCheck->isChecked()) {
+        // normal behavior
+        usr += "\n";
+        log += "**\n";
+        ForceAIName(ui->AINameBox->currentText());
+    } else
+        ForceAIName(""); // no newline, no enforcing
+
     brain->setInput(usr.toStdString());
     ui->UserInput->clear();
+    ui->ChatLog->setMarkdown(log);
 
     Generate();
 }
@@ -187,7 +211,7 @@ void MainWnd::on_AttachButton_clicked()
 
 void MainWnd::on_AINameBox_currentIndexChanged(const QString &arg1)
 {
-    ForceAIName(arg1);
+    //ForceAIName(arg1);
 }
 
 

@@ -26,6 +26,8 @@ public:
     ~MainWnd();
 
     void LoadLLM(const QString& fn);
+    void ForceAIName(const QString& nm);
+    void Generate();
 
 private slots:
     void on_actionSimple_view_triggered();
@@ -40,8 +42,13 @@ private slots:
 
     void on_AttachButton_clicked();
 
+    void on_AINameBox_currentIndexChanged(const QString &arg1);
+
+    void on_actionLoad_model_triggered();
+
 private:
     Ui::MainWnd *ui;
     AnnaBrain* brain;
+    //std::string dialog;
 };
 #endif // MAINWND_H

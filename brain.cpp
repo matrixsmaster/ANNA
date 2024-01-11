@@ -224,12 +224,19 @@ void AnnaBrain::setPrefix(string str)
 {
     if (state != ANNA_READY) return;
 
+    if (str.empty()) {
+        DBG("Token enforcement removed\n");
+        forced_start.clear();
+        return;
+    }
+
     DBG("Token enforcement: '%s' = ",str.c_str());
     auto tmp = ::llama_tokenize(ctx,str,false,true);
     for (auto &i : tmp) {
         forced_start.push_back(i);
         DBG("%d (%s) ",i,TokenToStr(i));
     }
+    DBG(" \n");
 }
 
 const char* AnnaBrain::TokenToStr(llama_token token)

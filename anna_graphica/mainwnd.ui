@@ -91,6 +91,16 @@
             <property name="editable">
              <bool>true</bool>
             </property>
+            <item>
+             <property name="text">
+              <string>&lt;none&gt;</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Anna:</string>
+             </property>
+            </item>
            </widget>
           </item>
           <item>
@@ -144,6 +154,16 @@
             <property name="editable">
              <bool>true</bool>
             </property>
+            <item>
+             <property name="text">
+              <string>USER:</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>User:</string>
+             </property>
+            </item>
            </widget>
           </item>
           <item>
@@ -265,6 +285,9 @@
     </property>
     <addaction name="actionLoad_model"/>
     <addaction name="actionLoad_vision_encoder"/>
+    <addaction name="actionLoad_initial_prompt"/>
+    <addaction name="separator"/>
+    <addaction name="actionSettings"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuModel"/>
@@ -354,6 +377,16 @@
    </property>
    <property name="shortcut">
     <string>Shift+F3</string>
+   </property>
+  </action>
+  <action name="actionLoad_initial_prompt">
+   <property name="text">
+    <string>Load initial prompt</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
    </property>
   </action>
  </widget>

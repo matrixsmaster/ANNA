@@ -65,6 +65,7 @@ public:
     static void backend_init();
     static void backend_free();
     static std::string myformat(const char* fmt, ...);
+    static std::string state_to_string(AnnaState s);
 
     void Evaluate();
     void Generate();

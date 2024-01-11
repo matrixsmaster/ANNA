@@ -9,6 +9,7 @@ MainWnd::MainWnd(QWidget *parent)
     ui->setupUi(this);
     //on_actionSimple_view_triggered();
     on_actionAdvanced_view_triggered(); // FIXME: debug only, afterwards uncomment previous line
+    ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
 }
 
 MainWnd::~MainWnd()
@@ -139,9 +140,10 @@ void MainWnd::on_ModelFindButton_clicked()
 void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
-    /*ui->UserInput->
-    brain->setInput("USER: "+)*/
-    brain->Processing();
+    brain->setInput("USER: " + ui->UserInput->toPlainText().toStdString());
+    AnnaState st = brain->Processing();
+    ui->statusbar->showMessage(QString::fromStdString(AnnaBrain::state_to_string(st)));
+    ui->ChatLog->append(QString::fromStdString(brain->getOutput()));
 }
 
 
@@ -156,3 +158,11 @@ bool TextBoxKeyFilter::eventFilter(QObject *obj, QEvent *event)
         return QObject::eventFilter(obj, event);
     }
 }
+
+void MainWnd::on_AttachButton_clicked()
+{
+    // FIXME: temporary. debug-only!
+    ui->statusbar->showMessage(QString::fromStdString(AnnaBrain::state_to_string(brain->Processing())));
+    ui->ChatLog->append(QString::fromStdString(brain->getOutput()));
+}
+

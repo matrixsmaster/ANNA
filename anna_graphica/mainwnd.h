@@ -38,6 +38,8 @@ private slots:
 
     void on_SendButton_clicked();
 
+    void on_AttachButton_clicked();
+
 private:
     Ui::MainWnd *ui;
     AnnaBrain* brain;

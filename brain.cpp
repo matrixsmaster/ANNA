@@ -21,6 +21,14 @@ using namespace std;
 
 static int users = 0;
 
+static const char* states_to_strings[ANNA_NUM_STATES] = {
+    "not initialized",
+    "ready",
+    "error",
+    "processing",
+    "turnover",
+};
+
 AnnaBrain::AnnaBrain(AnnaConfig* cfg)
 {
     if (!cfg) return; // leave in partially initialized state, so it can be safely deleted later
@@ -345,4 +353,10 @@ bool AnnaBrain::LoadState(std::string fname)
 void AnnaBrain::anna_no_log(ggml_log_level level, const char * text, void * user_data)
 {
     // This is an empty function
+}
+
+std::string AnnaBrain::state_to_string(AnnaState s)
+{
+    if (s < ANNA_NUM_STATES) return states_to_strings[s];
+    else return "";
 }

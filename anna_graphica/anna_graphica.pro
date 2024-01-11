@@ -13,6 +13,7 @@ SOURCES += \
     mainwnd.cpp
 
 HEADERS += \
+    ../brain.h \
     mainwnd.h
 
 FORMS += \
@@ -22,3 +23,11 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+unix:!macx|win32: LIBS += -L$$PWD/../ -lanna
+
+INCLUDEPATH += $$PWD/../
+DEPENDPATH += $$PWD/../
+
+win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../anna.lib
+else:unix:!macx|win32-g++: PRE_TARGETDEPS += $$PWD/../libanna.a

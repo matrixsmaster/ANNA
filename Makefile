@@ -317,3 +317,6 @@ clean:
 
 anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -std=c++20 $(filter-out %.h,$^) -o $@ $(LDFLAGS)
+
+libanna.a: ggml.o llama.o common.o sampling.o clip.o $(OBJS)
+	ar cru $@ $^

@@ -26,7 +26,7 @@ endif
 #
 
 # keep standard at C11 and C++11
-MK_CPPFLAGS = -I. -Icommon
+MK_CPPFLAGS = -I.
 MK_CFLAGS   = -std=c11   -fPIC
 MK_CXXFLAGS = -std=c++11 -fPIC
 

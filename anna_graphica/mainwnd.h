@@ -4,18 +4,12 @@
 #include <QMainWindow>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QCloseEvent>
 #include "brain.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWnd; }
 QT_END_NAMESPACE
-
-class TextBoxKeyFilter : public QObject
-{
-    Q_OBJECT
-protected:
-    bool eventFilter(QObject *obj, QEvent *event) override;
-};
 
 class MainWnd : public QMainWindow
 {
@@ -28,6 +22,10 @@ public:
     void LoadLLM(const QString& fn);
     void ForceAIName(const QString& nm);
     void Generate();
+
+protected:
+    void closeEvent(QCloseEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:
     void on_actionSimple_view_triggered();
@@ -49,6 +47,5 @@ private slots:
 private:
     Ui::MainWnd *ui;
     AnnaBrain* brain;
-    //std::string dialog;
 };
 #endif // MAINWND_H

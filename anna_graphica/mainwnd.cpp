@@ -7,7 +7,8 @@ MainWnd::MainWnd(QWidget *parent)
     , brain(nullptr)
 {
     ui->setupUi(this);
-    //on_actionSimple_view_triggered();
+    ui->UserInput->installEventFilter(this);
+    on_actionSimple_view_triggered();
     ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
 }
 
@@ -36,7 +37,7 @@ void MainWnd::LoadLLM(const QString &fn)
     p->model = fn.toStdString();
     p->prompt = "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"; // FIXME: load it from external file
     p->seed = 0;
-    p->n_threads = 10;
+    p->n_threads = 8;
     p->n_predict = -1;
     p->n_ctx = 4096;
     //p->rope_freq_scale = 0.5;
@@ -53,11 +54,12 @@ void MainWnd::LoadLLM(const QString &fn)
         brain = nullptr;
         return;
     }
-    ui->statusbar->showMessage("LLM file loaded");
+    ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
+    qApp->processEvents();
 
-    //dialog.clear();
     brain->setInput(p->prompt);
     while (brain->Processing(true) == ANNA_PROCESSING) ;
+    ui->statusbar->showMessage("Brain is ready");
 }
 
 void MainWnd::ForceAIName(const QString &nm)
@@ -122,6 +124,7 @@ void MainWnd::on_actionSimple_view_triggered()
     ui->AttachmentsList->hide();
     ui->UserNameBox->hide();
     ui->UserInputOptions->hide();
+    ui->statusbar->showMessage("Hint: Hit Enter to submit your text");
 }
 
 
@@ -135,6 +138,7 @@ void MainWnd::on_actionAdvanced_view_triggered()
     ui->NewlineCheck->hide();
     ui->BeforeRadio->hide();
     ui->AfterRadio->hide();
+    ui->statusbar->showMessage("Hint: Use Shift+Enter to submit your text");
 }
 
 
@@ -148,6 +152,7 @@ void MainWnd::on_actionProfessional_view_triggered()
     ui->NewlineCheck->show();
     ui->BeforeRadio->show();
     ui->AfterRadio->show();
+    ui->statusbar->showMessage("Hint: Use Shift+Enter to submit your text");
 }
 
 
@@ -191,17 +196,40 @@ void MainWnd::on_SendButton_clicked()
 }
 
 
-bool TextBoxKeyFilter::eventFilter(QObject *obj, QEvent *event)
+void MainWnd::closeEvent(QCloseEvent* event)
+{
+    auto b = QMessageBox::question(this,"ANNA","Are you sure?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
+    if (b == QMessageBox::Yes) {
+        if (brain) {
+            // This will stop current processing, as it is synchronous
+            delete brain;
+            brain = nullptr;
+        }
+        event->accept();
+    } else
+        event->ignore();
+}
+
+
+bool MainWnd::eventFilter(QObject* obj, QEvent* event)
 {
     if (event->type() == QEvent::KeyPress) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-        qDebug("Ate key press %d", keyEvent->key());
-        return true;
+        QKeyEvent* ke = static_cast<QKeyEvent*>(event);
+        bool eat_ret = false;
+        if (ui->UserInputOptions->isHidden()) eat_ret = true;
+        else if (ke->modifiers().testFlag(Qt::ShiftModifier)) eat_ret = true;
+        if (ke->key() == Qt::Key_Return && eat_ret) {
+            qDebug("Ate key press %d",ke->key());
+            on_SendButton_clicked();
+            return true;
+        }
+        return false;
     } else {
         // standard event processing
         return QObject::eventFilter(obj, event);
     }
 }
+
 
 void MainWnd::on_AttachButton_clicked()
 {

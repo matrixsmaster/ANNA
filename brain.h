@@ -4,7 +4,7 @@
 #include "common.h"
 #include "llama.h"
 
-#define ANNA_VERSION "0.6.0b"
+#define ANNA_VERSION "0.6.1"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 

@@ -8,6 +8,8 @@ MainWnd::MainWnd(QWidget *parent)
 {
     ui->setupUi(this);
     ui->UserInput->installEventFilter(this);
+    ui->statusbar->installEventFilter(this);
+    ui->menubar->installEventFilter(this);
     on_actionSimple_view_triggered();
     ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
 }
@@ -213,7 +215,9 @@ void MainWnd::closeEvent(QCloseEvent* event)
 
 bool MainWnd::eventFilter(QObject* obj, QEvent* event)
 {
-    if (event->type() == QEvent::KeyPress) {
+    switch (event->type()) {
+    case QEvent::KeyPress:
+    {
         QKeyEvent* ke = static_cast<QKeyEvent*>(event);
         bool eat_ret = false;
         if (ui->UserInputOptions->isHidden()) eat_ret = true;
@@ -224,10 +228,21 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
             return true;
         }
         return false;
-    } else {
-        // standard event processing
-        return QObject::eventFilter(obj, event);
     }
+    case QEvent::StatusTip:
+    {
+        QStatusTipEvent* se = static_cast<QStatusTipEvent*>(event);
+        if (se->tip().isEmpty()) {
+            qDebug("Ate empty status tip event");
+            return true;
+        }
+        return false;
+    }
+    default:
+        break;
+    }
+    // standard event processing
+    return QObject::eventFilter(obj, event);
 }
 
 

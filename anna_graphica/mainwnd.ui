@@ -93,12 +93,12 @@
             </property>
             <item>
              <property name="text">
-              <string>&lt;none&gt;</string>
+              <string>Anna:</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>Anna:</string>
+              <string>&lt;none&gt;</string>
              </property>
             </item>
            </widget>

@@ -97,20 +97,22 @@ void MainWnd::Generate()
             break;
         case ANNA_ERROR:
             ui->statusbar->showMessage("Error: " + QString::fromStdString(brain->getError()));
-            break;
+            return;
         default:
             break;
         }
 
         ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::state_to_string(s)));
         ui->ChatLog->setMarkdown(old + QString::fromStdString(convo));
-        // TODO: autoscroll
+        ui->ChatLog->moveCursor(QTextCursor::End);
+        ui->ChatLog->ensureCursorVisible();
         if (s == ANNA_TURNOVER) break;
         qApp->processEvents();
     }
 
     ui->ChatLog->setMarkdown(old + QString::fromStdString(convo) + "\n");
-    // TODO: autoscroll
+    ui->ChatLog->moveCursor(QTextCursor::End);
+    ui->ChatLog->ensureCursorVisible();
 }
 
 

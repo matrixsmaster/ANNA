@@ -89,36 +89,75 @@ void AnnaBrain::Evaluate()
     if (state != ANNA_READY && state != ANNA_PROCESSING) return;
     DBG("EVALUATE\n");
 
-    if (!queue.empty()) {
-        if (n_past + (int)queue.size() > llama_n_ctx(ctx)) {
-            int n_left = n_past - (int)prompt.size();
-            //DBG("n_past = %d, prompt = %d, n_left = %d\n",n_past,(int)prompt.size(),n_left);
+    if (!queue.empty() || !ext_emb.empty()) {
+        int n_embd  = llama_n_embd(llama_get_model(ctx));
+        int n_ext_emb = (int)ext_emb.size() / n_embd;
 
-            // FIXME: instead of reeval, we might shift kv cache:
-            //llama_kv_cache_seq_rm(ctx, 0, config.params.n_keep + 1, config.params.n_keep + n_discard + 1);
-            //llama_kv_cache_seq_shift(ctx, 0, config.params.n_keep + 1 + n_discard, n_past, -n_discard);
-
-            //vector<llama_token> tmp = queue;
-            queue = prompt;
-            queue.insert(queue.end(),ctx_sp->prev.end()-n_left/2,ctx_sp->prev.end());
-            n_past = 0; // reset
-            DBG("\nqueue now = %d, n_left now = %d\n",(int)queue.size(),n_left);
-        }
-
-        for (int i = 0; i < (int)queue.size(); i+=config.params.n_batch) {
-            int n_eval = (int)queue.size() - i;
-            if (n_eval > config.params.n_batch) n_eval = config.params.n_batch;
-
-            if (llama_eval(ctx,&queue[i],n_eval,n_past)) {
-                internal_error = myformat("Failed to eval '%s'",TokenToStr(queue[i]));
+        // check context window
+        if (n_past + (int)queue.size() + n_ext_emb > llama_n_ctx(ctx)) {
+            if (!n_past) {
+                internal_error = myformat("Impossible queue length for the context window size: queue = %lu, ext_emb = %d\n",queue.size(),n_ext_emb);
                 state = ANNA_ERROR;
                 return;
             }
 
+            DBG("Context overflow: n_past = %d, queue = %lu, ext_emb = %d\n",n_past,queue.size(),n_ext_emb);
+
+#if 0 /* FIXME: Bring back reload-on-reset feature later */
+            int nseed = llama_get_rng_seed(ctx);
+            if (reload_on_reset && load_cache(ctx,n_past,ctx_sampling->prev)) {
+                queue.clear();
+                ext_emb.clear();
+                inp_emb.clear();
+                llama_set_rng_seed(ctx,nseed);
+                n_remain = params.n_predict;
+                DBG("State reloaded from cache due to context overflow. nseed = %d, n_past = %d\n",nseed,n_past);
+                continue;
+            }
+#endif
+            int n_left    = n_past - config.params.n_keep - 1;
+            int n_discard = n_left/2;
+            DBG("n_past = %d, n_left = %d, n_discard = %d\n",n_past,n_left,n_discard);
+
+            llama_kv_cache_seq_rm(ctx,0,config.params.n_keep + 1,config.params.n_keep + n_discard + 1);
+            llama_kv_cache_seq_shift(ctx,0,config.params.n_keep + 1 + n_discard,n_past,-n_discard);
+
+            n_past -= n_discard;
+            state = ANNA_PROCESSING;
+            return;
+        }
+
+        // token queue
+        for (int i = 0; i < (int)queue.size(); i+=config.params.n_batch) {
+            int n_eval = (int)queue.size() - i;
+            if (n_eval > config.params.n_batch) n_eval = config.params.n_batch;
+
+            int r = llama_decode(ctx,llama_batch_get_one(&queue[i],n_eval,n_past,0));
+            if (r) {
+                string ts = llama_token_to_piece(ctx,queue[i]);
+                internal_error = myformat("Failed to eval token %d ('%s') - error %d",queue[i],ts.c_str(),r);
+                state = ANNA_ERROR;
+                return;
+            }
+            n_past += n_eval;
+        }
+
+        // external embeddings
+        for (int i = 0; i < n_ext_emb; i+=config.params.n_batch) {
+            int n_eval = n_ext_emb - i;
+            if (n_eval > config.params.n_batch) n_eval = config.params.n_batch;
+
+            int r = llama_decode(ctx,batch_embeddings(n_eval,&ext_emb[i*n_embd],n_past));
+            if (r) {
+                internal_error = myformat("Failed to embed #%d (error %d)",i,r);
+                state = ANNA_ERROR;
+                return;
+            }
             n_past += n_eval;
         }
     }
     queue.clear();
+    ext_emb.clear();
 
     if (!inp_emb.empty()) {
         while ((int)inp_emb.size() > n_consumed) {
@@ -177,6 +216,24 @@ AnnaState AnnaBrain::Processing(bool skip_sampling)
     if (!skip_sampling) Generate();
 
     return state;
+}
+
+void AnnaBrain::Reset()
+{
+    llama_kv_cache_seq_rm(ctx,0,0,n_past);
+
+    n_past = 0;
+    n_remain = 0;
+    n_consumed = 0;
+    queue.clear();
+    inp_emb.clear();
+    ext_emb.clear();
+    forced_start.clear();
+    accumulator.clear();
+
+    if (ctx_sp) llama_sampling_free(ctx_sp);
+    ctx_sp = llama_sampling_init(config.params);
+    state = ANNA_READY;
 }
 
 string AnnaBrain::getOutput()
@@ -366,4 +423,17 @@ std::string AnnaBrain::state_to_string(AnnaState s)
 {
     if (s < ANNA_NUM_STATES) return states_to_strings[s];
     else return "";
+}
+
+llama_batch AnnaBrain::batch_embeddings(int n_tokens, float* embeds, int n_past)
+{
+    llama_batch r;
+    memset(&r,0,sizeof(r));
+
+    r.n_tokens = n_tokens;
+    r.embd = embeds;
+    r.all_pos_0 = n_past;
+    r.all_pos_1 = 1;
+
+    return r;
 }

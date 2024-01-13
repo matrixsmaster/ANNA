@@ -20,8 +20,48 @@ MainWnd::~MainWnd()
     delete ui;
 }
 
+void MainWnd::DefaultConfig()
+{
+    config.convert_eos_to_nl = true;
+    config.verbose_level = 1;
+
+    gpt_params* p = &config.params;
+    p->seed = 0;
+    p->n_threads = 8;
+    p->n_predict = -1;
+    p->n_ctx = 4096;
+    //p->rope_freq_scale = 0.5;
+    p->n_batch = 512;
+    p->n_gpu_layers = 0; //43;
+    p->model.clear();
+    p->prompt.clear();
+}
+
+bool MainWnd::LoadFile(const QString& fn, QString& str)
+{
+    QFile file(fn);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return false;
+
+    QTextStream in(&file);
+    str = in.readAll();
+    return true;
+}
+
+bool MainWnd::SaveFile(const QString& fn, const QString& str)
+{
+    QFile file(fn);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return false;
+
+    QTextStream out(&file);
+    out << str;
+    return true;
+}
+
 void MainWnd::LoadLLM(const QString &fn)
 {
+    // Create new Brain
     if (brain) {
         // delete old brain first
         // TODO: add confirmation dialog if there's an unsaved state/conversation
@@ -30,26 +70,21 @@ void MainWnd::LoadLLM(const QString &fn)
     }
 
     // Fill in the config
-    // TODO: add user-definable settings
-    AnnaConfig c;
-    c.convert_eos_to_nl = true;
-    c.verbose_level = 1; // FIXME: ???
+    config.params.model = fn.toStdString();
+    if (config.params.prompt.empty()) {
+        auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
+                                        QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
+        config.params.prompt = ANNA_DEFAULT_PROMPT;
+        if (uq == QMessageBox::Yes)
+            on_actionLoad_initial_prompt_triggered();
+        else if (uq == QMessageBox::Cancel)
+            return;
+    }
 
-    gpt_params* p = &c.params;
-    p->model = fn.toStdString();
-    p->prompt = "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"; // FIXME: load it from external file
-    p->seed = 0;
-    p->n_threads = 8;
-    p->n_predict = -1;
-    p->n_ctx = 4096;
-    //p->rope_freq_scale = 0.5;
-    p->n_batch = 512;
-    p->n_gpu_layers = 0; //43;
-
+    // Actual loading
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
-
-    brain = new AnnaBrain(&c);
+    brain = new AnnaBrain(&config);
     if (brain->getState() != ANNA_READY) {
         ui->statusbar->showMessage("Unable to load LLM file!");
         delete brain;
@@ -59,7 +94,8 @@ void MainWnd::LoadLLM(const QString &fn)
     ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
     qApp->processEvents();
 
-    brain->setInput(p->prompt);
+    // Process initial prompt
+    brain->setInput(config.params.prompt);
     while (brain->Processing(true) == ANNA_PROCESSING) ;
     ui->statusbar->showMessage("Brain is ready");
 }
@@ -170,6 +206,10 @@ void MainWnd::on_ModelFindButton_clicked()
 void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
+    if (ui->UserInput->toPlainText().isEmpty()) {
+        Generate();
+        return;
+    }
 
     QString usr, line, log = ui->ChatLog->toMarkdown();
     if (!ui->ChatLog->toPlainText().endsWith("\n")) {
@@ -254,14 +294,47 @@ void MainWnd::on_AttachButton_clicked()
 }
 
 
-void MainWnd::on_AINameBox_currentIndexChanged(const QString &arg1)
-{
-    //ForceAIName(arg1);
-}
-
-
 void MainWnd::on_actionLoad_model_triggered()
 {
     on_ModelFindButton_clicked();
+}
+
+
+void MainWnd::on_actionNew_dialog_triggered()
+{
+    if (!brain) return;
+    brain->Reset();
+    ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
+    qApp->processEvents();
+
+    brain->setInput(config.params.prompt);
+    while (brain->Processing(true) == ANNA_PROCESSING) ;
+    ui->statusbar->showMessage("Brain has been reset and is now ready.");
+}
+
+
+void MainWnd::on_actionQuit_triggered()
+{
+    close();
+}
+
+
+void MainWnd::on_actionMarkdown_triggered()
+{
+    QString fn = QFileDialog::getOpenFileName(this,"Save dialog","","Markdown files (*.md);;Text files (*.txt)");
+    if (fn.isEmpty()) return;
+    if (SaveFile(fn,ui->ChatLog->toMarkdown()))
+        ui->statusbar->showMessage("Chat log saved as markdown document.");
+    else
+        ui->statusbar->showMessage("Unable to write output file.");
+}
+
+
+void MainWnd::on_actionLoad_initial_prompt_triggered()
+{
+    QString fn = QFileDialog::getOpenFileName(this,"Open prompt file","","Text files (*.txt)");
+    QString np;
+    if (fn.isEmpty() || !LoadFile(fn,np)) return;
+    config.params.prompt = np.toStdString();
 }
 

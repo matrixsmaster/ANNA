@@ -256,8 +256,16 @@
     <property name="title">
      <string>File</string>
     </property>
+    <widget class="QMenu" name="menuSave_dialog">
+     <property name="title">
+      <string>Save dialog</string>
+     </property>
+     <addaction name="actionPlain_text"/>
+     <addaction name="actionMarkdown"/>
+     <addaction name="actionHTML"/>
+    </widget>
     <addaction name="actionNew_dialog"/>
-    <addaction name="actionSave_dialog"/>
+    <addaction name="menuSave_dialog"/>
     <addaction name="separator"/>
     <addaction name="actionSave_state"/>
     <addaction name="actionLoad_state"/>
@@ -301,14 +309,6 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+N</string>
-   </property>
-  </action>
-  <action name="actionSave_dialog">
-   <property name="text">
-    <string>Save dialog</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+S</string>
    </property>
   </action>
   <action name="actionSave_state">
@@ -387,6 +387,24 @@
   <action name="actionSettings">
    <property name="text">
     <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionPlain_text">
+   <property name="text">
+    <string>Plain text</string>
+   </property>
+  </action>
+  <action name="actionMarkdown">
+   <property name="text">
+    <string>Markdown</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionHTML">
+   <property name="text">
+    <string>HTML</string>
    </property>
   </action>
  </widget>

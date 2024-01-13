@@ -40,14 +40,16 @@ public:
     void setPrefix(std::string str);
     const char* TokenToStr(llama_token token);
 
+    static std::string state_to_string(AnnaState s);
+
     bool SaveState(std::string fname);
     bool LoadState(std::string fname);
 
     AnnaState Processing(bool skip_sampling = false);
+    void Reset();
     void Undo();
 
-//FIXME: DEBUG ONLY!
-//private:
+private:
     AnnaState state = ANNA_NOT_INITIALIZED;
     AnnaConfig config;
     std::string internal_error;
@@ -59,13 +61,15 @@ public:
     std::vector<llama_token> queue,prompt,inp_emb;
     std::vector<llama_token> oldqueue,oldcontext;
     std::deque<llama_token> forced_start;
+    std::vector<float> ext_emb;
     std::string accumulator,piecebuf;
 
     static void anna_no_log(ggml_log_level level, const char * text, void * user_data);
     static void backend_init();
     static void backend_free();
     static std::string myformat(const char* fmt, ...);
-    static std::string state_to_string(AnnaState s);
+
+    llama_batch batch_embeddings(int n_tokens, float *embeds, int n_past);
 
     void Evaluate();
     void Generate();

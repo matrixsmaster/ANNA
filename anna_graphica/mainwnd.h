@@ -57,9 +57,13 @@ private slots:
 
     void on_actionLoad_initial_prompt_triggered();
 
+    void on_actionSettings_triggered();
+
 private:
     Ui::MainWnd *ui;
     AnnaConfig config;
     AnnaBrain* brain;
+
+    bool last_username;
 };
 #endif // MAINWND_H

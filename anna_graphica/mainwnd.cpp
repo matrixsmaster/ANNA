@@ -1,5 +1,6 @@
 #include "mainwnd.h"
 #include "ui_mainwnd.h"
+#include "settingsdialog.h"
 
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
@@ -10,7 +11,11 @@ MainWnd::MainWnd(QWidget *parent)
     ui->UserInput->installEventFilter(this);
     ui->statusbar->installEventFilter(this);
     ui->menubar->installEventFilter(this);
+
     on_actionSimple_view_triggered();
+    DefaultConfig();
+    last_username = false;
+
     ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
 }
 
@@ -27,14 +32,14 @@ void MainWnd::DefaultConfig()
 
     gpt_params* p = &config.params;
     p->seed = 0;
-    p->n_threads = 8;
+    p->n_threads = std::thread::hardware_concurrency();
     p->n_predict = -1;
     p->n_ctx = 4096;
-    //p->rope_freq_scale = 0.5;
     p->n_batch = 512;
-    p->n_gpu_layers = 0; //43;
+    p->n_gpu_layers = 0;
     p->model.clear();
     p->prompt.clear();
+    p->sampling_params.temp = 0.3;
 }
 
 bool MainWnd::LoadFile(const QString& fn, QString& str)
@@ -119,7 +124,6 @@ void MainWnd::Generate()
     bool skips = false;
     std::string str,convo;
     QString old = ui->ChatLog->toMarkdown();
-    //ForceAIName(ui->AINameBox->currentText());
 
     while (brain) {
         AnnaState s = brain->Processing(skips);
@@ -130,6 +134,7 @@ void MainWnd::Generate()
             qDebug("str = %s\n",str.c_str());
             convo += str;
             if (convo.ends_with(ui->UserNameBox->currentText().toStdString())) {
+                last_username = true;
                 s = ANNA_TURNOVER;
                 convo.erase(convo.rfind(ui->UserNameBox->currentText().toStdString()));
                 qDebug("convo = %s\n",convo.c_str());
@@ -212,13 +217,16 @@ void MainWnd::on_SendButton_clicked()
     }
 
     QString usr, line, log = ui->ChatLog->toMarkdown();
+    // TODO: fix visible/invisible newlines merging - for now it's quite inaccurate!
     if (!ui->ChatLog->toPlainText().endsWith("\n")) {
         usr = "\n";
         if (!ui->NewlineCheck->isChecked()) log += "\n**";
         else log += "\n";
     }
 
-    line = ui->UserNameBox->currentText() + " " + ui->UserInput->toPlainText();
+    if (last_username) last_username = false;
+    else line = ui->UserNameBox->currentText();
+    line += " " + ui->UserInput->toPlainText();
     usr += line;
     log += line;
 
@@ -310,6 +318,8 @@ void MainWnd::on_actionNew_dialog_triggered()
     brain->setInput(config.params.prompt);
     while (brain->Processing(true) == ANNA_PROCESSING) ;
     ui->statusbar->showMessage("Brain has been reset and is now ready.");
+
+    last_username = false;
 }
 
 
@@ -336,5 +346,13 @@ void MainWnd::on_actionLoad_initial_prompt_triggered()
     QString np;
     if (fn.isEmpty() || !LoadFile(fn,np)) return;
     config.params.prompt = np.toStdString();
+}
+
+
+void MainWnd::on_actionSettings_triggered()
+{
+    SettingsDialog sdlg;
+    sdlg.pconfig = &config;
+    sdlg.exec();
 }
 

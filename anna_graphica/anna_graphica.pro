@@ -14,8 +14,10 @@ SOURCES += \
     ../k_quants.c \
     ../llama.cpp \
     ../sampling.cpp \
+    aboutbox.cpp \
     main.cpp \
-    mainwnd.cpp
+    mainwnd.cpp \
+    settingsdialog.cpp
 
 HEADERS += \
     ../brain.h \
@@ -29,10 +31,14 @@ HEADERS += \
     ../sampling.h \
     ../stb_image.h \
     ../unicode.h \
-    mainwnd.h
+    aboutbox.h \
+    mainwnd.h \
+    settingsdialog.h
 
 FORMS += \
-    mainwnd.ui
+    aboutbox.ui \
+    mainwnd.ui \
+    settingsdialog.ui
 
 QMAKE_CFLAGS += -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DGGML_USE_K_QUANTS -fPIC -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter -march=native -mtune=native
 QMAKE_CFLAGS_DEBUG += -O0 -g

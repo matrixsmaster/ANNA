@@ -6,19 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>628</width>
+    <width>664</width>
     <height>500</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>628</width>
+    <width>664</width>
     <height>500</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>628</width>
+    <width>664</width>
     <height>500</height>
    </size>
   </property>
@@ -560,13 +560,13 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <property name="geometry">
         <rect>
          <x>180</x>
          <y>10</y>
          <width>220</width>
-         <height>135</height>
+         <height>101</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -672,28 +672,21 @@
           </item>
          </layout>
         </item>
-        <item>
-         <widget class="QCheckBox" name="eosToNL">
-          <property name="text">
-           <string>Treat EOS as new line</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <property name="geometry">
         <rect>
          <x>420</x>
          <y>10</y>
-         <width>173</width>
-         <height>68</height>
+         <width>210</width>
+         <height>130</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_4">
+        <property name="sizeConstraint">
+         <enum>QLayout::SetFixedSize</enum>
+        </property>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_17">
           <item>
@@ -765,6 +758,23 @@
            </widget>
           </item>
          </layout>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="eosToNL">
+          <property name="text">
+           <string>Treat EOS as NL</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="NLtoTurn">
+          <property name="text">
+           <string>Treat NL as end of turn</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>

@@ -11,6 +11,7 @@ MainWnd::MainWnd(QWidget *parent)
     ui->UserInput->installEventFilter(this);
     ui->statusbar->installEventFilter(this);
     ui->menubar->installEventFilter(this);
+    ui->AttachmentsList->setIconSize(QSize(GUI_ICON_W,GUI_ICON_H));
 
     on_actionSimple_view_triggered();
     DefaultConfig();
@@ -296,9 +297,31 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
 
 void MainWnd::on_AttachButton_clicked()
 {
-    // FIXME: temporary. debug-only!
-    //ui->statusbar->showMessage(QString::fromStdString(AnnaBrain::state_to_string(brain->Processing())));
-    //ui->ChatLog->append(QString::fromStdString(brain->getOutput()));
+    AnnaAttachment a;
+    a.fn = QFileDialog::getOpenFileName(this,"Open file","","Text files (*.txt);;Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm)");
+    QFileInfo inf(a.fn);
+    QIcon ico;
+
+    if (a.pic.load(a.fn)) {
+        // if we can load it as Pixmap, then it's an image
+        ico.addPixmap(a.pic.scaled(GUI_ICON_W,GUI_ICON_H,Qt::KeepAspectRatio),QIcon::Normal,QIcon::On);
+
+    } else {
+        // treat it as a text file
+        if (!LoadFile(a.fn,a.txt)) {
+            // WTF?!
+            QMessageBox::critical(this,"ANNA","ERROR: Unable to load specified file!");
+            return;
+        }
+        QPixmap txtdoc;
+        txtdoc.load(":/ico/txt_doc.png");
+        ico.addPixmap(txtdoc);
+    }
+
+    ui->AttachmentsList->addItem(inf.baseName());
+    a.itm = ui->AttachmentsList->item(ui->AttachmentsList->count()-1);
+    a.itm->setIcon(ico);
+    attachs.push_back(a);
 }
 
 
@@ -331,7 +354,7 @@ void MainWnd::on_actionQuit_triggered()
 
 void MainWnd::on_actionMarkdown_triggered()
 {
-    QString fn = QFileDialog::getOpenFileName(this,"Save dialog","","Markdown files (*.md);;Text files (*.txt)");
+    QString fn = QFileDialog::getSaveFileName(this,"Save dialog","","Markdown files (*.md);;Text files (*.txt)");
     if (fn.isEmpty()) return;
     if (SaveFile(fn,ui->ChatLog->toMarkdown()))
         ui->statusbar->showMessage("Chat log saved as markdown document.");
@@ -354,5 +377,12 @@ void MainWnd::on_actionSettings_triggered()
     SettingsDialog sdlg;
     sdlg.pconfig = &config;
     sdlg.exec();
+}
+
+
+void MainWnd::on_actionClear_attachments_triggered()
+{
+    ui->AttachmentsList->clear();
+    attachs.clear();
 }
 

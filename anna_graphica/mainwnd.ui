@@ -116,7 +116,7 @@
          <widget class="QListWidget" name="AttachmentsList">
           <property name="minimumSize">
            <size>
-            <width>64</width>
+            <width>120</width>
             <height>0</height>
            </size>
           </property>
@@ -125,6 +125,9 @@
             <width>120</width>
             <height>65536</height>
            </size>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
           </property>
          </widget>
         </item>
@@ -279,6 +282,8 @@
     <addaction name="actionSimple_view"/>
     <addaction name="actionAdvanced_view"/>
     <addaction name="actionProfessional_view"/>
+    <addaction name="separator"/>
+    <addaction name="actionClear_attachments"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -408,6 +413,11 @@
   <action name="actionHTML">
    <property name="text">
     <string>HTML</string>
+   </property>
+  </action>
+  <action name="actionClear_attachments">
+   <property name="text">
+    <string>Clear attachments</string>
    </property>
   </action>
  </widget>

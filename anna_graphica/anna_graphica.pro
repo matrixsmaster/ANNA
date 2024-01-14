@@ -49,3 +49,6 @@ QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -Ofast
 
 INCLUDEPATH += $$PWD/../
 DEPENDPATH += $$PWD/../
+
+RESOURCES += \
+    resources.qrc

@@ -7,9 +7,19 @@
 #include <QCloseEvent>
 #include <QFile>
 #include <QTextStream>
+#include <QListWidget>
 #include "brain.h"
 
 #define ANNA_DEFAULT_PROMPT "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"
+#define GUI_ICON_W 48
+#define GUI_ICON_H 48
+
+struct AnnaAttachment {
+    QString fn;
+    QPixmap pic;
+    QString txt;
+    QListWidgetItem* itm;
+};
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWnd; }
@@ -59,11 +69,14 @@ private slots:
 
     void on_actionSettings_triggered();
 
+    void on_actionClear_attachments_triggered();
+
 private:
     Ui::MainWnd *ui;
     AnnaConfig config;
     AnnaBrain* brain;
 
+    std::list<AnnaAttachment> attachs;
     bool last_username;
 };
 #endif // MAINWND_H

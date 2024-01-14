@@ -128,8 +128,9 @@ void MainWnd::Generate()
     bool skips = false;
     std::string str,convo;
     QString old = ui->ChatLog->toMarkdown();
+    stop = false;
 
-    while (brain) {
+    while (brain && !stop) {
         AnnaState s = brain->Processing(skips);
         switch (s) {
         case ANNA_READY:
@@ -207,13 +208,13 @@ void MainWnd::on_actionProfessional_view_triggered()
 
 void MainWnd::on_ModelFindButton_clicked()
 {
-    QString fn = QFileDialog::getOpenFileName(this,"Open LLM file","","GGUF files (*.gguf)");
+    QString fn = QFileDialog::getOpenFileName(this,"Open LLM file",ui->ModelPath->text(),"GGUF files (*.gguf)");
     if (fn.isEmpty()) return;
     ui->ModelPath->setText(fn);
     LoadLLM(fn);
 }
 
-#define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
+
 void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
@@ -277,8 +278,8 @@ void MainWnd::on_SendButton_clicked()
         next_attach = nullptr;
     }
 
-    DBG("usr = '%s'\n",usr.toStdString().c_str());
-    DBG("log = '%s'\n",log.toStdString().c_str());
+    qDebug("usr = '%s'\n",usr.toStdString().c_str());
+    qDebug("log = '%s'\n",log.toStdString().c_str());
 
     ui->ChatLog->setMarkdown(ui->ChatLog->toMarkdown() + log);
     ui->ChatLog->moveCursor(QTextCursor::End);
@@ -464,5 +465,46 @@ void MainWnd::on_actionAbout_triggered()
 {
     AboutBox box;
     box.exec();
+}
+
+
+void MainWnd::on_pushButton_clicked()
+{
+    stop = true;
+}
+
+
+void MainWnd::on_actionHTML_triggered()
+{
+    QString fn = QFileDialog::getSaveFileName(this,"Save dialog","","HTML files (*.html *.htm)");
+    if (fn.isEmpty()) return;
+    if (SaveFile(fn,ui->ChatLog->toHtml()))
+        ui->statusbar->showMessage("Chat log saved as HTML document.");
+    else
+        ui->statusbar->showMessage("Unable to write output file.");
+}
+
+
+void MainWnd::on_actionSave_state_triggered()
+{
+    if (!brain) return;
+    QString fn = QFileDialog::getSaveFileName(this,"Save model state","","ANNA save states (*.anna)");
+    if (fn.isEmpty()) return;
+    if (brain->SaveState(fn.toStdString()))
+        ui->statusbar->showMessage("Model state has been saved to "+fn);
+    else
+        ui->statusbar->showMessage("Unable to save model state!");
+}
+
+
+void MainWnd::on_actionLoad_state_triggered()
+{
+    if (!brain) return;
+    QString fn = QFileDialog::getOpenFileName(this,"Load model state","","ANNA save states (*.anna)");
+    if (fn.isEmpty()) return;
+    if (brain->LoadState(fn.toStdString()))
+        ui->statusbar->showMessage("Model state has been loaded from "+fn);
+    else
+        ui->statusbar->showMessage("Unable to load model state!");
 }
 

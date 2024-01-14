@@ -78,6 +78,14 @@ private slots:
 
     void on_actionAbout_triggered();
 
+    void on_pushButton_clicked();
+
+    void on_actionHTML_triggered();
+
+    void on_actionSave_state_triggered();
+
+    void on_actionLoad_state_triggered();
+
 private:
     Ui::MainWnd *ui;
     AnnaConfig config;
@@ -86,5 +94,6 @@ private:
     std::list<AnnaAttachment> attachs;
     AnnaAttachment* next_attach;
     bool last_username;
+    bool stop;
 };
 #endif // MAINWND_H

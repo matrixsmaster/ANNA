@@ -121,13 +121,13 @@
          <widget class="QListWidget" name="AttachmentsList">
           <property name="minimumSize">
            <size>
-            <width>120</width>
+            <width>140</width>
             <height>0</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
-            <width>120</width>
+            <width>140</width>
             <height>65536</height>
            </size>
           </property>
@@ -245,6 +245,13 @@
              </property>
              <property name="text">
               <string>After</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButton">
+             <property name="text">
+              <string>Stop</string>
              </property>
             </widget>
            </item>

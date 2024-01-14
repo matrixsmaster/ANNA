@@ -42,10 +42,13 @@ public:
     void setPrefix(std::string str);
     const char* TokenToStr(llama_token token);
 
-    static std::string state_to_string(AnnaState s);
+    static std::string StateToStr(AnnaState s);
 
     bool SaveState(std::string fname);
     bool LoadState(std::string fname);
+
+    void setClipModelFile(std::string fn);
+    bool EmbedImage(std::string imgfile);
 
     AnnaState Processing(bool skip_sampling = false);
     void Reset();
@@ -65,6 +68,7 @@ private:
     std::deque<llama_token> forced_start;
     std::vector<float> ext_emb;
     std::string accumulator,piecebuf;
+    std::string clip_file;
 
     static void anna_no_log(ggml_log_level level, const char * text, void * user_data);
     static void backend_init();

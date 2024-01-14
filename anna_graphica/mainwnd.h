@@ -16,6 +16,7 @@
 
 struct AnnaAttachment {
     QString fn;
+    QString shrt;
     QPixmap pic;
     QString txt;
     QListWidgetItem* itm;
@@ -71,12 +72,15 @@ private slots:
 
     void on_actionClear_attachments_triggered();
 
+    void on_actionLoad_vision_encoder_triggered();
+
 private:
     Ui::MainWnd *ui;
     AnnaConfig config;
     AnnaBrain* brain;
 
     std::list<AnnaAttachment> attachs;
+    AnnaAttachment* next_attach;
     bool last_username;
 };
 #endif // MAINWND_H

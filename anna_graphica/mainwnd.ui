@@ -228,10 +228,16 @@
              <property name="text">
               <string>Before</string>
              </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
             </widget>
            </item>
            <item>
             <widget class="QRadioButton" name="AfterRadio">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
              <property name="text">
               <string>After</string>
              </property>

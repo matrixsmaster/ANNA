@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include "brain.h"
+#include "clip.h"
 
 #ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -249,6 +250,8 @@ void AnnaBrain::setInput(string inp)
     else if (state != ANNA_READY) return;
 
     DBG("Input: '%s'\n",inp.c_str());
+    if (inp.empty()) return;
+
     auto emb = ::llama_tokenize(ctx,inp,true);
     if (emb.empty()) return;
     if ((int)emb.size() >= llama_n_ctx(ctx)) {
@@ -309,7 +312,6 @@ bool AnnaBrain::SaveState(std::string fname)
     int fd = open(fname.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
     if (fd < 0) {
         internal_error = myformat("Unable to open file '%s' for writing",fname.c_str());
-        state = ANNA_ERROR;
         return false;
     }
 
@@ -319,7 +321,6 @@ bool AnnaBrain::SaveState(std::string fname)
 
     if (ftruncate(fd,total)) {
         internal_error = myformat("Unable to truncate to %u\n",total);
-        state = ANNA_ERROR;
         return false;
     }
     uint8_t* data = (uint8_t*)mmap(NULL,total,PROT_WRITE,MAP_SHARED,fd,0);
@@ -327,7 +328,6 @@ bool AnnaBrain::SaveState(std::string fname)
     close(fd);
     if (data == MAP_FAILED) {
         internal_error = myformat("Unable to map WR memory for cache buffer (%u bytes)",total);
-        state = ANNA_ERROR;
         return false;
     }
 
@@ -360,7 +360,7 @@ bool AnnaBrain::LoadState(std::string fname)
 
     int fd = open(fname.c_str(),O_RDONLY|O_DIRECT);
     if (fd < 0) {
-        DBG("Cache file doesn't exist. This might or might not be an error.\n");
+        internal_error = myformat("Cache file doesn't exist.");
         return false;
     }
 
@@ -371,13 +371,11 @@ bool AnnaBrain::LoadState(std::string fname)
     struct stat sb;
     if (fstat(fd,&sb)) {
         internal_error = myformat("Unable to stat() cache buffer (err %d)",errno);
-        state = ANNA_ERROR;
         close(fd);
         return false;
     }
     if (sb.st_size != total) {
         internal_error = myformat("Unexpected cache file size! (expected %u, got %lu)",total,sb.st_size);
-        state = ANNA_ERROR;
         close(fd);
         return false;
     }
@@ -387,7 +385,6 @@ bool AnnaBrain::LoadState(std::string fname)
     close(fd);
     if (data == MAP_FAILED) {
         internal_error = myformat("Unable to map RD memory for cache buffer (%u bytes)",total);
-        state = ANNA_ERROR;
         return false;
     }
 
@@ -419,7 +416,7 @@ void AnnaBrain::anna_no_log(ggml_log_level level, const char * text, void * user
     // This is an empty function
 }
 
-std::string AnnaBrain::state_to_string(AnnaState s)
+std::string AnnaBrain::StateToStr(AnnaState s)
 {
     if (s < ANNA_NUM_STATES) return states_to_strings[s];
     else return "";
@@ -436,4 +433,59 @@ llama_batch AnnaBrain::batch_embeddings(int n_tokens, float* embeds, int n_past)
     r.all_pos_1 = 1;
 
     return r;
+}
+
+void AnnaBrain::setClipModelFile(std::string fn)
+{
+    clip_file = fn;
+}
+
+bool AnnaBrain::EmbedImage(string imgfile)
+{
+    if (clip_file.empty() || imgfile.empty()) {
+        internal_error = myformat("No image encoder or image path specified");
+        return false;
+    }
+
+    clip_ctx* ctx_clip = NULL;
+    try {
+        ctx_clip = clip_model_load(clip_file.c_str(),config.verbose_level);
+
+        // load and preprocess the image
+        clip_image_u8 img;
+        clip_image_f32 img_res;
+
+        if (!clip_image_load_from_file(imgfile.c_str(),&img)) {
+            internal_error = myformat("Unable to load image '%s'",imgfile.c_str());
+            clip_free(ctx_clip);
+            return false;
+        }
+
+        if (!clip_image_preprocess(ctx_clip,&img,&img_res,true)) {
+            internal_error = myformat("Unable to preprocess image\n");
+            clip_free(ctx_clip);
+            return false;
+        }
+
+        //int n_img_pos  = clip_n_patches(ctx_clip);
+        //int n_img_embd = clip_n_mmproj_embd(ctx_clip);
+        vector<float> emb;
+        emb.resize(clip_n_patches(ctx_clip) * clip_n_mmproj_embd(ctx_clip));
+        if (!clip_image_encode(ctx_clip,config.params.n_threads,&img_res,emb.data())) {
+            internal_error = myformat("Unable to encode image\n");
+            clip_free(ctx_clip);
+            return false;
+        }
+
+        DBG("Image loaded and encoded\n");
+        clip_free(ctx_clip);
+        ext_emb.insert(ext_emb.end(),emb.begin(),emb.end());
+
+    } catch (const std::exception & err) {
+        internal_error = myformat("Error creating image embeddings: %s\n",err.what());
+        if (ctx_clip) clip_free(ctx_clip);
+        return false;
+    }
+
+    return true;
 }

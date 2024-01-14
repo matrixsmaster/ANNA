@@ -15,6 +15,7 @@ MainWnd::MainWnd(QWidget *parent)
 
     on_actionSimple_view_triggered();
     DefaultConfig();
+    next_attach = nullptr;
     last_username = false;
 
     ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
@@ -130,6 +131,8 @@ void MainWnd::Generate()
         AnnaState s = brain->Processing(skips);
         switch (s) {
         case ANNA_READY:
+            if (ui->SamplingCheck->isChecked()) return;
+            // fall-thru
         case ANNA_TURNOVER:
             str = brain->getOutput();
             qDebug("str = %s\n",str.c_str());
@@ -148,7 +151,7 @@ void MainWnd::Generate()
             break;
         }
 
-        ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::state_to_string(s)));
+        ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
         ui->ChatLog->setMarkdown(old + QString::fromStdString(convo));
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
@@ -239,10 +242,36 @@ void MainWnd::on_SendButton_clicked()
     } else
         ForceAIName(""); // no newline, no enforcing
 
-    brain->setInput(usr.toStdString());
     ui->UserInput->clear();
-    ui->ChatLog->setMarkdown(log);
 
+    if (next_attach) {
+        if (ui->AfterRadio->isChecked()) {
+            // in after-text attachment scenario, force embeddings of the user input first, without any sampling
+            brain->setInput(usr.toStdString());
+            while (brain->Processing(true) == ANNA_PROCESSING) ;
+            usr.clear(); // don't duplicate the input
+        }
+
+        if (next_attach->txt.isEmpty()) {
+            // image attachment
+            if (!brain->EmbedImage(next_attach->fn.toStdString())) {
+                QMessageBox::critical(this,"ANNA",QString::fromStdString("Unable to embed image: "+brain->getError()));
+                return;
+            }
+        } else {
+            // text attachment
+            usr += next_attach->txt + "\n";
+        }
+
+        log += "\n* attached: " + next_attach->shrt + " *\n";
+        next_attach = nullptr;
+    }
+
+    ui->ChatLog->setMarkdown(log);
+    ui->ChatLog->moveCursor(QTextCursor::End);
+    ui->ChatLog->ensureCursorVisible();
+
+    brain->setInput(usr.toStdString());
     Generate();
 }
 
@@ -299,8 +328,11 @@ void MainWnd::on_AttachButton_clicked()
 {
     AnnaAttachment a;
     a.fn = QFileDialog::getOpenFileName(this,"Open file","","Text files (*.txt);;Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm)");
-    QFileInfo inf(a.fn);
+    if (a.fn.isEmpty()) return;
+
     QIcon ico;
+    QFileInfo inf(a.fn);
+    a.shrt = inf.baseName();
 
     if (a.pic.load(a.fn)) {
         // if we can load it as Pixmap, then it's an image
@@ -318,10 +350,11 @@ void MainWnd::on_AttachButton_clicked()
         ico.addPixmap(txtdoc);
     }
 
-    ui->AttachmentsList->addItem(inf.baseName());
+    ui->AttachmentsList->addItem(a.shrt);
     a.itm = ui->AttachmentsList->item(ui->AttachmentsList->count()-1);
     a.itm->setIcon(ico);
     attachs.push_back(a);
+    next_attach = &attachs.back();
 }
 
 
@@ -384,5 +417,19 @@ void MainWnd::on_actionClear_attachments_triggered()
 {
     ui->AttachmentsList->clear();
     attachs.clear();
+}
+
+
+void MainWnd::on_actionLoad_vision_encoder_triggered()
+{
+    if (!brain) {
+        QMessageBox::warning(this,"ANNA","You need to load the language model first.");
+        return;
+    }
+
+    QString fn = QFileDialog::getOpenFileName(this,"Open CLiP encoder file","","GGUF files (*.gguf)");
+    if (fn.isEmpty()) return;
+    brain->setClipModelFile(fn.toStdString());
+    ui->statusbar->showMessage("CLiP model file set to "+fn);
 }
 

@@ -19,7 +19,8 @@ SettingsDialog::~SettingsDialog()
 void SettingsDialog::showEvent(QShowEvent *event)
 {
     if (pconfig) {
-        pconfig->convert_eos_to_nl = ui->eosToNL->isChecked();
+        ui->eosToNL->setChecked(pconfig->convert_eos_to_nl);
+        ui->NLtoTurn->setChecked(pconfig->nl_to_turnover);
 
         gpt_params* p = &(pconfig->params);
         ui->Seed->setValue(p->seed);
@@ -55,6 +56,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
 void SettingsDialog::on_buttonBox_accepted()
 {
     pconfig->convert_eos_to_nl = ui->eosToNL->isChecked();
+    pconfig->nl_to_turnover = ui->NLtoTurn->isChecked();
 
     gpt_params* p = &(pconfig->params);
     p->seed = ui->Seed->value();

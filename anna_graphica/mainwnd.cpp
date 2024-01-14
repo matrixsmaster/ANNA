@@ -1,6 +1,7 @@
 #include "mainwnd.h"
 #include "ui_mainwnd.h"
 #include "settingsdialog.h"
+#include "aboutbox.h"
 
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
@@ -30,6 +31,7 @@ MainWnd::~MainWnd()
 void MainWnd::DefaultConfig()
 {
     config.convert_eos_to_nl = true;
+    config.nl_to_turnover = false;
     config.verbose_level = 1;
 
     gpt_params* p = &config.params;
@@ -211,7 +213,7 @@ void MainWnd::on_ModelFindButton_clicked()
     LoadLLM(fn);
 }
 
-
+#define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
 void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
@@ -220,16 +222,21 @@ void MainWnd::on_SendButton_clicked()
         return;
     }
 
-    QString usr, line, log = ui->ChatLog->toMarkdown();
+    QString usr, line, log;
     // TODO: fix visible/invisible newlines merging - for now it's quite inaccurate!
-    if (!ui->ChatLog->toPlainText().endsWith("\n")) {
+    if (!ui->ChatLog->toMarkdown().endsWith("\n")) {
         usr = "\n";
-        if (!ui->NewlineCheck->isChecked()) log += "\n**";
-        else log += "\n";
+        log = "\n";
     }
+    log += "\n**";
 
-    if (last_username) last_username = false;
-    else line = ui->UserNameBox->currentText();
+    if (last_username) {
+        usr.clear(); // no need for initial newline
+        log += ui->UserNameBox->currentText(); // we still need to put it into the log
+        last_username = false;
+    } else
+        line = ui->UserNameBox->currentText();
+
     line += " " + ui->UserInput->toPlainText();
     usr += line;
     log += line;
@@ -239,18 +246,22 @@ void MainWnd::on_SendButton_clicked()
         usr += "\n";
         log += "**\n";
         ForceAIName(ui->AINameBox->currentText());
-    } else
+    } else {
+        log += "** ";
         ForceAIName(""); // no newline, no enforcing
+    }
 
     ui->UserInput->clear();
 
     if (next_attach) {
         if (ui->AfterRadio->isChecked()) {
-            // in after-text attachment scenario, force embeddings of the user input first, without any sampling
+            // in after-text attachment scenario, force embeddings and evaluation of the user input first, without any sampling
             brain->setInput(usr.toStdString());
             while (brain->Processing(true) == ANNA_PROCESSING) ;
             usr.clear(); // don't duplicate the input
-        }
+            log += "\n_attached: " + next_attach->shrt + "_\n";
+        } else
+            log = " _attached: " + next_attach->shrt + "_\n" + log;
 
         if (next_attach->txt.isEmpty()) {
             // image attachment
@@ -263,13 +274,17 @@ void MainWnd::on_SendButton_clicked()
             usr += next_attach->txt + "\n";
         }
 
-        log += "\n* attached: " + next_attach->shrt + " *\n";
         next_attach = nullptr;
     }
 
-    ui->ChatLog->setMarkdown(log);
+    DBG("usr = '%s'\n",usr.toStdString().c_str());
+    DBG("log = '%s'\n",log.toStdString().c_str());
+
+    ui->ChatLog->setMarkdown(ui->ChatLog->toMarkdown() + log);
     ui->ChatLog->moveCursor(QTextCursor::End);
     ui->ChatLog->ensureCursorVisible();
+    ui->statusbar->showMessage("Processing...");
+    qApp->processEvents();
 
     brain->setInput(usr.toStdString());
     Generate();
@@ -431,5 +446,23 @@ void MainWnd::on_actionLoad_vision_encoder_triggered()
     if (fn.isEmpty()) return;
     brain->setClipModelFile(fn.toStdString());
     ui->statusbar->showMessage("CLiP model file set to "+fn);
+}
+
+
+void MainWnd::on_actionPlain_text_triggered()
+{
+    QString fn = QFileDialog::getSaveFileName(this,"Save dialog","","Text files (*.txt)");
+    if (fn.isEmpty()) return;
+    if (SaveFile(fn,ui->ChatLog->toPlainText()))
+        ui->statusbar->showMessage("Chat log saved as plain text document.");
+    else
+        ui->statusbar->showMessage("Unable to write output file.");
+}
+
+
+void MainWnd::on_actionAbout_triggered()
+{
+    AboutBox box;
+    box.exec();
 }
 

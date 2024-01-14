@@ -74,6 +74,10 @@ private slots:
 
     void on_actionLoad_vision_encoder_triggered();
 
+    void on_actionPlain_text_triggered();
+
+    void on_actionAbout_triggered();
+
 private:
     Ui::MainWnd *ui;
     AnnaConfig config;

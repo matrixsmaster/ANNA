@@ -12,11 +12,11 @@
 #include "brain.h"
 #include "clip.h"
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
-#else
-#define DBG(...)
-#endif
+//#else
+//#define DBG(...)
+//#endif
 
 using namespace std;
 
@@ -197,6 +197,10 @@ void AnnaBrain::Generate()
     // usual sampling
     if (tok < 0) tok = llama_sampling_sample(ctx_sp,ctx,NULL);
 
+    // check if we should stop at new line
+    if (config.nl_to_turnover && tok == llama_token_nl(ctx))
+        state = ANNA_TURNOVER;
+
     // Deal with EOS token
     if (tok == llama_token_eos(ctx)) {
         DBG("*** EOS detected ***\n");
@@ -282,7 +286,7 @@ void AnnaBrain::Undo()
 
 void AnnaBrain::setPrefix(string str)
 {
-    if (state != ANNA_READY) return;
+    if (state != ANNA_READY && state != ANNA_TURNOVER) return;
 
     if (str.empty()) {
         DBG("Token enforcement removed\n");

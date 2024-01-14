@@ -6,6 +6,7 @@ AboutBox::AboutBox(QWidget *parent) :
     ui(new Ui::AboutBox)
 {
     ui->setupUi(this);
+    ui->copyright->setText(COPYRIGHT);
 }
 
 AboutBox::~AboutBox()

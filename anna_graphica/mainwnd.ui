@@ -98,6 +98,11 @@
             </item>
             <item>
              <property name="text">
+              <string>ASSISTANT:</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
               <string>&lt;none&gt;</string>
              </property>
             </item>

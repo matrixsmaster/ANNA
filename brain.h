@@ -6,7 +6,7 @@
 #include "common.h"
 #include "llama.h"
 
-#define ANNA_VERSION "0.6.1"
+#define ANNA_VERSION "0.6.2"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 
@@ -24,6 +24,7 @@ struct AnnaConfig
 {
     int verbose_level;
     bool convert_eos_to_nl;
+    bool nl_to_turnover;
     gpt_params params;
 };
 

@@ -2,7 +2,7 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-CONFIG += c++2a
+CONFIG += c++20
 
 SOURCES += \
     aboutbox.cpp \
@@ -48,7 +48,7 @@ win32 {
         ../unicode.h
 
     CWARNS = -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter
-    CXXWARNS = -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter -Wno-format-truncation -Wno-array-bounds
+    CXXWARNS = -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter -Wno-format-truncation -Wno-array-bounds -Wno-unused-result
 
     QMAKE_CFLAGS += $$CWARNS
     QMAKE_CXXFLAGS += $$CXXWARNS
@@ -62,9 +62,9 @@ QMAKE_CXXFLAGS_DEBUG += -O0 -g
 QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -Ofast
 
 linux {
-    DEFINES += GGML_USE_CUBLAS
+    #DEFINES += GGML_USE_CUBLAS
     LIBS += -L.. -lanna
-    LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -lcublas -lculibos -lcudart -lcublasLt
+    #LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -lcublas -lculibos -lcudart -lcublasLt
 }
 
 INCLUDEPATH += $$PWD/../

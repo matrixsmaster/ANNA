@@ -126,8 +126,8 @@ void MainWnd::ForceAIName(const QString &nm)
 void MainWnd::Generate()
 {
     bool skips = false;
-    std::string str,convo;
-    QString old = ui->ChatLog->toMarkdown();
+    std::string str;
+    QString convo,old = ui->ChatLog->toMarkdown();
     stop = false;
 
     while (brain && !stop) {
@@ -139,12 +139,12 @@ void MainWnd::Generate()
         case ANNA_TURNOVER:
             str = brain->getOutput();
             qDebug("str = %s\n",str.c_str());
-            convo += str;
-            if (convo.ends_with(ui->UserNameBox->currentText().toStdString())) {
+            convo += QString::fromStdString(str);
+            if (convo.endsWith(ui->UserNameBox->currentText())) {
                 last_username = true;
                 s = ANNA_TURNOVER;
-                convo.erase(convo.rfind(ui->UserNameBox->currentText().toStdString()));
-                qDebug("convo = %s\n",convo.c_str());
+                convo.chop(ui->UserNameBox->currentText().length());
+                qDebug("convo = %s\n",convo.toStdString().c_str());
             }
             break;
         case ANNA_ERROR:
@@ -155,14 +155,14 @@ void MainWnd::Generate()
         }
 
         ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
-        ui->ChatLog->setMarkdown(old + QString::fromStdString(convo));
+        ui->ChatLog->setMarkdown(old + convo);
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
         if (s == ANNA_TURNOVER) break;
         qApp->processEvents();
     }
 
-    ui->ChatLog->setMarkdown(old + QString::fromStdString(convo) + "\n");
+    ui->ChatLog->setMarkdown(old + convo + "\n");
     ui->ChatLog->moveCursor(QTextCursor::End);
     ui->ChatLog->ensureCursorVisible();
 }
@@ -391,6 +391,8 @@ void MainWnd::on_actionNew_dialog_triggered()
     while (brain->Processing(true) == ANNA_PROCESSING) ;
     ui->statusbar->showMessage("Brain has been reset and is now ready.");
 
+    ui->UserInput->clear();
+    ui->ChatLog->clear();
     last_username = false;
 }
 

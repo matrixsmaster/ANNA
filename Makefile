@@ -1,7 +1,7 @@
 #CC=clang-14
 #CXX=clang++-14
-LLAMA_CUBLAS=1
-#LLAMA_DEBUG=1
+#LLAMA_CUBLAS=1
+LLAMA_DEBUG=1
 
 all: anna libanna.a
 .PHONY: all
@@ -97,7 +97,7 @@ MK_CFLAGS    += -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow
 				-Wmissing-prototypes -Werror=implicit-int -Wno-unused-function \
 				-Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter
 MK_CXXFLAGS  += -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar \
-				-Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter
+				-Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter -Wno-unused-result
 
 ifdef LLAMA_CUBLAS
 	MK_CPPFLAGS  += -DGGML_USE_CUBLAS -I/usr/local/cuda/include -I/opt/cuda/include -I$(CUDA_PATH)/targets/x86_64-linux/include
@@ -305,7 +305,7 @@ brain.o: brain.cpp brain.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -vrf *.o tests/*.o *.so *.dll benchmark-matmult build-info.h *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
+	rm -vrf *.o tests/*.o *.so *.dll benchmark-matmult build-info.h *.dot libanna.a $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
 
 anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -std=c++20 $(filter-out %.h,$^) -o $@ $(LDFLAGS)

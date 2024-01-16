@@ -323,6 +323,7 @@ bool AnnaBrain::SaveState(std::string fname)
     uint32_t csize = llama_n_ctx(ctx) * sizeof(llama_token);
     uint32_t total = sizeof(int) + csize + 4 + dsize;
 
+#ifdef ANNA_USE_MMAP
     if (ftruncate(fd,total)) {
         internal_error = myformat("Unable to truncate to %u\n",total);
         return false;
@@ -354,6 +355,25 @@ bool AnnaBrain::SaveState(std::string fname)
     llama_copy_state_data(ctx,ptr);
     munmap(data,total);
 
+#else
+    uint8_t* sbuf = (uint8_t*)malloc(dsize);
+    if (!sbuf) {
+        internal_error = myformat("Unable to allocate temporary buffer for the state data (%u bytes)",dsize);
+        close(fd);
+        return false;
+    }
+    llama_copy_state_data(ctx,sbuf);
+    ctx_sp->prev.resize(llama_n_ctx(ctx)); // make context buffer size constant
+
+    write(fd,&n_past,sizeof(int)); // 1. n of used tokens
+    write(fd,ctx_sp->prev.data(),csize); // 2. context tokens
+    write(fd,&dsize,4); // 3. state data size
+    write(fd,sbuf,dsize); // 4. state data
+
+    free(sbuf);
+    close(fd);
+#endif
+
     DBG("Cache (%u bytes) saved to %s\n",total,fname.c_str());
     return true;
 }
@@ -362,7 +382,11 @@ bool AnnaBrain::LoadState(std::string fname)
 {
     if (state == ANNA_NOT_INITIALIZED) return false;
 
+#ifdef ANNA_USE_MMAP
     int fd = open(fname.c_str(),O_RDONLY|O_DIRECT);
+#else
+    int fd = open(fname.c_str(),O_RDONLY);
+#endif
     if (fd < 0) {
         internal_error = myformat("Cache file doesn't exist.");
         return false;
@@ -384,6 +408,7 @@ bool AnnaBrain::LoadState(std::string fname)
         return false;
     }
 
+#ifdef ANNA_USE_MMAP
     uint8_t* data = (uint8_t*)mmap(NULL,total,PROT_READ,MAP_PRIVATE,fd,0);
 
     close(fd);
@@ -410,6 +435,31 @@ bool AnnaBrain::LoadState(std::string fname)
     // 4. load state data
     llama_set_state_data(ctx,ptr);
     munmap(data,total);
+
+#else
+    uint8_t* sbuf = (uint8_t*)malloc(dsize);
+    if (!sbuf) {
+        internal_error = myformat("Unable to allocate temporary buffer for the state data (%u bytes)",dsize);
+        close(fd);
+        return false;
+    }
+    ctx_sp->prev.resize(llama_n_ctx(ctx)); // make context buffer size constant
+
+    ssize_t np = read(fd,&n_past,sizeof(int)); // 1. n of used tokens
+    ssize_t nc = read(fd,ctx_sp->prev.data(),csize); // 2. context tokens
+    ssize_t ns = read(fd,&dsize,4); // 3. state data size
+    ssize_t nd = read(fd,sbuf,dsize); // 4. state data
+
+    if (np+nc+ns+nd == total) llama_set_state_data(ctx,sbuf);
+
+    free(sbuf);
+    close(fd);
+
+    if (np+nc+ns+nd != total) {
+        internal_error = myformat("Data read failed: %lu,%lu,%lu,%lu -> %d\n",np,nc,ns,nd,errno);
+        return false;
+    }
+#endif
 
     DBG("Cache (%u bytes) loaded from %s\n",dsize,fname.c_str());
     return true;

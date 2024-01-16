@@ -5,6 +5,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++20
 
 SOURCES += \
+    ../brain.cpp \
     aboutbox.cpp \
     main.cpp \
     mainwnd.cpp \
@@ -25,7 +26,6 @@ DEFINES += _XOPEN_SOURCE=600 _GNU_SOURCE GGML_USE_K_QUANTS
 
 win32 {
     SOURCES += \
-        ../brain.cpp \
         ../clip.cpp \
         ../common.cpp \
         ../ggml-alloc.c \
@@ -62,9 +62,9 @@ QMAKE_CXXFLAGS_DEBUG += -O0 -g
 QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -Ofast
 
 linux {
-    #DEFINES += GGML_USE_CUBLAS
+    DEFINES += GGML_USE_CUBLAS ANNA_USE_MMAP
     LIBS += -L.. -lanna
-    #LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -lcublas -lculibos -lcudart -lcublasLt
+    LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -lcublas -lculibos -lcudart -lcublasLt
 }
 
 INCLUDEPATH += $$PWD/../

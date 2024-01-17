@@ -510,3 +510,12 @@ void MainWnd::on_actionLoad_state_triggered()
         ui->statusbar->showMessage("Unable to load model state!");
 }
 
+
+void MainWnd::on_actionShow_prompt_triggered()
+{
+    QString r = QString::fromStdString(config.params.prompt) + "\n\n" + ui->ChatLog->toMarkdown();
+    ui->ChatLog->setMarkdown(r);
+    ui->ChatLog->moveCursor(QTextCursor::End);
+    ui->ChatLog->ensureCursorVisible();
+}
+

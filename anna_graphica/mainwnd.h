@@ -86,6 +86,8 @@ private slots:
 
     void on_actionLoad_state_triggered();
 
+    void on_actionShow_prompt_triggered();
+
 private:
     Ui::MainWnd *ui;
     AnnaConfig config;

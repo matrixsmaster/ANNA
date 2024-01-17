@@ -301,6 +301,7 @@
     <addaction name="actionAdvanced_view"/>
     <addaction name="actionProfessional_view"/>
     <addaction name="separator"/>
+    <addaction name="actionShow_prompt"/>
     <addaction name="actionClear_attachments"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -436,6 +437,11 @@
   <action name="actionClear_attachments">
    <property name="text">
     <string>Clear attachments</string>
+   </property>
+  </action>
+  <action name="actionShow_prompt">
+   <property name="text">
+    <string>Show prompt</string>
    </property>
   </action>
  </widget>

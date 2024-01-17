@@ -22,9 +22,11 @@ FORMS += \
     mainwnd.ui \
     settingsdialog.ui
 
-DEFINES += _XOPEN_SOURCE=600 _GNU_SOURCE GGML_USE_K_QUANTS
+DEFINES += _XOPEN_SOURCE=600 GGML_USE_K_QUANTS
 
 win32 {
+    DEFINES += _WIN32_WINNT=0x602
+
     SOURCES += \
         ../clip.cpp \
         ../common.cpp \
@@ -52,17 +54,20 @@ win32 {
 
     QMAKE_CFLAGS += $$CWARNS
     QMAKE_CXXFLAGS += $$CXXWARNS
+
+    QMAKE_CFLAGS += -fPIC -march=haswell
+    QMAKE_CXXFLAGS += -fPIC -march=haswell
 }
 
-QMAKE_CFLAGS += -fPIC -march=native -mtune=native
-QMAKE_CXXFLAGS += -fPIC -march=native -mtune=native
 QMAKE_CFLAGS_DEBUG += -O0 -g
 QMAKE_CFLAGS_RELEASE += -DNDEBUG -Ofast
 QMAKE_CXXFLAGS_DEBUG += -O0 -g
 QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -Ofast
 
 linux {
-    DEFINES += GGML_USE_CUBLAS ANNA_USE_MMAP
+    DEFINES += _GNU_SOURCE GGML_USE_CUBLAS ANNA_USE_MMAP
+    QMAKE_CFLAGS += -fPIC -march=native -mtune=native
+    QMAKE_CXXFLAGS += -fPIC -march=native -mtune=native
     LIBS += -L.. -lanna
     LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -lcublas -lculibos -lcudart -lcublasLt
 }

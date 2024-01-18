@@ -36,7 +36,8 @@ public:
 
     AnnaState getState()                    { return state; }
     const std::string & getError()          { return internal_error; }
-    //void atReady(AnnaCallback cb);
+    int getTokensUsed()                     { return n_past; }
+    uint32_t getSeed()                      { return config.params.seed; }
 
     std::string getOutput();
     void setInput(std::string inp);

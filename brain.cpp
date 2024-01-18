@@ -38,6 +38,10 @@ AnnaBrain::AnnaBrain(AnnaConfig* cfg)
     if (!cfg) return; // leave in partially initialized state, so it can be safely deleted later
     config = *cfg;
 
+    // prepare config
+    if (!config.params.seed) config.params.seed = time(NULL);
+    config.params.n_threads_batch = config.params.n_threads;
+
     // set logging if info is requested
     llama_log_set((cfg->verbose_level? NULL:anna_no_log),NULL);
     //cublas_enable_log(g_info); // FIXME: implement properly!

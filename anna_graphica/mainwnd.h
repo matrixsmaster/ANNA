@@ -46,6 +46,7 @@ public:
     bool SaveFile(const QString& fn, const QString& str);
     void LoadLLM(const QString& fn);
     void ForceAIName(const QString& nm);
+    void ProcessInput(std::string str);
     void Generate();
 
 protected:

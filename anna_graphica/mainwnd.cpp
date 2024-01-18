@@ -133,8 +133,8 @@ void MainWnd::LoadLLM(const QString &fn)
     qApp->processEvents();
 
     // Process initial prompt
-    brain->setInput(config.params.prompt);
-    while (brain->Processing(true) == ANNA_PROCESSING) ;
+    ProcessInput(config.params.prompt);
+    ui->CurrentSeed->display((int)brain->getSeed());
     ui->statusbar->showMessage("Brain is ready");
 }
 
@@ -150,6 +150,18 @@ void MainWnd::ForceAIName(const QString &nm)
 
     brain->setPrefix(nm.toStdString());
     qDebug("AI prefix set to %s",nm.toLatin1().data());
+}
+
+void MainWnd::ProcessInput(std::string str)
+{
+    if (!brain) return;
+
+    brain->setInput(str);
+    while (brain->Processing(true) == ANNA_PROCESSING) {
+        ui->ContextFull->setMaximum(config.params.n_ctx);
+        ui->ContextFull->setValue(brain->getTokensUsed());
+        qApp->processEvents();
+    }
 }
 
 void MainWnd::Generate()
@@ -187,6 +199,8 @@ void MainWnd::Generate()
         ui->ChatLog->setMarkdown(old + convo);
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
+        ui->ContextFull->setMaximum(config.params.n_ctx);
+        ui->ContextFull->setValue(brain->getTokensUsed());
         if (s == ANNA_TURNOVER) break;
         qApp->processEvents();
     }
@@ -202,6 +216,8 @@ void MainWnd::on_actionSimple_view_triggered()
     ui->AINameBox->hide();
     ui->AttachmentsList->hide();
     ui->ContextFull->hide();
+    ui->seedlabel->hide();
+    ui->CurrentSeed->hide();
     ui->UserNameBox->hide();
     ui->UserInputOptions->hide();
     ui->statusbar->showMessage("Hint: Hit Enter to submit your text");
@@ -213,6 +229,8 @@ void MainWnd::on_actionAdvanced_view_triggered()
     ui->AINameBox->show();
     ui->AttachmentsList->show();
     ui->ContextFull->show();
+    ui->seedlabel->hide();
+    ui->CurrentSeed->hide();
     ui->UserNameBox->show();
     ui->UserInputOptions->show();
     ui->SamplingCheck->hide();
@@ -228,6 +246,8 @@ void MainWnd::on_actionProfessional_view_triggered()
     ui->AINameBox->show();
     ui->AttachmentsList->show();
     ui->ContextFull->show();
+    ui->seedlabel->show();
+    ui->CurrentSeed->show();
     ui->UserNameBox->show();
     ui->UserInputOptions->show();
     ui->SamplingCheck->show();
@@ -289,8 +309,7 @@ void MainWnd::on_SendButton_clicked()
     if (next_attach) {
         if (ui->AfterRadio->isChecked()) {
             // in after-text attachment scenario, force embeddings and evaluation of the user input first, without any sampling
-            brain->setInput(usr.toStdString());
-            while (brain->Processing(true) == ANNA_PROCESSING) ;
+            ProcessInput(usr.toStdString());
             usr.clear(); // don't duplicate the input
             log += "\n_attached: " + next_attach->shrt + "_\n";
         } else
@@ -419,8 +438,7 @@ void MainWnd::on_actionNew_dialog_triggered()
     ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
     qApp->processEvents();
 
-    brain->setInput(config.params.prompt);
-    while (brain->Processing(true) == ANNA_PROCESSING) ;
+    ProcessInput(config.params.prompt);
     ui->statusbar->showMessage("Brain has been reset and is now ready.");
 
     ui->UserInput->clear();

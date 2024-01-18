@@ -209,6 +209,9 @@
           <property name="value">
            <number>0</number>
           </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
           <property name="format">
            <string notr="true">Context memory: %p% (%v / %m)</string>
           </property>
@@ -454,15 +457,24 @@
    <property name="text">
     <string>Simple view</string>
    </property>
+   <property name="shortcut">
+    <string>F6</string>
+   </property>
   </action>
   <action name="actionAdvanced_view">
    <property name="text">
     <string>Advanced view</string>
    </property>
+   <property name="shortcut">
+    <string>F7</string>
+   </property>
   </action>
   <action name="actionProfessional_view">
    <property name="text">
     <string>Professional view</string>
+   </property>
+   <property name="shortcut">
+    <string>F8</string>
    </property>
   </action>
   <action name="actionLoad_model">
@@ -484,6 +496,9 @@
   <action name="actionLoad_initial_prompt">
    <property name="text">
     <string>Load initial prompt</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
    </property>
   </action>
   <action name="actionSettings">
@@ -520,6 +535,14 @@
   <action name="actionShow_prompt">
    <property name="text">
     <string>Show prompt</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+P</string>
+   </property>
+  </action>
+  <action name="actionFix_markdown">
+   <property name="text">
+    <string>Fix markdown</string>
    </property>
   </action>
  </widget>

@@ -44,16 +44,6 @@ public:
     MainWnd(QWidget *parent = nullptr);
     ~MainWnd();
 
-    void DefaultConfig();
-    void LoadSettings();
-    void SaveSettings();
-    bool LoadFile(const QString& fn, QString& str);
-    bool SaveFile(const QString& fn, const QString& str);
-    void LoadLLM(const QString& fn);
-    void ForceAIName(const QString& nm);
-    void ProcessInput(std::string str);
-    void Generate();
-
 protected:
     void closeEvent(QCloseEvent* event) override;
     bool eventFilter(QObject* obj, QEvent* event) override;
@@ -109,9 +99,23 @@ private:
     AnnaGuiSettings guiconfig;
     AnnaBrain* brain;
 
+    QString cur_chat;
     std::list<AnnaAttachment> attachs;
     AnnaAttachment* next_attach;
     bool last_username;
     bool stop;
+
+    void DefaultConfig();
+    void LoadSettings();
+    void SaveSettings();
+    bool LoadFile(const QString& fn, QString& str);
+    bool SaveFile(const QString& fn, const QString& str);
+    void LoadLLM(const QString& fn);
+    void FixMarkdown(QString& s);
+    void ForceAIName(const QString& nm);
+    void ProcessInput(std::string str);
+    void Generate();
+
+    QString GetSaveFileName(const QString& title, const QString& filter, const QString& ext);
 };
 #endif // MAINWND_H

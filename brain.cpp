@@ -183,8 +183,9 @@ void AnnaBrain::Evaluate()
 
 void AnnaBrain::Generate()
 {
-    if (state != ANNA_READY) return;
+    if (state != ANNA_READY && state != ANNA_TURNOVER) return;
     DBG("GENERATE\n");
+    state = ANNA_READY;
 
     llama_token tok = -1;
 

@@ -176,7 +176,7 @@ void MainWnd::Generate()
 {
     bool skips = false;
     std::string str;
-    QString convo,old = ui->ChatLog->toMarkdown();
+    QString convo;
     stop = false;
 
     while (brain && !stop) {
@@ -204,7 +204,7 @@ void MainWnd::Generate()
         }
 
         ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
-        ui->ChatLog->setMarkdown(old + convo);
+        ui->ChatLog->setMarkdown(cur_chat + convo);
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
         ui->ContextFull->setMaximum(config.params.n_ctx);
@@ -213,11 +213,19 @@ void MainWnd::Generate()
         qApp->processEvents();
     }
 
-    ui->ChatLog->setMarkdown(old + convo + "\n");
+    cur_chat += convo + "\n";
+    ui->ChatLog->setMarkdown(cur_chat);
     ui->ChatLog->moveCursor(QTextCursor::End);
     ui->ChatLog->ensureCursorVisible();
 }
 
+QString MainWnd::GetSaveFileName(const QString &title, const QString &filter, const QString &ext)
+{
+    QString fn = QFileDialog::getSaveFileName(this,title,"",filter);
+    if (fn.isEmpty()) return fn;
+    if (!fn.endsWith(ext)) fn += ext;
+    return fn;
+}
 
 void MainWnd::on_actionSimple_view_triggered()
 {
@@ -228,7 +236,6 @@ void MainWnd::on_actionSimple_view_triggered()
     ui->UserInputOptions->hide();
     seed_label->hide();
 }
-
 
 void MainWnd::on_actionAdvanced_view_triggered()
 {
@@ -244,7 +251,6 @@ void MainWnd::on_actionAdvanced_view_triggered()
     seed_label->show();
 }
 
-
 void MainWnd::on_actionProfessional_view_triggered()
 {
     ui->AINameBox->show();
@@ -259,7 +265,6 @@ void MainWnd::on_actionProfessional_view_triggered()
     seed_label->show();
 }
 
-
 void MainWnd::on_ModelFindButton_clicked()
 {
     QString fn = QFileDialog::getOpenFileName(this,"Open LLM file",ui->ModelPath->text(),"GGUF files (*.gguf)");
@@ -268,18 +273,12 @@ void MainWnd::on_ModelFindButton_clicked()
     LoadLLM(fn);
 }
 
-
 void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
-    if (ui->UserInput->toPlainText().isEmpty()) {
-        Generate();
-        return;
-    }
 
     QString usr, line, log;
-    // TODO: fix visible/invisible newlines merging - for now it's quite inaccurate!
-    if (!ui->ChatLog->toMarkdown().endsWith("\n")) {
+    if (!cur_chat.endsWith("\n")) {
         usr = "\n";
         log = "\n";
     }
@@ -299,11 +298,17 @@ void MainWnd::on_SendButton_clicked()
     if (!ui->NewlineCheck->isChecked()) {
         // normal behavior
         usr += "\n";
-        log += "**\n";
+        log += "**\n\n";
         ForceAIName(ui->AINameBox->currentText());
     } else {
         log += "** ";
         ForceAIName(""); // no newline, no enforcing
+    }
+
+    // no input -> just generate
+    if (ui->UserInput->toPlainText().isEmpty()) {
+        Generate();
+        return;
     }
 
     ui->UserInput->clear();
@@ -334,7 +339,8 @@ void MainWnd::on_SendButton_clicked()
     qDebug("usr = '%s'\n",usr.toStdString().c_str());
     qDebug("log = '%s'\n",log.toStdString().c_str());
 
-    ui->ChatLog->setMarkdown(ui->ChatLog->toMarkdown() + log);
+    cur_chat += log;
+    ui->ChatLog->setMarkdown(cur_chat);
     ui->ChatLog->moveCursor(QTextCursor::End);
     ui->ChatLog->ensureCursorVisible();
     ui->statusbar->showMessage("Processing...");
@@ -343,7 +349,6 @@ void MainWnd::on_SendButton_clicked()
     brain->setInput(usr.toStdString());
     Generate();
 }
-
 
 void MainWnd::closeEvent(QCloseEvent* event)
 {
@@ -358,7 +363,6 @@ void MainWnd::closeEvent(QCloseEvent* event)
     } else
         event->ignore();
 }
-
 
 bool MainWnd::eventFilter(QObject* obj, QEvent* event)
 {
@@ -396,7 +400,6 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
     return QObject::eventFilter(obj, event);
 }
 
-
 void MainWnd::on_AttachButton_clicked()
 {
     AnnaAttachment a;
@@ -430,45 +433,41 @@ void MainWnd::on_AttachButton_clicked()
     next_attach = &attachs.back();
 }
 
-
 void MainWnd::on_actionLoad_model_triggered()
 {
     on_ModelFindButton_clicked();
 }
 
-
 void MainWnd::on_actionNew_dialog_triggered()
 {
-    if (!brain) return;
-    brain->Reset();
-    ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
-    qApp->processEvents();
+    if (brain) {
+        brain->Reset();
+        ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
+        qApp->processEvents();
 
-    ProcessInput(config.params.prompt);
-    ui->statusbar->showMessage("Brain has been reset and is now ready.");
+        ProcessInput(config.params.prompt);
+        ui->statusbar->showMessage("Brain has been reset and is now ready.");
+    }
 
     ui->UserInput->clear();
     ui->ChatLog->clear();
     last_username = false;
 }
 
-
 void MainWnd::on_actionQuit_triggered()
 {
     close();
 }
 
-
 void MainWnd::on_actionMarkdown_triggered()
 {
-    QString fn = QFileDialog::getSaveFileName(this,"Save dialog","","Markdown files (*.md);;Text files (*.txt)");
+    QString fn = GetSaveFileName("Save dialog","Markdown files (*.md);;Text files (*.txt)",".md");
     if (fn.isEmpty()) return;
-    if (SaveFile(fn,ui->ChatLog->toMarkdown()))
+    if (SaveFile(fn,cur_chat))
         ui->statusbar->showMessage("Chat log saved as markdown document.");
     else
         ui->statusbar->showMessage("Unable to write output file.");
 }
-
 
 void MainWnd::on_actionLoad_initial_prompt_triggered()
 {
@@ -478,7 +477,6 @@ void MainWnd::on_actionLoad_initial_prompt_triggered()
     config.params.prompt = np.toStdString();
 }
 
-
 void MainWnd::on_actionSettings_triggered()
 {
     SettingsDialog sdlg;
@@ -486,13 +484,11 @@ void MainWnd::on_actionSettings_triggered()
     sdlg.exec();
 }
 
-
 void MainWnd::on_actionClear_attachments_triggered()
 {
     ui->AttachmentsList->clear();
     attachs.clear();
 }
-
 
 void MainWnd::on_actionLoad_vision_encoder_triggered()
 {
@@ -507,10 +503,9 @@ void MainWnd::on_actionLoad_vision_encoder_triggered()
     ui->statusbar->showMessage("CLiP model file set to "+fn);
 }
 
-
 void MainWnd::on_actionPlain_text_triggered()
 {
-    QString fn = QFileDialog::getSaveFileName(this,"Save dialog","","Text files (*.txt)");
+    QString fn = GetSaveFileName("Save dialog","Text files (*.txt)",".txt");
     if (fn.isEmpty()) return;
     if (SaveFile(fn,ui->ChatLog->toPlainText()))
         ui->statusbar->showMessage("Chat log saved as plain text document.");
@@ -518,23 +513,20 @@ void MainWnd::on_actionPlain_text_triggered()
         ui->statusbar->showMessage("Unable to write output file.");
 }
 
-
 void MainWnd::on_actionAbout_triggered()
 {
     AboutBox box;
     box.exec();
 }
 
-
 void MainWnd::on_pushButton_clicked()
 {
     stop = true;
 }
 
-
 void MainWnd::on_actionHTML_triggered()
 {
-    QString fn = QFileDialog::getSaveFileName(this,"Save dialog","","HTML files (*.html *.htm)");
+    QString fn = GetSaveFileName("Save dialog","HTML files (*.html *.htm)",".html");
     if (fn.isEmpty()) return;
     if (SaveFile(fn,ui->ChatLog->toHtml()))
         ui->statusbar->showMessage("Chat log saved as HTML document.");
@@ -542,11 +534,10 @@ void MainWnd::on_actionHTML_triggered()
         ui->statusbar->showMessage("Unable to write output file.");
 }
 
-
 void MainWnd::on_actionSave_state_triggered()
 {
     if (!brain) return;
-    QString fn = QFileDialog::getSaveFileName(this,"Save model state","","ANNA save states (*.anna)");
+    QString fn = GetSaveFileName("Save model state","ANNA save states (*.anna)",".anna");
     if (fn.isEmpty()) return;
     if (brain->SaveState(fn.toStdString()))
         ui->statusbar->showMessage("Model state has been saved to "+fn);
@@ -554,11 +545,10 @@ void MainWnd::on_actionSave_state_triggered()
         ui->statusbar->showMessage("Unable to save model state!");
 }
 
-
 void MainWnd::on_actionLoad_state_triggered()
 {
     if (!brain) return;
-    QString fn = QFileDialog::getOpenFileName(this,"Load model state","","ANNA save states (*.anna)");
+    QString fn = QFileDialog::getOpenFileName(this,"Load model state","","ANNA save states (*.anna);;All files (*.*)");
     if (fn.isEmpty()) return;
     if (brain->LoadState(fn.toStdString()))
         ui->statusbar->showMessage("Model state has been loaded from "+fn);
@@ -566,12 +556,41 @@ void MainWnd::on_actionLoad_state_triggered()
         ui->statusbar->showMessage("Unable to load model state!");
 }
 
-
 void MainWnd::on_actionShow_prompt_triggered()
 {
-    QString r = QString::fromStdString(config.params.prompt) + "\n\n" + ui->ChatLog->toMarkdown();
-    ui->ChatLog->setMarkdown(r);
+    QString r = QString::fromStdString(config.params.prompt);
+    if (guiconfig.md_fix) FixMarkdown(r);
+    cur_chat = r + "\n\n" + cur_chat;
+    ui->ChatLog->setMarkdown(cur_chat);
     ui->ChatLog->moveCursor(QTextCursor::End);
     ui->ChatLog->ensureCursorVisible();
 }
 
+void MainWnd::FixMarkdown(QString& s)
+{
+    int fsm = 0;
+    for (int i = 0; i < s.length(); i++) {
+        char n = 0;
+        switch (fsm) {
+        case 0:
+            if (s[i].isPrint()) {
+                switch (s[i].toLatin1()) {
+                case '#': n = '\\'; break;
+                default: fsm++;
+                }
+            }
+            break;
+        case 1:
+            if (s[i] == '\n') fsm++;
+            break;
+        case 2:
+            if (s[i] != '\n') n = '\n';
+            fsm = 0;
+            break;
+        }
+        if (n) {
+            s.insert(i,n);
+            i++;
+        }
+    }
+}

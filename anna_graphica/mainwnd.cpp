@@ -352,7 +352,7 @@ void MainWnd::on_SendButton_clicked()
 
 void MainWnd::closeEvent(QCloseEvent* event)
 {
-    auto b = QMessageBox::question(this,"ANNA","Are you sure?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
+    auto b = QMessageBox::question(this,"ANNA","Exit ANNA?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
     if (b == QMessageBox::Yes) {
         if (brain) {
             // This will stop current processing, as it is synchronous
@@ -440,6 +440,11 @@ void MainWnd::on_actionLoad_model_triggered()
 
 void MainWnd::on_actionNew_dialog_triggered()
 {
+    if (!cur_chat.isEmpty()) {
+        auto b = QMessageBox::question(this,"ANNA","Reset dialog?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
+        if (b != QMessageBox::Yes) return;
+    }
+
     if (brain) {
         brain->Reset();
         ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
@@ -449,9 +454,11 @@ void MainWnd::on_actionNew_dialog_triggered()
         ui->statusbar->showMessage("Brain has been reset and is now ready.");
     }
 
+    cur_chat.clear();
     ui->UserInput->clear();
     ui->ChatLog->clear();
     last_username = false;
+    next_attach = nullptr;
 }
 
 void MainWnd::on_actionQuit_triggered()
@@ -592,5 +599,14 @@ void MainWnd::FixMarkdown(QString& s)
             s.insert(i,n);
             i++;
         }
+    }
+}
+
+void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
+{
+    auto it = std::find_if(attachs.begin(),attachs.end(),[item] (auto & o) { return o.itm == item; });
+    if (it != attachs.end()) {
+        next_attach = &(*it);
+        ui->statusbar->showMessage(it->shrt + " will be attached to your message");
     }
 }

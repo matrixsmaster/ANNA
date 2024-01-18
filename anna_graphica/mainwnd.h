@@ -91,6 +91,8 @@ private slots:
 
     void on_actionShow_prompt_triggered();
 
+    void on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item);
+
 private:
     Ui::MainWnd *ui;
     QLabel* seed_label;

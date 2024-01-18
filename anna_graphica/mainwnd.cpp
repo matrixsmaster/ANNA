@@ -51,6 +51,10 @@ void MainWnd::DefaultConfig()
     p->model.clear();
     p->prompt.clear();
     p->sampling_params.temp = ANNA_DEFAULT_TEMP;
+
+    config.user = &guiconfig;
+    guiconfig.enter_key = 0;
+    guiconfig.md_fix = false;
 }
 
 void MainWnd::LoadSettings()
@@ -223,7 +227,6 @@ void MainWnd::on_actionSimple_view_triggered()
     ui->UserNameBox->hide();
     ui->UserInputOptions->hide();
     seed_label->hide();
-    ui->statusbar->showMessage("Hint: Hit Enter to submit your text");
 }
 
 
@@ -239,7 +242,6 @@ void MainWnd::on_actionAdvanced_view_triggered()
     ui->BeforeRadio->hide();
     ui->AfterRadio->hide();
     seed_label->show();
-    ui->statusbar->showMessage("Hint: Use Shift+Enter to submit your text");
 }
 
 
@@ -255,7 +257,6 @@ void MainWnd::on_actionProfessional_view_triggered()
     ui->BeforeRadio->show();
     ui->AfterRadio->show();
     seed_label->show();
-    ui->statusbar->showMessage("Hint: Use Shift+Enter to submit your text");
 }
 
 
@@ -366,8 +367,12 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
     {
         QKeyEvent* ke = static_cast<QKeyEvent*>(event);
         bool eat_ret = false;
-        if (ui->UserInputOptions->isHidden()) eat_ret = true;
-        else if (ke->modifiers().testFlag(Qt::ShiftModifier)) eat_ret = true;
+        bool shift = ke->modifiers().testFlag(Qt::ShiftModifier);
+        switch (guiconfig.enter_key) {
+        case 0: eat_ret = !shift; break;
+        case 1: eat_ret = shift; break;
+        }
+
         if (ke->key() == Qt::Key_Return && eat_ret) {
             qDebug("Ate key press %d",ke->key());
             on_SendButton_clicked();

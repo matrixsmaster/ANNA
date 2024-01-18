@@ -6,7 +6,7 @@
 #include "common.h"
 #include "llama.h"
 
-#define ANNA_VERSION "0.6.5b"
+#define ANNA_VERSION "0.6.5c"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 
@@ -26,6 +26,7 @@ struct AnnaConfig
     bool convert_eos_to_nl;
     bool nl_to_turnover;
     gpt_params params;
+    void* user;
 };
 
 class AnnaBrain

@@ -1,5 +1,6 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
+#include "mainwnd.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent) :
     QDialog(parent),
@@ -48,6 +49,10 @@ void SettingsDialog::showEvent(QShowEvent *event)
             ui->sampGreedy->setChecked(true);
         else
             ui->sampTopP->setChecked(true);
+
+        AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
+        ui->enterButn->setCurrentIndex(gs->enter_key);
+        ui->fixMD->setChecked(gs->md_fix);
     }
 
     QDialog::showEvent(event);
@@ -81,6 +86,12 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("rep_last_n",s->repeat_last_n);
     sets->setValue("rep_penalty",s->repeat_penalty);
     sets->setValue("mirostat",s->mirostat);
+
+    AnnaGuiSettings* gs = (AnnaGuiSettings*)cfg->user;
+    sets->endGroup();
+    sets->beginGroup("UI");
+    sets->setValue("enter_key",gs->enter_key);
+    sets->setValue("md_fix",gs->md_fix);
 }
 
 void SettingsDialog::on_buttonBox_accepted()
@@ -111,6 +122,10 @@ void SettingsDialog::on_buttonBox_accepted()
         s->mirostat = ui->sampMiro1->isChecked()? 1:2;
     else if (ui->sampGreedy->isChecked())
         s->temp = -1;
+
+    AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
+    gs->enter_key = ui->enterButn->currentIndex();
+    gs->md_fix = ui->fixMD->isChecked();
 }
 
 void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
@@ -141,6 +156,12 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     s->repeat_last_n = sets->value("rep_last_n",s->repeat_last_n).toInt();
     s->repeat_penalty = sets->value("rep_penalty",s->repeat_penalty).toFloat();
     s->mirostat = sets->value("mirostat",s->mirostat).toInt();
+
+    AnnaGuiSettings* gs = (AnnaGuiSettings*)cfg->user;
+    sets->endGroup();
+    sets->beginGroup("UI");
+    gs->enter_key = sets->value("enter_key",gs->enter_key).toInt();
+    gs->md_fix = sets->value("md_fix",gs->md_fix).toBool();
 }
 
 void SettingsDialog::on_tempKnob_valueChanged(int value)

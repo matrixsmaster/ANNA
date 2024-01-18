@@ -27,6 +27,11 @@ struct AnnaAttachment {
     QListWidgetItem* itm;
 };
 
+struct AnnaGuiSettings {
+    int enter_key;
+    bool md_fix;
+};
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWnd; }
 QT_END_NAMESPACE
@@ -101,6 +106,7 @@ private:
     QLabel* seed_label;
 
     AnnaConfig config;
+    AnnaGuiSettings guiconfig;
     AnnaBrain* brain;
 
     std::list<AnnaAttachment> attachs;

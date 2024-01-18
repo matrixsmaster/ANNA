@@ -71,68 +71,79 @@
        <property name="title">
         <string>AI</string>
        </property>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_2">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
-           <widget class="QComboBox" name="AINameBox">
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <item>
+             <widget class="QComboBox" name="AINameBox">
+              <property name="minimumSize">
+               <size>
+                <width>40</width>
+                <height>27</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>65536</width>
+                <height>27</height>
+               </size>
+              </property>
+              <property name="editable">
+               <bool>true</bool>
+              </property>
+              <item>
+               <property name="text">
+                <string>Anna:</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>ASSISTANT:</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>&lt;none&gt;</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTextEdit" name="ChatLog">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QListWidget" name="AttachmentsList">
             <property name="minimumSize">
              <size>
-              <width>40</width>
-              <height>27</height>
+              <width>140</width>
+              <height>0</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
-              <width>65536</width>
-              <height>27</height>
+              <width>140</width>
+              <height>65536</height>
              </size>
             </property>
-            <property name="editable">
-             <bool>true</bool>
-            </property>
-            <item>
-             <property name="text">
-              <string>Anna:</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>ASSISTANT:</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>&lt;none&gt;</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-          <item>
-           <widget class="QTextEdit" name="ChatLog">
-            <property name="readOnly">
-             <bool>true</bool>
+            <property name="editTriggers">
+             <set>QAbstractItemView::NoEditTriggers</set>
             </property>
            </widget>
           </item>
          </layout>
         </item>
         <item>
-         <widget class="QListWidget" name="AttachmentsList">
-          <property name="minimumSize">
-           <size>
-            <width>140</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>140</width>
-            <height>65536</height>
-           </size>
-          </property>
-          <property name="editTriggers">
-           <set>QAbstractItemView::NoEditTriggers</set>
+         <widget class="QProgressBar" name="ContextFull">
+          <property name="value">
+           <number>24</number>
           </property>
          </widget>
         </item>

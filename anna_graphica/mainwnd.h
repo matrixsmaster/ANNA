@@ -8,9 +8,14 @@
 #include <QFile>
 #include <QTextStream>
 #include <QListWidget>
+#include <QSettings>
 #include "brain.h"
 
+#define ANNA_DEFAULT_CONTEXT 4096
+#define ANNA_DEFAULT_BATCH 512
+#define ANNA_DEFAULT_TEMP 0.3
 #define ANNA_DEFAULT_PROMPT "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"
+#define ANNA_CONFIG_FILE "anna.cfg"
 #define GUI_ICON_W 48
 #define GUI_ICON_H 48
 
@@ -35,6 +40,8 @@ public:
     ~MainWnd();
 
     void DefaultConfig();
+    void LoadSettings();
+    void SaveSettings();
     bool LoadFile(const QString& fn, QString& str);
     bool SaveFile(const QString& fn, const QString& str);
     void LoadLLM(const QString& fn);

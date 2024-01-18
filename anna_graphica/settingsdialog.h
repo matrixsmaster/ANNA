@@ -2,6 +2,7 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QSettings>
 #include "brain.h"
 
 namespace Ui {
@@ -17,6 +18,9 @@ public:
     ~SettingsDialog();
 
     AnnaConfig* pconfig;
+
+    static void LoadSettings(AnnaConfig* cfg, QSettings* sets);
+    static void SaveSettings(AnnaConfig* cfg, QSettings* sets);
 
 protected:
     virtual void showEvent(QShowEvent *event) override;

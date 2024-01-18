@@ -16,6 +16,7 @@ MainWnd::MainWnd(QWidget *parent)
 
     on_actionSimple_view_triggered();
     DefaultConfig();
+    LoadSettings();
     next_attach = nullptr;
     last_username = false;
 
@@ -24,6 +25,7 @@ MainWnd::MainWnd(QWidget *parent)
 
 MainWnd::~MainWnd()
 {
+    SaveSettings();
     if (brain) delete brain;
     delete ui;
 }
@@ -37,13 +39,40 @@ void MainWnd::DefaultConfig()
     gpt_params* p = &config.params;
     p->seed = 0;
     p->n_threads = std::thread::hardware_concurrency();
+    if (p->n_threads < 1) p->n_threads = 1;
     p->n_predict = -1;
-    p->n_ctx = 4096;
-    p->n_batch = 512;
+    p->n_ctx = ANNA_DEFAULT_CONTEXT;
+    p->n_batch = ANNA_DEFAULT_BATCH;
     p->n_gpu_layers = 0;
     p->model.clear();
     p->prompt.clear();
-    p->sampling_params.temp = 0.3;
+    p->sampling_params.temp = ANNA_DEFAULT_TEMP;
+}
+
+void MainWnd::LoadSettings()
+{
+    QString ini = qApp->applicationDirPath() + "/" + ANNA_CONFIG_FILE;
+    if (!QFileInfo::exists(ini)) {
+        qDebug("Settings file was not found at '%s'\n",ini.toStdString().c_str());
+        return;
+    }
+
+    QSettings s(ini,QSettings::IniFormat);
+    QStringList keys = s.allKeys();
+    if (s.status() != QSettings::NoError || keys.length() < 2) {
+        QMessageBox::warning(this,"ANNA","Unable to load settings file! Possible syntax error.\nDefault settings will be used.");
+        return;
+    }
+
+    SettingsDialog::LoadSettings(&config,&s);
+}
+
+void MainWnd::SaveSettings()
+{
+    QString ini = qApp->applicationDirPath() + "/" + ANNA_CONFIG_FILE;
+    QSettings s(ini,QSettings::IniFormat);
+    SettingsDialog::SaveSettings(&config,&s);
+    qDebug("Settings saved to '%s'\n",ini.toStdString().c_str());
 }
 
 bool MainWnd::LoadFile(const QString& fn, QString& str)
@@ -172,6 +201,7 @@ void MainWnd::on_actionSimple_view_triggered()
 {
     ui->AINameBox->hide();
     ui->AttachmentsList->hide();
+    ui->ContextFull->hide();
     ui->UserNameBox->hide();
     ui->UserInputOptions->hide();
     ui->statusbar->showMessage("Hint: Hit Enter to submit your text");
@@ -180,8 +210,9 @@ void MainWnd::on_actionSimple_view_triggered()
 
 void MainWnd::on_actionAdvanced_view_triggered()
 {
-    ui->AINameBox->hide();
+    ui->AINameBox->show();
     ui->AttachmentsList->show();
+    ui->ContextFull->show();
     ui->UserNameBox->show();
     ui->UserInputOptions->show();
     ui->SamplingCheck->hide();
@@ -196,6 +227,7 @@ void MainWnd::on_actionProfessional_view_triggered()
 {
     ui->AINameBox->show();
     ui->AttachmentsList->show();
+    ui->ContextFull->show();
     ui->UserNameBox->show();
     ui->UserInputOptions->show();
     ui->SamplingCheck->show();

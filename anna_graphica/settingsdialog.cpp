@@ -53,6 +53,36 @@ void SettingsDialog::showEvent(QShowEvent *event)
     QDialog::showEvent(event);
 }
 
+void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
+{
+    if (!cfg || !sets) return;
+
+    sets->beginGroup("Global");
+    sets->setValue("eos_to_nl",cfg->convert_eos_to_nl);
+    sets->setValue("nl_to_turnover",cfg->nl_to_turnover);
+
+    gpt_params* p = &(cfg->params);
+    sets->setValue("seed",p->seed);
+    sets->setValue("cpu",p->n_threads);
+    sets->setValue("max_tokens",p->n_predict);
+    sets->setValue("context",p->n_ctx);
+    sets->setValue("gpu",p->n_gpu_layers);
+
+    llama_sampling_params* s = &(p->sampling_params);
+    sets->endGroup();
+    sets->beginGroup("Sampling");
+    sets->setValue("topp",s->top_p);
+    sets->setValue("topk",s->top_k);
+    sets->setValue("tfs",s->tfs_z);
+    sets->setValue("typp",s->typical_p);
+    sets->setValue("mtau",s->mirostat_tau);
+    sets->setValue("meta",s->mirostat_eta);
+    sets->setValue("temp",s->temp);
+    sets->setValue("rep_last_n",s->repeat_last_n);
+    sets->setValue("rep_penalty",s->repeat_penalty);
+    sets->setValue("mirostat",s->mirostat);
+}
+
 void SettingsDialog::on_buttonBox_accepted()
 {
     pconfig->convert_eos_to_nl = ui->eosToNL->isChecked();
@@ -81,6 +111,36 @@ void SettingsDialog::on_buttonBox_accepted()
         s->mirostat = ui->sampMiro1->isChecked()? 1:2;
     else if (ui->sampGreedy->isChecked())
         s->temp = -1;
+}
+
+void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
+{
+    if (!cfg || !sets) return;
+
+    sets->beginGroup("Global");
+    cfg->convert_eos_to_nl = sets->value("eos_to_nl",cfg->convert_eos_to_nl).toBool();
+    cfg->nl_to_turnover = sets->value("nl_to_turnover",cfg->nl_to_turnover).toBool();
+
+    gpt_params* p = &(cfg->params);
+    p->seed = sets->value("seed",p->seed).toUInt();
+    p->n_threads = sets->value("cpu",p->n_threads).toInt();
+    p->n_predict = sets->value("max_tokens",p->n_predict).toInt();
+    p->n_ctx = sets->value("context",p->n_ctx).toInt();
+    p->n_gpu_layers = sets->value("gpu",p->n_gpu_layers).toInt();
+
+    llama_sampling_params* s = &(p->sampling_params);
+    sets->endGroup();
+    sets->beginGroup("Sampling");
+    s->top_p = sets->value("topp",s->top_p).toFloat();
+    s->top_k = sets->value("topk",s->top_k).toInt();
+    s->tfs_z = sets->value("tfs",s->tfs_z).toFloat();
+    s->typical_p = sets->value("typp",s->typical_p).toFloat();
+    s->mirostat_tau = sets->value("mtau",s->mirostat_tau).toFloat();
+    s->mirostat_eta = sets->value("meta",s->mirostat_eta).toFloat();
+    s->temp = sets->value("temp",s->temp).toFloat();
+    s->repeat_last_n = sets->value("rep_last_n",s->repeat_last_n).toInt();
+    s->repeat_penalty = sets->value("rep_penalty",s->repeat_penalty).toFloat();
+    s->mirostat = sets->value("mirostat",s->mirostat).toInt();
 }
 
 void SettingsDialog::on_tempKnob_valueChanged(int value)

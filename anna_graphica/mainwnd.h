@@ -98,6 +98,8 @@ private slots:
 
 private:
     Ui::MainWnd *ui;
+    QLabel* seed_label;
+
     AnnaConfig config;
     AnnaBrain* brain;
 

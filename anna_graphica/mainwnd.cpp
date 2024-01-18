@@ -9,6 +9,9 @@ MainWnd::MainWnd(QWidget *parent)
     , brain(nullptr)
 {
     ui->setupUi(this);
+    seed_label = new QLabel(this);
+
+    ui->statusbar->addPermanentWidget(seed_label);
     ui->UserInput->installEventFilter(this);
     ui->statusbar->installEventFilter(this);
     ui->menubar->installEventFilter(this);
@@ -27,6 +30,7 @@ MainWnd::~MainWnd()
 {
     SaveSettings();
     if (brain) delete brain;
+    delete seed_label;
     delete ui;
 }
 
@@ -134,7 +138,7 @@ void MainWnd::LoadLLM(const QString &fn)
 
     // Process initial prompt
     ProcessInput(config.params.prompt);
-    ui->CurrentSeed->display((int)brain->getSeed());
+    seed_label->setText(QString("Seed: %1").arg((int)brain->getSeed()));
     ui->statusbar->showMessage("Brain is ready");
 }
 
@@ -216,10 +220,9 @@ void MainWnd::on_actionSimple_view_triggered()
     ui->AINameBox->hide();
     ui->AttachmentsList->hide();
     ui->ContextFull->hide();
-    ui->seedlabel->hide();
-    ui->CurrentSeed->hide();
     ui->UserNameBox->hide();
     ui->UserInputOptions->hide();
+    seed_label->hide();
     ui->statusbar->showMessage("Hint: Hit Enter to submit your text");
 }
 
@@ -229,14 +232,13 @@ void MainWnd::on_actionAdvanced_view_triggered()
     ui->AINameBox->show();
     ui->AttachmentsList->show();
     ui->ContextFull->show();
-    ui->seedlabel->hide();
-    ui->CurrentSeed->hide();
     ui->UserNameBox->show();
     ui->UserInputOptions->show();
     ui->SamplingCheck->hide();
     ui->NewlineCheck->hide();
     ui->BeforeRadio->hide();
     ui->AfterRadio->hide();
+    seed_label->show();
     ui->statusbar->showMessage("Hint: Use Shift+Enter to submit your text");
 }
 
@@ -246,14 +248,13 @@ void MainWnd::on_actionProfessional_view_triggered()
     ui->AINameBox->show();
     ui->AttachmentsList->show();
     ui->ContextFull->show();
-    ui->seedlabel->show();
-    ui->CurrentSeed->show();
     ui->UserNameBox->show();
     ui->UserInputOptions->show();
     ui->SamplingCheck->show();
     ui->NewlineCheck->show();
     ui->BeforeRadio->show();
     ui->AfterRadio->show();
+    seed_label->show();
     ui->statusbar->showMessage("Hint: Use Shift+Enter to submit your text");
 }
 

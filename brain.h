@@ -6,7 +6,7 @@
 #include "common.h"
 #include "llama.h"
 
-#define ANNA_VERSION "0.6.5e"
+#define ANNA_VERSION "0.6.5f"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 
@@ -38,14 +38,15 @@ public:
     AnnaState getState()                    { return state; }
     const std::string & getError()          { return internal_error; }
     int getTokensUsed()                     { return n_past; }
-    uint32_t getSeed()                      { return config.params.seed; }
+    AnnaConfig* getConfig()                 { return &config; }
 
     std::string getOutput();
     void setInput(std::string inp);
     void setPrefix(std::string str);
-    const char* TokenToStr(llama_token token);
 
     static std::string StateToStr(AnnaState s);
+    const char* TokenToStr(llama_token token);
+    std::string PrintContext();
 
     bool SaveState(std::string fname);
     bool LoadState(std::string fname);
@@ -79,6 +80,7 @@ private:
     static std::string myformat(const char* fmt, ...);
 
     llama_batch batch_embeddings(int n_tokens, float *embeds, int n_past);
+    void print_vec(std::string& str, const std::vector<llama_token>& vec);
 
     void Evaluate();
     void Generate();

@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QListWidget>
+#include <QComboBox>
 #include <QSettings>
 #include "brain.h"
 
@@ -16,6 +17,7 @@
 #define ANNA_DEFAULT_TEMP 0.3
 #define ANNA_DEFAULT_PROMPT "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"
 #define ANNA_CONFIG_FILE "anna.cfg"
+#define ANNA_QUICK_FILE "quicksave.anna"
 #define GUI_ICON_W 48
 #define GUI_ICON_H 48
 
@@ -93,6 +95,14 @@ private slots:
 
     void on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item);
 
+    void on_actionRefresh_chat_box_triggered();
+
+    void on_actionShow_context_tokens_triggered();
+
+    void on_actionQuick_save_triggered();
+
+    void on_actionQuick_load_triggered();
+
 private:
     Ui::MainWnd *ui;
     QLabel* seed_label;
@@ -101,6 +111,7 @@ private:
     AnnaGuiSettings guiconfig;
     AnnaBrain* brain;
 
+    int mode;
     QString cur_chat;
     std::list<AnnaAttachment> attachs;
     AnnaAttachment* next_attach;
@@ -119,5 +130,7 @@ private:
     void Generate();
 
     QString GetSaveFileName(const QString& title, const QString& filter, const QString& ext);
+    void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
+    void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 };
 #endif // MAINWND_H

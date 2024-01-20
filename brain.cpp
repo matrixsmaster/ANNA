@@ -317,6 +317,20 @@ const char* AnnaBrain::TokenToStr(llama_token token)
     return piecebuf.c_str();
 }
 
+void AnnaBrain::print_vec(string& str, const vector<llama_token>& vec)
+{
+    for (auto & i: vec) {
+        if (i) str += llama_token_to_piece(ctx,i);
+    }
+}
+
+string AnnaBrain::PrintContext()
+{
+    string out;
+    print_vec(out,ctx_sp->prev);
+    return out;
+}
+
 bool AnnaBrain::SaveState(std::string fname)
 {
     if (state == ANNA_NOT_INITIALIZED) return false;

@@ -72,14 +72,47 @@ void MainWnd::LoadSettings()
         return;
     }
 
+    // load main settings
     SettingsDialog::LoadSettings(&config,&s);
+
+    // load UI states and positions
+    s.endGroup();
+    s.beginGroup("Window");
+    if (keys.contains("Window/mode")) {
+        switch (s.value("mode").toInt()) {
+        case 1: on_actionAdvanced_view_triggered(); break;
+        case 2: on_actionProfessional_view_triggered(); break;
+        }
+    }
+    if (keys.contains("Window/geom"))
+        restoreGeometry(s.value("geom").toByteArray());
+    if (keys.contains("Window/state"))
+        restoreState(s.value("state").toByteArray());
+    if (keys.contains("Window/split"))
+        ui->splitter->restoreState(s.value("split").toByteArray());
+
+    LoadComboBox(&s,"ai_name",ui->AINameBox);
+    LoadComboBox(&s,"user_name",ui->UserNameBox);
 }
 
 void MainWnd::SaveSettings()
 {
     QString ini = qApp->applicationDirPath() + "/" + ANNA_CONFIG_FILE;
     QSettings s(ini,QSettings::IniFormat);
+
+    // save main settings
     SettingsDialog::SaveSettings(&config,&s);
+
+    // save UI states and positions
+    s.endGroup();
+    s.beginGroup("Window");
+    s.setValue("mode",mode);
+    s.setValue("geom",saveGeometry());
+    s.setValue("state",saveState());
+    s.setValue("split",ui->splitter->saveState());
+    SaveComboBox(&s,"ai_name",ui->AINameBox);
+    SaveComboBox(&s,"user_name",ui->UserNameBox);
+
     qDebug("Settings saved to '%s'\n",ini.toStdString().c_str());
 }
 
@@ -142,7 +175,7 @@ void MainWnd::LoadLLM(const QString &fn)
 
     // Process initial prompt
     ProcessInput(config.params.prompt);
-    seed_label->setText(QString("Seed: %1").arg((int)brain->getSeed()));
+    seed_label->setText(QString("Seed: %1").arg((int)brain->getConfig()->params.seed));
     ui->statusbar->showMessage("Brain is ready");
 }
 
@@ -229,16 +262,19 @@ QString MainWnd::GetSaveFileName(const QString &title, const QString &filter, co
 
 void MainWnd::on_actionSimple_view_triggered()
 {
+    mode = 0;
     ui->AINameBox->hide();
     ui->AttachmentsList->hide();
     ui->ContextFull->hide();
     ui->UserNameBox->hide();
     ui->UserInputOptions->hide();
+    ui->menuDebug->setEnabled(false);
     seed_label->hide();
 }
 
 void MainWnd::on_actionAdvanced_view_triggered()
 {
+    mode = 1;
     ui->AINameBox->show();
     ui->AttachmentsList->show();
     ui->ContextFull->show();
@@ -248,11 +284,13 @@ void MainWnd::on_actionAdvanced_view_triggered()
     ui->NewlineCheck->hide();
     ui->BeforeRadio->hide();
     ui->AfterRadio->hide();
+    ui->menuDebug->setEnabled(false);
     seed_label->show();
 }
 
 void MainWnd::on_actionProfessional_view_triggered()
 {
+    mode = 2;
     ui->AINameBox->show();
     ui->AttachmentsList->show();
     ui->ContextFull->show();
@@ -262,6 +300,7 @@ void MainWnd::on_actionProfessional_view_triggered()
     ui->NewlineCheck->show();
     ui->BeforeRadio->show();
     ui->AfterRadio->show();
+    ui->menuDebug->setEnabled(true);
     seed_label->show();
 }
 
@@ -270,6 +309,8 @@ void MainWnd::on_ModelFindButton_clicked()
     QString fn = QFileDialog::getOpenFileName(this,"Open LLM file",ui->ModelPath->text(),"GGUF files (*.gguf)");
     if (fn.isEmpty()) return;
     ui->ModelPath->setText(fn);
+    ui->ChatLog->clear();
+    cur_chat.clear();
     LoadLLM(fn);
 }
 
@@ -277,7 +318,7 @@ void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
 
-    QString usr, line, log;
+    QString usr, line, log, infixed;
     if (!cur_chat.endsWith("\n")) {
         usr = "\n";
         log = "\n";
@@ -286,14 +327,15 @@ void MainWnd::on_SendButton_clicked()
 
     if (last_username) {
         usr.clear(); // no need for initial newline
-        log += ui->UserNameBox->currentText(); // we still need to put it into the log
+        log += ui->UserNameBox->currentText() + " "; // we still need to put it into the log
         last_username = false;
     } else
-        line = ui->UserNameBox->currentText();
+        line = ui->UserNameBox->currentText() + " ";
 
-    line += " " + ui->UserInput->toPlainText();
-    usr += line;
-    log += line;
+    infixed = ui->UserInput->toPlainText();
+    if (guiconfig.md_fix) FixMarkdown(infixed);
+    usr += line + ui->UserInput->toPlainText();
+    log += line + infixed;
 
     if (!ui->NewlineCheck->isChecked()) {
         // normal behavior
@@ -488,7 +530,11 @@ void MainWnd::on_actionSettings_triggered()
 {
     SettingsDialog sdlg;
     sdlg.pconfig = &config;
-    sdlg.exec();
+    if (sdlg.exec() == QDialog::Accepted && brain) {
+        // update things which can be updated on the fly
+        brain->getConfig()->convert_eos_to_nl = config.convert_eos_to_nl;
+        brain->getConfig()->nl_to_turnover = config.nl_to_turnover;
+    }
 }
 
 void MainWnd::on_actionClear_attachments_triggered()
@@ -529,6 +575,7 @@ void MainWnd::on_actionAbout_triggered()
 void MainWnd::on_pushButton_clicked()
 {
     stop = true;
+    ui->statusbar->showMessage("Brain: stopped");
 }
 
 void MainWnd::on_actionHTML_triggered()
@@ -576,6 +623,7 @@ void MainWnd::on_actionShow_prompt_triggered()
 void MainWnd::FixMarkdown(QString& s)
 {
     int fsm = 0;
+    //TODO: catch situations where bold flag was interrupted by newline
     for (int i = 0; i < s.length(); i++) {
         char n = 0;
         switch (fsm) {
@@ -609,4 +657,57 @@ void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
         next_attach = &(*it);
         ui->statusbar->showMessage(it->shrt + " will be attached to your message");
     }
+}
+
+void MainWnd::on_actionRefresh_chat_box_triggered()
+{
+    ui->ChatLog->setMarkdown(cur_chat);
+}
+
+void MainWnd::on_actionShow_context_tokens_triggered()
+{
+    if (brain) ui->ChatLog->setPlainText(QString::fromStdString(brain->PrintContext()));
+}
+
+void MainWnd::on_actionQuick_save_triggered()
+{
+    if (!brain) return;
+    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    if (brain->SaveState(fn.toStdString()))
+        ui->statusbar->showMessage("Model state has been saved to "+fn);
+    else
+        ui->statusbar->showMessage("Unable to save model state!");
+}
+
+void MainWnd::on_actionQuick_load_triggered()
+{
+    if (!brain) return;
+    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    if (brain->LoadState(fn.toStdString()))
+        ui->statusbar->showMessage("Model state has been loaded from "+fn);
+    else
+        ui->statusbar->showMessage("Unable to load model state!");
+}
+
+void MainWnd::SaveComboBox(QSettings* sets, QString prefix, QComboBox* box)
+{
+    sets->setValue(prefix+"_default",box->currentText());
+    sets->beginWriteArray(prefix);
+    for (int i = 0; i < box->count(); i++) {
+        sets->setArrayIndex(i);
+        sets->setValue("s",box->itemText(i));
+    }
+    sets->endArray();
+}
+
+void MainWnd::LoadComboBox(QSettings* sets, QString prefix, QComboBox* box)
+{
+    int n = sets->beginReadArray(prefix);
+    if (n > 0) box->clear();
+    for (int i = 0; i < n; i++) {
+        sets->setArrayIndex(i);
+        box->addItem(sets->value("s").toString());
+    }
+    sets->endArray();
+    box->setCurrentText(sets->value(prefix+"_default").toString());
 }

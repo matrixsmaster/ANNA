@@ -371,6 +371,8 @@
     <addaction name="separator"/>
     <addaction name="actionSave_state"/>
     <addaction name="actionLoad_state"/>
+    <addaction name="actionQuick_save"/>
+    <addaction name="actionQuick_load"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
@@ -402,9 +404,17 @@
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
    </widget>
+   <widget class="QMenu" name="menuDebug">
+    <property name="title">
+     <string>Debug</string>
+    </property>
+    <addaction name="actionRefresh_chat_box"/>
+    <addaction name="actionShow_context_tokens"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuModel"/>
    <addaction name="menuView"/>
+   <addaction name="menuDebug"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -543,6 +553,32 @@
   <action name="actionFix_markdown">
    <property name="text">
     <string>Fix markdown</string>
+   </property>
+  </action>
+  <action name="actionRefresh_chat_box">
+   <property name="text">
+    <string>Refresh chat box</string>
+   </property>
+  </action>
+  <action name="actionShow_context_tokens">
+   <property name="text">
+    <string>Show context tokens</string>
+   </property>
+  </action>
+  <action name="actionQuick_save">
+   <property name="text">
+    <string>Quick save</string>
+   </property>
+   <property name="shortcut">
+    <string>F5</string>
+   </property>
+  </action>
+  <action name="actionQuick_load">
+   <property name="text">
+    <string>Quick load</string>
+   </property>
+   <property name="shortcut">
+    <string>F9</string>
    </property>
   </action>
  </widget>

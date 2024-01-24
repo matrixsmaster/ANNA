@@ -37,6 +37,16 @@ static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
     ".txt",
 };
 
+#if 0
+static const char* md_fix_tab[] = {
+    "(\\S)\\n(\\S)", "\\1\n\n\\2",
+    "\\n\\*\\*([^\\*]+\\s?)\\n", "\nAAA\n",
+    "\\n([^*]+)\\*\\*(\\s?)\\n", "\n**\\1**\n",
+    "[^\\\\]#", "\\#",
+    NULL, NULL // terminator
+};
+#endif
+
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWnd)
@@ -584,6 +594,7 @@ void MainWnd::on_actionLoad_initial_prompt_triggered()
     QString np;
     if (fn.isEmpty() || !LoadFile(fn,np)) return;
     config.params.prompt = np.toStdString();
+    FixMarkdown(np); // FIXME: DEBUG
 }
 
 void MainWnd::on_actionSettings_triggered()
@@ -682,8 +693,21 @@ void MainWnd::on_actionShow_prompt_triggered()
 
 void MainWnd::FixMarkdown(QString& s)
 {
+#if 0
+    for (int i = 0; md_fix_tab[i]; i+=2) {
+        qDebug("Filter %d before: '%s'\n",i,s.toStdString().c_str());
+        QRegExp ex(md_fix_tab[i]);
+        //s.replace(ex,QString(md_fix_tab[i+1]));
+        //int pos = 0;
+
+        while (ex.indexIn(s) != -1) {
+            qDebug("%d %d %d\n",i,ex.indexIn(s),ex.matchedLength());
+            s.replace(ex,md_fix_tab[i+1]);
+        }
+        qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
+    }
+#else
     int fsm = 0;
-    //TODO: catch situations where bold flag was interrupted by newline
     for (int i = 0; i < s.length(); i++) {
         char n = 0;
         switch (fsm) {
@@ -708,6 +732,7 @@ void MainWnd::FixMarkdown(QString& s)
             i++;
         }
     }
+#endif
 }
 
 void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)

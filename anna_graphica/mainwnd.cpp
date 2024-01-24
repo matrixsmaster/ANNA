@@ -37,12 +37,13 @@ static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
     ".txt",
 };
 
-#if 0
+#if 1
 static const char* md_fix_tab[] = {
-    "(\\S)\\n(\\S)", "\\1\n\n\\2",
-    "\\n\\*\\*([^\\*]+\\s?)\\n", "\nAAA\n",
-    "\\n([^*]+)\\*\\*(\\s?)\\n", "\n**\\1**\n",
-    "[^\\\\]#", "\\#",
+    "\\n\\*\\*([^*\\n]+\\s?)\\n", "\n**\\1**\n**",
+    //"\\n([^*\\n]+)\\*\\*(.*)\\n", "\\n**\\1**\\2\\n",
+    //"(\\S|\\W)\\n([ \\t]|\\w)", "\\1\\n\\n\\2",
+    "([^\\n])\\n([^\\n])", "\\1\n\n\\2",
+    "([^\\\\])#", "\\1\\#",
     NULL, NULL // terminator
 };
 #endif
@@ -693,17 +694,20 @@ void MainWnd::on_actionShow_prompt_triggered()
 
 void MainWnd::FixMarkdown(QString& s)
 {
-#if 0
+#if 1
     for (int i = 0; md_fix_tab[i]; i+=2) {
         qDebug("Filter %d before: '%s'\n",i,s.toStdString().c_str());
         QRegExp ex(md_fix_tab[i]);
         //s.replace(ex,QString(md_fix_tab[i+1]));
         //int pos = 0;
 
-        while (ex.indexIn(s) != -1) {
+        for (int n = 0; n < 10000 && ex.indexIn(s) != -1; n++) {
             qDebug("%d %d %d\n",i,ex.indexIn(s),ex.matchedLength());
             s.replace(ex,md_fix_tab[i+1]);
+            if (s.length() > 100*1024*1024) break;
         }
+        //s.replace("\\n","\n");
+
         qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
     }
 #else

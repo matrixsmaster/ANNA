@@ -7,6 +7,7 @@ CONFIG += c++20
 SOURCES += \
     ../brain.cpp \
     aboutbox.cpp \
+    helpbox.cpp \
     main.cpp \
     mainwnd.cpp \
     settingsdialog.cpp
@@ -14,11 +15,13 @@ SOURCES += \
 HEADERS += \
     ../brain.h \
     aboutbox.h \
+    helpbox.h \
     mainwnd.h \
     settingsdialog.h
 
 FORMS += \
     aboutbox.ui \
+    helpbox.ui \
     mainwnd.ui \
     settingsdialog.ui
 
@@ -57,6 +60,8 @@ win32 {
 
     QMAKE_CFLAGS += -fPIC -march=haswell
     QMAKE_CXXFLAGS += -fPIC -march=haswell
+
+    RC_ICONS = anna1.ico
 }
 
 QMAKE_CFLAGS_DEBUG += -O0 -g
@@ -65,11 +70,18 @@ QMAKE_CXXFLAGS_DEBUG += -O0 -g
 QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -Ofast
 
 linux {
-    DEFINES += _GNU_SOURCE GGML_USE_CUBLAS ANNA_USE_MMAP
+    cublas = $$(USE_CUBLAS)
+    message($$cublas)
+
+    DEFINES += _GNU_SOURCE ANNA_USE_MMAP
     QMAKE_CFLAGS += -fPIC -march=native -mtune=native
     QMAKE_CXXFLAGS += -fPIC -march=native -mtune=native
     LIBS += -L.. -lanna
-    LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -lcublas -lculibos -lcudart -lcublasLt
+
+    equals(cublas,1) {
+        DEFINES += GGML_USE_CUBLAS
+        LIBS += -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -lcublas -lculibos -lcudart -lcublasLt
+    }
 }
 
 INCLUDEPATH += $$PWD/../

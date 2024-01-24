@@ -25,6 +25,10 @@
   <property name="windowTitle">
    <string notr="true">About ANNA</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="resources.qrc">
+    <normaloff>:/img/anna1.png</normaloff>:/img/anna1.png</iconset>
+  </property>
   <property name="modal">
    <bool>true</bool>
   </property>
@@ -110,9 +114,9 @@
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>0</x>
+     <x>70</x>
      <y>40</y>
-     <width>401</width>
+     <width>261</width>
      <height>31</height>
     </rect>
    </property>
@@ -165,6 +169,9 @@
    <property name="alignment">
     <set>Qt::AlignCenter</set>
    </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
   </widget>
   <widget class="QLabel" name="label_3">
    <property name="geometry">
@@ -212,9 +219,9 @@
   <widget class="QLabel" name="version">
    <property name="geometry">
     <rect>
-     <x>5</x>
-     <y>70</y>
-     <width>391</width>
+     <x>0</x>
+     <y>80</y>
+     <width>401</width>
      <height>20</height>
     </rect>
    </property>
@@ -232,8 +239,48 @@
     <set>Qt::AlignCenter</set>
    </property>
   </widget>
+  <widget class="QLabel" name="portrait">
+   <property name="geometry">
+    <rect>
+     <x>330</x>
+     <y>0</y>
+     <width>71</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap resource="resources.qrc">:/img/anna1.png</pixmap>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="portrait_2">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>71</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap resource="resources.qrc">:/img/anna1.png</pixmap>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
+  </widget>
  </widget>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>

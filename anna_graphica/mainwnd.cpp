@@ -2,6 +2,7 @@
 #include "ui_mainwnd.h"
 #include "settingsdialog.h"
 #include "aboutbox.h"
+#include "helpbox.h"
 
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
@@ -710,4 +711,10 @@ void MainWnd::LoadComboBox(QSettings* sets, QString prefix, QComboBox* box)
     }
     sets->endArray();
     box->setCurrentText(sets->value(prefix+"_default").toString());
+}
+
+void MainWnd::on_actionOffline_help_triggered()
+{
+    HelpBox hb;
+    hb.exec();
 }

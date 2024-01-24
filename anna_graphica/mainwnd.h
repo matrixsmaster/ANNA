@@ -103,6 +103,8 @@ private slots:
 
     void on_actionQuick_load_triggered();
 
+    void on_actionOffline_help_triggered();
+
 private:
     Ui::MainWnd *ui;
     QLabel* seed_label;

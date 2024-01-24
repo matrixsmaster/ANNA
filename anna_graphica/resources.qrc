@@ -2,4 +2,8 @@
     <qresource prefix="/ico">
         <file>txt_doc.png</file>
     </qresource>
+    <qresource prefix="/img">
+        <file>anna1.png</file>
+        <file>anna2.png</file>
+    </qresource>
 </RCC>

@@ -25,6 +25,10 @@
   <property name="windowTitle">
    <string notr="true">Settings</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="resources.qrc">
+    <normaloff>:/img/anna1.png</normaloff>:/img/anna1.png</iconset>
+  </property>
   <property name="windowFilePath">
    <string notr="true"/>
   </property>
@@ -852,7 +856,9 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>

@@ -18,6 +18,7 @@
 #define ANNA_DEFAULT_PROMPT "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"
 #define ANNA_CONFIG_FILE "anna.cfg"
 #define ANNA_QUICK_FILE "quicksave.anna"
+#define ANNA_QUICK_TEXT "quicksave.txt"
 #define GUI_ICON_W 48
 #define GUI_ICON_H 48
 
@@ -32,6 +33,18 @@ struct AnnaAttachment {
 struct AnnaGuiSettings {
     int enter_key;
     bool md_fix;
+};
+
+enum AnnaFileDialogType {
+    ANNA_FILE_LLM,
+    ANNA_FILE_PROMPT,
+    ANNA_FILE_DLG_TXT,
+    ANNA_FILE_DLG_MD,
+    ANNA_FILE_DLG_HTML,
+    ANNA_FILE_MODEL_STATE,
+    ANNA_FILE_CLIP,
+    ANNA_FILE_ATTACHMENT,
+    ANNA_NUM_FILETYPES
 };
 
 QT_BEGIN_NAMESPACE
@@ -119,6 +132,7 @@ private:
     AnnaAttachment* next_attach;
     bool last_username;
     bool stop;
+    QString filedlg_cache[ANNA_NUM_FILETYPES];
 
     void DefaultConfig();
     void LoadSettings();
@@ -131,7 +145,8 @@ private:
     void ProcessInput(std::string str);
     void Generate();
 
-    QString GetSaveFileName(const QString& title, const QString& filter, const QString& ext);
+    QString GetSaveFileName(const AnnaFileDialogType tp);
+    QString GetOpenFileName(const AnnaFileDialogType tp);
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 };

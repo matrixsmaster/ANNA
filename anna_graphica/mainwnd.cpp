@@ -4,6 +4,39 @@
 #include "aboutbox.h"
 #include "helpbox.h"
 
+static const char* filetype_names[ANNA_NUM_FILETYPES] = {
+    "LLM",
+    "prompt",
+    "dialog as text",
+    "dialog as MD",
+    "dialog as HTML",
+    "model state",
+    "CLiP encoder",
+    "attachment"
+};
+
+static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
+    "GGUF files (*.gguf)",
+    "Text files (*.txt)",
+    "Text files (*.txt)",
+    "Markdown files (*.md);;Text files (*.txt)",
+    "HTML files (*.html *.htm)",
+    "ANNA save states (*.anna);;All files (*.*)",
+    "GGUF files (*.gguf)",
+    "Text files (*.txt);;Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm)",
+};
+
+static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
+    ".gguf",
+    ".txt",
+    ".txt",
+    ".md",
+    ".html",
+    ".anna",
+    ".gguf",
+    ".txt",
+};
+
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWnd)
@@ -94,6 +127,12 @@ void MainWnd::LoadSettings()
 
     LoadComboBox(&s,"ai_name",ui->AINameBox);
     LoadComboBox(&s,"user_name",ui->UserNameBox);
+
+    // load file paths
+    s.endGroup();
+    s.beginGroup("Files");
+    for (int i = 0; i < ANNA_NUM_FILETYPES; i++)
+        filedlg_cache[i] = s.value(QString(filetype_names[i]).replace(' ','_'),filedlg_cache[i]).toString();
 }
 
 void MainWnd::SaveSettings()
@@ -113,6 +152,12 @@ void MainWnd::SaveSettings()
     s.setValue("split",ui->splitter->saveState());
     SaveComboBox(&s,"ai_name",ui->AINameBox);
     SaveComboBox(&s,"user_name",ui->UserNameBox);
+
+    // save file paths
+    s.endGroup();
+    s.beginGroup("Files");
+    for (int i = 0; i < ANNA_NUM_FILETYPES; i++)
+        s.setValue(QString(filetype_names[i]).replace(' ','_'),filedlg_cache[i]);
 
     qDebug("Settings saved to '%s'\n",ini.toStdString().c_str());
 }
@@ -253,11 +298,25 @@ void MainWnd::Generate()
     ui->ChatLog->ensureCursorVisible();
 }
 
-QString MainWnd::GetSaveFileName(const QString &title, const QString &filter, const QString &ext)
+QString MainWnd::GetSaveFileName(const AnnaFileDialogType tp)
 {
-    QString fn = QFileDialog::getSaveFileName(this,title,"",filter);
+    if (tp >= ANNA_NUM_FILETYPES) return QString();
+    QString title = "Save as " + QString(filetype_names[tp]);
+    QString fn = QFileDialog::getSaveFileName(this,title,filedlg_cache[tp],filetype_filters[tp]);
     if (fn.isEmpty()) return fn;
-    if (!fn.endsWith(ext)) fn += ext;
+    QFileInfo fi(fn);
+    if (fi.suffix().isEmpty()) fn += filetype_defaults[tp];
+    filedlg_cache[tp] = fn;
+    return fn;
+}
+
+QString MainWnd::GetOpenFileName(const AnnaFileDialogType tp)
+{
+    if (tp >= ANNA_NUM_FILETYPES) return QString();
+    QString title = "Open " + QString(filetype_names[tp]) + " file";
+    QString fn = QFileDialog::getOpenFileName(this,title,filedlg_cache[tp],filetype_filters[tp]);
+    if (fn.isEmpty()) return fn;
+    filedlg_cache[tp] = fn;
     return fn;
 }
 
@@ -307,7 +366,7 @@ void MainWnd::on_actionProfessional_view_triggered()
 
 void MainWnd::on_ModelFindButton_clicked()
 {
-    QString fn = QFileDialog::getOpenFileName(this,"Open LLM file",ui->ModelPath->text(),"GGUF files (*.gguf)");
+    QString fn = GetOpenFileName(ANNA_FILE_LLM);
     if (fn.isEmpty()) return;
     ui->ModelPath->setText(fn);
     ui->ChatLog->clear();
@@ -446,7 +505,7 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
 void MainWnd::on_AttachButton_clicked()
 {
     AnnaAttachment a;
-    a.fn = QFileDialog::getOpenFileName(this,"Open file","","Text files (*.txt);;Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm)");
+    a.fn = GetOpenFileName(ANNA_FILE_ATTACHMENT);
     if (a.fn.isEmpty()) return;
 
     QIcon ico;
@@ -511,7 +570,7 @@ void MainWnd::on_actionQuit_triggered()
 
 void MainWnd::on_actionMarkdown_triggered()
 {
-    QString fn = GetSaveFileName("Save dialog","Markdown files (*.md);;Text files (*.txt)",".md");
+    QString fn = GetSaveFileName(ANNA_FILE_DLG_MD);
     if (fn.isEmpty()) return;
     if (SaveFile(fn,cur_chat))
         ui->statusbar->showMessage("Chat log saved as markdown document.");
@@ -521,7 +580,7 @@ void MainWnd::on_actionMarkdown_triggered()
 
 void MainWnd::on_actionLoad_initial_prompt_triggered()
 {
-    QString fn = QFileDialog::getOpenFileName(this,"Open prompt file","","Text files (*.txt)");
+    QString fn = GetOpenFileName(ANNA_FILE_PROMPT);
     QString np;
     if (fn.isEmpty() || !LoadFile(fn,np)) return;
     config.params.prompt = np.toStdString();
@@ -551,7 +610,7 @@ void MainWnd::on_actionLoad_vision_encoder_triggered()
         return;
     }
 
-    QString fn = QFileDialog::getOpenFileName(this,"Open CLiP encoder file","","GGUF files (*.gguf)");
+    QString fn = GetOpenFileName(ANNA_FILE_CLIP);
     if (fn.isEmpty()) return;
     brain->setClipModelFile(fn.toStdString());
     ui->statusbar->showMessage("CLiP model file set to "+fn);
@@ -559,7 +618,7 @@ void MainWnd::on_actionLoad_vision_encoder_triggered()
 
 void MainWnd::on_actionPlain_text_triggered()
 {
-    QString fn = GetSaveFileName("Save dialog","Text files (*.txt)",".txt");
+    QString fn = GetSaveFileName(ANNA_FILE_DLG_TXT);
     if (fn.isEmpty()) return;
     if (SaveFile(fn,ui->ChatLog->toPlainText()))
         ui->statusbar->showMessage("Chat log saved as plain text document.");
@@ -581,7 +640,7 @@ void MainWnd::on_pushButton_clicked()
 
 void MainWnd::on_actionHTML_triggered()
 {
-    QString fn = GetSaveFileName("Save dialog","HTML files (*.html *.htm)",".html");
+    QString fn = GetSaveFileName(ANNA_FILE_DLG_HTML);
     if (fn.isEmpty()) return;
     if (SaveFile(fn,ui->ChatLog->toHtml()))
         ui->statusbar->showMessage("Chat log saved as HTML document.");
@@ -592,7 +651,7 @@ void MainWnd::on_actionHTML_triggered()
 void MainWnd::on_actionSave_state_triggered()
 {
     if (!brain) return;
-    QString fn = GetSaveFileName("Save model state","ANNA save states (*.anna)",".anna");
+    QString fn = GetSaveFileName(ANNA_FILE_MODEL_STATE);
     if (fn.isEmpty()) return;
     if (brain->SaveState(fn.toStdString()))
         ui->statusbar->showMessage("Model state has been saved to "+fn);
@@ -603,7 +662,7 @@ void MainWnd::on_actionSave_state_triggered()
 void MainWnd::on_actionLoad_state_triggered()
 {
     if (!brain) return;
-    QString fn = QFileDialog::getOpenFileName(this,"Load model state","","ANNA save states (*.anna);;All files (*.*)");
+    QString fn = GetOpenFileName(ANNA_FILE_MODEL_STATE);
     if (fn.isEmpty()) return;
     if (brain->LoadState(fn.toStdString()))
         ui->statusbar->showMessage("Model state has been loaded from "+fn);

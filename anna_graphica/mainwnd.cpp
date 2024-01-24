@@ -201,21 +201,10 @@ void MainWnd::LoadLLM(const QString &fn)
         brain = nullptr;
     }
 
-    // Fill in the config
-    config.params.model = fn.toStdString();
-    if (config.params.prompt.empty()) {
-        auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
-                                        QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
-        config.params.prompt = ANNA_DEFAULT_PROMPT;
-        if (uq == QMessageBox::Yes)
-            on_actionLoad_initial_prompt_triggered();
-        else if (uq == QMessageBox::Cancel)
-            return;
-    }
-
     // Actual loading
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
+    config.params.model = fn.toStdString();
     brain = new AnnaBrain(&config);
     if (brain->getState() != ANNA_READY) {
         ui->statusbar->showMessage("Unable to load LLM file!");
@@ -300,9 +289,7 @@ void MainWnd::Generate()
     }
 
     cur_chat += convo + "\n";
-    ui->ChatLog->setMarkdown(cur_chat);
-    ui->ChatLog->moveCursor(QTextCursor::End);
-    ui->ChatLog->ensureCursorVisible();
+    on_actionRefresh_chat_box_triggered();
 }
 
 QString MainWnd::GetSaveFileName(const AnnaFileDialogType tp)
@@ -373,9 +360,27 @@ void MainWnd::on_actionProfessional_view_triggered()
 
 void MainWnd::on_ModelFindButton_clicked()
 {
+    if (!cur_chat.isEmpty()) {
+        auto b = QMessageBox::question(this,"ANNA","You have active dialog. Loading another LLM would reset it.\nDo you want to load another LLM?",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
+        if (b != QMessageBox::Yes) return;
+    }
+
     QString fn = GetOpenFileName(ANNA_FILE_LLM);
     if (fn.isEmpty()) return;
     ui->ModelPath->setText(fn);
+
+    if (config.params.prompt.empty()) {
+        auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
+                                        QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
+        config.params.prompt = ANNA_DEFAULT_PROMPT;
+        if (uq == QMessageBox::Yes)
+            on_actionLoad_initial_prompt_triggered();
+        else if (uq == QMessageBox::Cancel) {
+            config.params.prompt.clear();
+            return;
+        }
+    }
+
     ui->ChatLog->clear();
     cur_chat.clear();
     LoadLLM(fn);
@@ -449,9 +454,7 @@ void MainWnd::on_SendButton_clicked()
 
     if (guiconfig.md_fix) FixMarkdown(log);
     cur_chat += log;
-    ui->ChatLog->setMarkdown(cur_chat);
-    ui->ChatLog->moveCursor(QTextCursor::End);
-    ui->ChatLog->ensureCursorVisible();
+    on_actionRefresh_chat_box_triggered();
     ui->statusbar->showMessage("Processing...");
     qApp->processEvents();
 
@@ -550,8 +553,8 @@ void MainWnd::on_actionLoad_model_triggered()
 void MainWnd::on_actionNew_dialog_triggered()
 {
     if (!cur_chat.isEmpty()) {
-        auto b = QMessageBox::question(this,"ANNA","Reset dialog?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
-        if (b != QMessageBox::Yes) return;
+        if (QMessageBox::question(this,"ANNA","Reset dialog?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes) != QMessageBox::Yes)
+            return;
     }
 
     if (brain) {
@@ -601,6 +604,12 @@ void MainWnd::on_actionSettings_triggered()
         // update things which can be updated on the fly
         brain->getConfig()->convert_eos_to_nl = config.convert_eos_to_nl;
         brain->getConfig()->nl_to_turnover = config.nl_to_turnover;
+        // warn the user about others
+        if (!cur_chat.isEmpty()) {
+            if (QMessageBox::information(this,"ANNA","Most of the settings require the model to be reloaded.\n"
+                                         "Do you want to reload the model? The current dialog will be lost.",QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::Yes)
+                LoadLLM(QString::fromStdString(config.params.model));
+        }
     }
 }
 
@@ -668,12 +677,26 @@ void MainWnd::on_actionSave_state_triggered()
 
 void MainWnd::on_actionLoad_state_triggered()
 {
-    if (!brain) return;
+    // shortcut for loading model + state in an easier way
+    if (!brain) {
+        if (!ui->ModelPath->text().isEmpty()) {
+            config.params.prompt.clear(); // no need for that
+            LoadLLM(ui->ModelPath->text());
+        }
+        if (!brain) return;
+    }
+
+    // normal stuff now - request file name and attempt to load the state
     QString fn = GetOpenFileName(ANNA_FILE_MODEL_STATE);
     if (fn.isEmpty()) return;
-    if (brain->LoadState(fn.toStdString()))
+
+    if (brain->LoadState(fn.toStdString())) {
         ui->statusbar->showMessage("Model state has been loaded from "+fn);
-    else
+        // state contains context memory, so the chat could be reconstructed (more or less)
+        cur_chat = QString::fromStdString(brain->PrintContext()) + "\n";
+        if (guiconfig.md_fix) FixMarkdown(cur_chat);
+        on_actionRefresh_chat_box_triggered();
+    } else
         ui->statusbar->showMessage("Unable to load model state!");
 }
 
@@ -682,9 +705,7 @@ void MainWnd::on_actionShow_prompt_triggered()
     QString r = QString::fromStdString(config.params.prompt);
     if (guiconfig.md_fix) FixMarkdown(r);
     cur_chat = r + "\n\n" + cur_chat;
-    ui->ChatLog->setMarkdown(cur_chat);
-    ui->ChatLog->moveCursor(QTextCursor::End);
-    ui->ChatLog->ensureCursorVisible();
+    on_actionRefresh_chat_box_triggered();
 }
 
 void MainWnd::FixMarkdown(QString& s)
@@ -713,6 +734,8 @@ void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
 void MainWnd::on_actionRefresh_chat_box_triggered()
 {
     ui->ChatLog->setMarkdown(cur_chat);
+    ui->ChatLog->moveCursor(QTextCursor::End);
+    ui->ChatLog->ensureCursorVisible();
 }
 
 void MainWnd::on_actionShow_context_tokens_triggered()

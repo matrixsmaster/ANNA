@@ -12,3 +12,9 @@ HelpBox::~HelpBox()
 {
     delete ui;
 }
+
+void HelpBox::on_pushButton_4_clicked()
+{
+    close();
+}
+

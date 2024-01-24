@@ -37,16 +37,12 @@ static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
     ".txt",
 };
 
-#if 1
 static const char* md_fix_tab[] = {
     "\\n\\*\\*([^*\\n]+\\s?)\\n", "\n**\\1**\n**",
-    //"\\n([^*\\n]+)\\*\\*(.*)\\n", "\\n**\\1**\\2\\n",
-    //"(\\S|\\W)\\n([ \\t]|\\w)", "\\1\\n\\n\\2",
     "([^\\n])\\n([^\\n])", "\\1\n\n\\2",
     "([^\\\\])#", "\\1\\#",
     NULL, NULL // terminator
 };
-#endif
 
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
@@ -99,7 +95,7 @@ void MainWnd::DefaultConfig()
 
     config.user = &guiconfig;
     guiconfig.enter_key = 0;
-    guiconfig.md_fix = false;
+    guiconfig.md_fix = true;
 }
 
 void MainWnd::LoadSettings()
@@ -389,7 +385,7 @@ void MainWnd::on_SendButton_clicked()
 {
     if (!brain) return;
 
-    QString usr, line, log, infixed;
+    QString usr, line, log;
     if (!cur_chat.endsWith("\n")) {
         usr = "\n";
         log = "\n";
@@ -403,10 +399,9 @@ void MainWnd::on_SendButton_clicked()
     } else
         line = ui->UserNameBox->currentText() + " ";
 
-    infixed = ui->UserInput->toPlainText();
-    if (guiconfig.md_fix) FixMarkdown(infixed);
-    usr += line + ui->UserInput->toPlainText();
-    log += line + infixed;
+    line += ui->UserInput->toPlainText();
+    usr += line;
+    log += line;
 
     if (!ui->NewlineCheck->isChecked()) {
         // normal behavior
@@ -452,6 +447,7 @@ void MainWnd::on_SendButton_clicked()
     qDebug("usr = '%s'\n",usr.toStdString().c_str());
     qDebug("log = '%s'\n",log.toStdString().c_str());
 
+    if (guiconfig.md_fix) FixMarkdown(log);
     cur_chat += log;
     ui->ChatLog->setMarkdown(cur_chat);
     ui->ChatLog->moveCursor(QTextCursor::End);
@@ -595,7 +591,6 @@ void MainWnd::on_actionLoad_initial_prompt_triggered()
     QString np;
     if (fn.isEmpty() || !LoadFile(fn,np)) return;
     config.params.prompt = np.toStdString();
-    FixMarkdown(np); // FIXME: DEBUG
 }
 
 void MainWnd::on_actionSettings_triggered()
@@ -694,49 +689,16 @@ void MainWnd::on_actionShow_prompt_triggered()
 
 void MainWnd::FixMarkdown(QString& s)
 {
-#if 1
     for (int i = 0; md_fix_tab[i]; i+=2) {
         qDebug("Filter %d before: '%s'\n",i,s.toStdString().c_str());
         QRegExp ex(md_fix_tab[i]);
-        //s.replace(ex,QString(md_fix_tab[i+1]));
-        //int pos = 0;
-
-        for (int n = 0; n < 10000 && ex.indexIn(s) != -1; n++) {
+        for (int n = 0; n < ANNA_MDFIX_FAILSAFE && ex.indexIn(s) != -1; n++) {
             qDebug("%d %d %d\n",i,ex.indexIn(s),ex.matchedLength());
             s.replace(ex,md_fix_tab[i+1]);
-            if (s.length() > 100*1024*1024) break;
+            if (s.length() > GUI_MAXTEXT) break;
         }
-        //s.replace("\\n","\n");
-
         qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
     }
-#else
-    int fsm = 0;
-    for (int i = 0; i < s.length(); i++) {
-        char n = 0;
-        switch (fsm) {
-        case 0:
-            if (s[i].isPrint()) {
-                switch (s[i].toLatin1()) {
-                case '#': n = '\\'; break;
-                default: fsm++;
-                }
-            }
-            break;
-        case 1:
-            if (s[i] == '\n') fsm++;
-            break;
-        case 2:
-            if (s[i] != '\n') n = '\n';
-            fsm = 0;
-            break;
-        }
-        if (n) {
-            s.insert(i,n);
-            i++;
-        }
-    }
-#endif
 }
 
 void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)

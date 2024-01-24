@@ -27,6 +27,9 @@ FORMS += \
 
 DEFINES += _XOPEN_SOURCE=600 GGML_USE_K_QUANTS
 
+QMAKE_CFLAGS += -fPIC
+QMAKE_CXXFLAGS += -fPIC
+
 win32 {
     DEFINES += _WIN32_WINNT=0x602
 
@@ -58,8 +61,13 @@ win32 {
     QMAKE_CFLAGS += $$CWARNS
     QMAKE_CXXFLAGS += $$CXXWARNS
 
-    QMAKE_CFLAGS += -fPIC -march=haswell
-    QMAKE_CXXFLAGS += -fPIC -march=haswell
+    oldcpu = $$(ANNA_OLDCPU)
+    #message($$oldcpu)
+    !equals(oldcpu,1) {
+        message("Making Haswell build")
+        QMAKE_CFLAGS += -march=haswell
+        QMAKE_CXXFLAGS += -march=haswell
+    }
 
     RC_ICONS = anna1.ico
 }
@@ -71,11 +79,11 @@ QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -Ofast
 
 linux {
     cublas = $$(USE_CUBLAS)
-    message($$cublas)
+    #message($$cublas)
 
     DEFINES += _GNU_SOURCE ANNA_USE_MMAP
-    QMAKE_CFLAGS += -fPIC -march=native -mtune=native
-    QMAKE_CXXFLAGS += -fPIC -march=native -mtune=native
+    QMAKE_CFLAGS += -march=native -mtune=native
+    QMAKE_CXXFLAGS += -march=native -mtune=native
     LIBS += -L.. -lanna
 
     equals(cublas,1) {

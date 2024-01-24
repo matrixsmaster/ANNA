@@ -56,6 +56,7 @@ AnnaBrain::AnnaBrain(AnnaConfig* cfg)
         state = ANNA_ERROR;
         return;
     }
+    llama_adjust_rope_freq(ctx,config.params.n_ctx);
 
     // initialize sampling
     ctx_sp = llama_sampling_init(cfg->params);

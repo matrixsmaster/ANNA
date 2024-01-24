@@ -757,21 +757,24 @@ void MainWnd::on_actionShow_context_tokens_triggered()
 void MainWnd::on_actionQuick_save_triggered()
 {
     if (!brain) return;
-    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
-    if (brain->SaveState(fn.toStdString()))
-        ui->statusbar->showMessage("Model state has been saved to "+fn);
+    QString fns = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    QString fnt = qApp->applicationDirPath() + "/" + ANNA_QUICK_TEXT;
+    if (brain->SaveState(fns.toStdString()) && SaveFile(fnt,cur_chat))
+        ui->statusbar->showMessage("Quicksave point saved");
     else
-        ui->statusbar->showMessage("Unable to save model state!");
+        ui->statusbar->showMessage("Unable to do quicksave!");
 }
 
 void MainWnd::on_actionQuick_load_triggered()
 {
     if (!brain) return;
-    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
-    if (brain->LoadState(fn.toStdString()))
-        ui->statusbar->showMessage("Model state has been loaded from "+fn);
-    else
-        ui->statusbar->showMessage("Unable to load model state!");
+    QString fns = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    QString fnt = qApp->applicationDirPath() + "/" + ANNA_QUICK_TEXT;
+    if (brain->LoadState(fns.toStdString()) && LoadFile(fnt,cur_chat)) {
+        ui->statusbar->showMessage("Quickload complete");
+        ui->ChatLog->setMarkdown(cur_chat);
+    } else
+        ui->statusbar->showMessage("Unable to do quickload!");
 }
 
 void MainWnd::SaveComboBox(QSettings* sets, QString prefix, QComboBox* box)

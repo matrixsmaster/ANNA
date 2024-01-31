@@ -41,6 +41,7 @@ static const char* md_fix_tab[] = {
     "\\n\\*\\*([^*\\n]+\\s?)\\n", "\n**\\1**\n**",
     "([^\\n])\\n([^\\n])", "\\1\n\n\\2",
     "([^\\\\])#", "\\1\\#",
+    "\\n\\*\\*[ \t]+", "\n**",
     NULL, NULL // terminator
 };
 
@@ -256,6 +257,7 @@ void MainWnd::Generate()
 
     while (brain && !stop) {
         AnnaState s = brain->Processing(skips);
+        qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
         switch (s) {
         case ANNA_READY:
             if (ui->SamplingCheck->isChecked()) return;
@@ -264,7 +266,7 @@ void MainWnd::Generate()
             str = brain->getOutput();
             qDebug("str = %s\n",str.c_str());
             convo += QString::fromStdString(str);
-            if (convo.endsWith(ui->UserNameBox->currentText())) {
+            if (!ui->UserNameBox->currentText().isEmpty() && convo.endsWith(ui->UserNameBox->currentText())) {
                 last_username = true;
                 s = ANNA_TURNOVER;
                 convo.chop(ui->UserNameBox->currentText().length());
@@ -761,6 +763,7 @@ void MainWnd::on_actionQuick_load_triggered()
     QString fnt = qApp->applicationDirPath() + "/" + ANNA_QUICK_TEXT;
     if (brain->LoadState(fns.toStdString()) && LoadFile(fnt,cur_chat)) {
         ui->statusbar->showMessage("Quickload complete");
+        if (guiconfig.md_fix) FixMarkdown(cur_chat);
         ui->ChatLog->setMarkdown(cur_chat);
     } else
         ui->statusbar->showMessage("Unable to do quickload!");

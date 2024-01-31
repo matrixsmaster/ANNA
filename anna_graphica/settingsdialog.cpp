@@ -53,6 +53,8 @@ void SettingsDialog::showEvent(QShowEvent *event)
         AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
         ui->enterButn->setCurrentIndex(gs->enter_key);
         ui->fixMD->setChecked(gs->md_fix);
+        ui->chatLogExample->setFont(gs->log_fnt);
+        ui->userInExample->setFont(gs->usr_fnt);
     }
 
     QDialog::showEvent(event);
@@ -92,6 +94,8 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->beginGroup("UI");
     sets->setValue("enter_key",gs->enter_key);
     sets->setValue("md_fix",gs->md_fix);
+    sets->setValue("chat_font",gs->log_fnt.toString());
+    sets->setValue("user_font",gs->usr_fnt.toString());
 }
 
 void SettingsDialog::on_buttonBox_accepted()
@@ -126,6 +130,8 @@ void SettingsDialog::on_buttonBox_accepted()
     AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
     gs->enter_key = ui->enterButn->currentIndex();
     gs->md_fix = ui->fixMD->isChecked();
+    gs->log_fnt = ui->chatLogExample->font();
+    gs->usr_fnt = ui->userInExample->font();
 }
 
 void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
@@ -162,6 +168,8 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     sets->beginGroup("UI");
     gs->enter_key = sets->value("enter_key",gs->enter_key).toInt();
     gs->md_fix = sets->value("md_fix",gs->md_fix).toBool();
+    gs->log_fnt = LoadFont(sets,"chat_font",gs->log_fnt);
+    gs->usr_fnt = LoadFont(sets,"user_font",gs->usr_fnt);
 }
 
 void SettingsDialog::on_tempKnob_valueChanged(int value)
@@ -172,4 +180,26 @@ void SettingsDialog::on_tempKnob_valueChanged(int value)
 void SettingsDialog::on_tempEdit_valueChanged(double arg1)
 {
     ui->tempKnob->setValue(floor(arg1 * 100.f));
+}
+
+void SettingsDialog::on_pushButton_clicked()
+{
+    bool ok;
+    QFont f = QFontDialog::getFont(&ok,ui->chatLogExample->font(),this,"Select font for the Chat Log");
+    if (ok) ui->chatLogExample->setFont(f);
+}
+
+void SettingsDialog::on_pushButton_2_clicked()
+{
+    bool ok;
+    QFont f = QFontDialog::getFont(&ok,ui->userInExample->font(),this,"Select font for the user input box");
+    if (ok) ui->userInExample->setFont(f);
+}
+
+QFont SettingsDialog::LoadFont(QSettings* sets, QString prefix, const QFont& prev)
+{
+    QFont fnt(prev);
+    QString s = sets->value(prefix,QString()).toString();
+    if (!s.isEmpty()) fnt.fromString(s);
+    return fnt;
 }

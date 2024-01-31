@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QSettings>
+#include <QFontDialog>
 #include "brain.h"
 
 namespace Ui {
@@ -32,8 +33,14 @@ private slots:
 
     void on_tempEdit_valueChanged(double arg1);
 
+    void on_pushButton_clicked();
+
+    void on_pushButton_2_clicked();
+
 private:
     Ui::SettingsDialog *ui;
+
+    static QFont LoadFont(QSettings* sets, QString prefix, const QFont& prev);
 };
 
 #endif // SETTINGSDIALOG_H

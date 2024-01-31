@@ -97,6 +97,8 @@ void MainWnd::DefaultConfig()
     config.user = &guiconfig;
     guiconfig.enter_key = 0;
     guiconfig.md_fix = true;
+    guiconfig.log_fnt = ui->ChatLog->font();
+    guiconfig.usr_fnt = ui->UserInput->font();
 }
 
 void MainWnd::LoadSettings()
@@ -135,6 +137,10 @@ void MainWnd::LoadSettings()
 
     LoadComboBox(&s,"ai_name",ui->AINameBox);
     LoadComboBox(&s,"user_name",ui->UserNameBox);
+
+    ui->ChatLog->setFont(guiconfig.log_fnt);
+    qDebug("chat: %s",guiconfig.log_fnt.toString().toStdString().c_str());
+    ui->UserInput->setFont(guiconfig.usr_fnt);
 
     // load file paths
     s.endGroup();
@@ -602,15 +608,23 @@ void MainWnd::on_actionSettings_triggered()
 {
     SettingsDialog sdlg;
     sdlg.pconfig = &config;
+
     if (sdlg.exec() == QDialog::Accepted && brain) {
-        // update things which can be updated on the fly
-        brain->getConfig()->convert_eos_to_nl = config.convert_eos_to_nl;
-        brain->getConfig()->nl_to_turnover = config.nl_to_turnover;
-        // warn the user about others
-        if (!cur_chat.isEmpty()) {
-            if (QMessageBox::information(this,"ANNA","Most of the settings require the model to be reloaded.\n"
-                                         "Do you want to reload the model? The current dialog will be lost.",QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::Yes)
-                LoadLLM(QString::fromStdString(config.params.model));
+        // update things which don't require any LLM
+        ui->ChatLog->setFont(guiconfig.log_fnt);
+        ui->UserInput->setFont(guiconfig.usr_fnt);
+
+        if (brain) {
+            // update things which can be updated on the fly
+            brain->getConfig()->convert_eos_to_nl = config.convert_eos_to_nl;
+            brain->getConfig()->nl_to_turnover = config.nl_to_turnover;
+
+            // warn the user about others
+            if (!cur_chat.isEmpty()) {
+                if (QMessageBox::information(this,"ANNA","Most of the settings require the model to be reloaded.\n"
+                                             "Do you want to reload the model? The current dialog will be lost.",QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::Yes)
+                    LoadLLM(QString::fromStdString(config.params.model));
+            }
         }
     }
 }

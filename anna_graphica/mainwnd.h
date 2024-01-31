@@ -36,6 +36,7 @@ struct AnnaAttachment {
 struct AnnaGuiSettings {
     int enter_key;
     bool md_fix;
+    QFont log_fnt, usr_fnt;
 };
 
 enum AnnaFileDialogType {

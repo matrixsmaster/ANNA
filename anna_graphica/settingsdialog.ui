@@ -39,7 +39,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>2</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -832,13 +832,97 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>100</y>
+         <y>330</y>
          <width>341</width>
          <height>25</height>
         </rect>
        </property>
        <property name="text">
         <string>Automatically fix markdown in chat log</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_5">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>100</y>
+         <width>111</width>
+         <height>19</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Chat log font</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_6">
+       <property name="geometry">
+        <rect>
+         <x>290</x>
+         <y>100</y>
+         <width>131</width>
+         <height>19</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>User input font</string>
+       </property>
+      </widget>
+      <widget class="QPlainTextEdit" name="chatLogExample">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>130</y>
+         <width>251</width>
+         <height>71</height>
+        </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="plainText">
+        <string>Example of the chat log</string>
+       </property>
+      </widget>
+      <widget class="QPlainTextEdit" name="userInExample">
+       <property name="geometry">
+        <rect>
+         <x>290</x>
+         <y>130</y>
+         <width>251</width>
+         <height>71</height>
+        </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="plainText">
+        <string>Example of the user input</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="pushButton">
+       <property name="geometry">
+        <rect>
+         <x>160</x>
+         <y>90</y>
+         <width>100</width>
+         <height>27</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Change</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="pushButton_2">
+       <property name="geometry">
+        <rect>
+         <x>440</x>
+         <y>90</y>
+         <width>100</width>
+         <height>27</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Change</string>
        </property>
       </widget>
      </widget>

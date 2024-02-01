@@ -500,7 +500,7 @@ bool AnnaBrain::LoadState(std::string fname)
     return true;
 }
 
-void AnnaBrain::anna_no_log(ggml_log_level level, const char * text, void * user_data)
+void AnnaBrain::anna_no_log(ggml_log_level, const char*, void*)
 {
     // This is an empty function
 }
@@ -556,8 +556,6 @@ bool AnnaBrain::EmbedImage(string imgfile)
             return false;
         }
 
-        //int n_img_pos  = clip_n_patches(ctx_clip);
-        //int n_img_embd = clip_n_mmproj_embd(ctx_clip);
         vector<float> emb;
         emb.resize(clip_n_patches(ctx_clip) * clip_n_mmproj_embd(ctx_clip));
         if (!clip_image_encode(ctx_clip,config.params.n_threads,&img_res,emb.data())) {

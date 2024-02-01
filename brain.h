@@ -6,7 +6,7 @@
 #include "common.h"
 #include "llama.h"
 
-#define ANNA_VERSION "0.6.6d"
+#define ANNA_VERSION "0.6.7-pre"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 
@@ -35,36 +35,36 @@ public:
     AnnaBrain(AnnaConfig* cfg);
     virtual ~AnnaBrain();
 
-    AnnaState getState()                    { return state; }
-    const std::string & getError()          { return internal_error; }
-    int getTokensUsed()                     { return n_past; }
-    AnnaConfig* getConfig()                 { return &config; }
+    virtual AnnaState getState()                    { return state; }
+    virtual const std::string & getError()          { return internal_error; }
+    virtual int getTokensUsed()                     { return n_past; }
+    virtual AnnaConfig* getConfig()                 { return &config; }
 
-    std::string getOutput();
-    void setInput(std::string inp);
-    void setPrefix(std::string str);
+    virtual std::string getOutput();
+    virtual void setInput(std::string inp);
+    virtual void setPrefix(std::string str);
 
     static std::string StateToStr(AnnaState s);
-    const char* TokenToStr(llama_token token);
-    std::string PrintContext();
+    virtual const char* TokenToStr(llama_token token);
+    virtual std::string PrintContext();
 
-    bool SaveState(std::string fname);
-    bool LoadState(std::string fname);
+    virtual bool SaveState(std::string fname);
+    virtual bool LoadState(std::string fname);
 
-    void setClipModelFile(std::string fn);
-    bool EmbedImage(std::string imgfile);
+    virtual void setClipModelFile(std::string fn);
+    virtual bool EmbedImage(std::string imgfile);
 
-    AnnaState Processing(bool skip_sampling = false);
-    void Reset();
-    void Undo();
+    virtual AnnaState Processing(bool skip_sampling = false);
+    virtual void Reset();
+    virtual void Undo();
 
 private:
     AnnaState state = ANNA_NOT_INITIALIZED;
     AnnaConfig config;
     std::string internal_error;
-    llama_model* model = NULL;
-    llama_context* ctx = NULL;
-    llama_sampling_context* ctx_sp;
+    llama_model* model = nullptr;
+    llama_context* ctx = nullptr;
+    llama_sampling_context* ctx_sp = nullptr;
     int n_past = 0, old_past = 0;
     int n_remain, n_consumed = 0;
     std::vector<llama_token> queue,prompt,inp_emb;

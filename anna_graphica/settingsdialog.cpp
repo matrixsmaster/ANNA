@@ -53,6 +53,10 @@ void SettingsDialog::showEvent(QShowEvent *event)
         AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
         ui->enterButn->setCurrentIndex(gs->enter_key);
         ui->fixMD->setChecked(gs->md_fix);
+        ui->savePrompt->setChecked(gs->save_prompt);
+        ui->clearLog->setChecked(gs->clear_log);
+        ui->serverAddr->setText(gs->server);
+        ui->useServer->setChecked(gs->use_server);
         ui->chatLogExample->setFont(gs->log_fnt);
         ui->userInExample->setFont(gs->usr_fnt);
     }
@@ -94,6 +98,10 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->beginGroup("UI");
     sets->setValue("enter_key",gs->enter_key);
     sets->setValue("md_fix",gs->md_fix);
+    sets->setValue("save_prompt",gs->save_prompt);
+    sets->setValue("clear_log",gs->clear_log);
+    sets->setValue("server",gs->server);
+    sets->setValue("use_server",gs->use_server);
     sets->setValue("chat_font",gs->log_fnt.toString());
     sets->setValue("user_font",gs->usr_fnt.toString());
 }
@@ -130,6 +138,10 @@ void SettingsDialog::on_buttonBox_accepted()
     AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
     gs->enter_key = ui->enterButn->currentIndex();
     gs->md_fix = ui->fixMD->isChecked();
+    gs->save_prompt = ui->savePrompt->isChecked();
+    gs->clear_log = ui->clearLog->isChecked();
+    gs->server = ui->serverAddr->text();
+    gs->use_server = ui->useServer->isChecked();
     gs->log_fnt = ui->chatLogExample->font();
     gs->usr_fnt = ui->userInExample->font();
 }
@@ -168,6 +180,10 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     sets->beginGroup("UI");
     gs->enter_key = sets->value("enter_key",gs->enter_key).toInt();
     gs->md_fix = sets->value("md_fix",gs->md_fix).toBool();
+    gs->save_prompt = sets->value("save_prompt",gs->save_prompt).toBool();
+    gs->clear_log = sets->value("clear_log",gs->clear_log).toBool();
+    gs->server = sets->value("server",gs->server).toString();
+    gs->use_server = sets->value("use_server",gs->use_server).toBool();
     gs->log_fnt = LoadFont(sets,"chat_font",gs->log_fnt);
     gs->usr_fnt = LoadFont(sets,"user_font",gs->usr_fnt);
 }

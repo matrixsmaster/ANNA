@@ -100,7 +100,10 @@ void MainWnd::DefaultConfig()
     config.user = &guiconfig;
     guiconfig.enter_key = 0;
     guiconfig.md_fix = true;
+    guiconfig.save_prompt = false;
+    guiconfig.clear_log = true;
     guiconfig.server = ANNA_DEFAULT_SERVER;
+    guiconfig.use_server = false;
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
 }
@@ -143,7 +146,6 @@ void MainWnd::LoadSettings()
     LoadComboBox(&s,"user_name",ui->UserNameBox);
 
     ui->ChatLog->setFont(guiconfig.log_fnt);
-    qDebug("chat: %s",guiconfig.log_fnt.toString().toStdString().c_str());
     ui->UserInput->setFont(guiconfig.usr_fnt);
 
     // load file paths
@@ -393,8 +395,14 @@ void MainWnd::on_ModelFindButton_clicked()
         }
     }
 
-    ui->ChatLog->clear();
-    cur_chat.clear();
+    if (guiconfig.clear_log) {
+        ui->ChatLog->clear();
+        cur_chat.clear();
+    } else if (!cur_chat.isEmpty()) {
+        cur_chat += "### New model loaded: " + fn + "\n\n\n\n";
+        on_actionRefresh_chat_box_triggered();
+    }
+
     LoadLLM(fn);
 }
 
@@ -578,9 +586,14 @@ void MainWnd::on_actionNew_dialog_triggered()
         ui->statusbar->showMessage("Brain has been reset and is now ready.");
     }
 
-    cur_chat.clear();
+    if (guiconfig.clear_log) {
+        ui->ChatLog->clear();
+        cur_chat.clear();
+    } else if (!cur_chat.isEmpty()) {
+        cur_chat += "### New chat started\n\n\n\n";
+        on_actionRefresh_chat_box_triggered();
+    }
     ui->UserInput->clear();
-    ui->ChatLog->clear();
     last_username = false;
     next_attach = nullptr;
 }
@@ -594,6 +607,7 @@ void MainWnd::on_actionMarkdown_triggered()
 {
     QString fn = GetSaveFileName(ANNA_FILE_DLG_MD);
     if (fn.isEmpty()) return;
+    if (guiconfig.save_prompt) on_actionShow_prompt_triggered();
     if (SaveFile(fn,cur_chat))
         ui->statusbar->showMessage("Chat log saved as markdown document.");
     else
@@ -655,6 +669,7 @@ void MainWnd::on_actionPlain_text_triggered()
 {
     QString fn = GetSaveFileName(ANNA_FILE_DLG_TXT);
     if (fn.isEmpty()) return;
+    if (guiconfig.save_prompt) on_actionShow_prompt_triggered();
     if (SaveFile(fn,ui->ChatLog->toPlainText()))
         ui->statusbar->showMessage("Chat log saved as plain text document.");
     else
@@ -677,6 +692,7 @@ void MainWnd::on_actionHTML_triggered()
 {
     QString fn = GetSaveFileName(ANNA_FILE_DLG_HTML);
     if (fn.isEmpty()) return;
+    if (guiconfig.save_prompt) on_actionShow_prompt_triggered();
     if (SaveFile(fn,ui->ChatLog->toHtml()))
         ui->statusbar->showMessage("Chat log saved as HTML document.");
     else
@@ -723,8 +739,10 @@ void MainWnd::on_actionShow_prompt_triggered()
 {
     QString r = QString::fromStdString(config.params.prompt);
     if (guiconfig.md_fix) FixMarkdown(r);
-    cur_chat = r + "\n\n" + cur_chat;
-    on_actionRefresh_chat_box_triggered();
+    if (!cur_chat.startsWith(r)) {
+        cur_chat = r + "\n\n" + cur_chat;
+        on_actionRefresh_chat_box_triggered();
+    }
 }
 
 void MainWnd::FixMarkdown(QString& s)

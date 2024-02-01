@@ -37,8 +37,9 @@ struct AnnaAttachment {
 
 struct AnnaGuiSettings {
     int enter_key;
-    bool md_fix;
+    bool md_fix, save_prompt, clear_log;
     QString server;
+    bool use_server;
     QFont log_fnt, usr_fnt;
 };
 

@@ -1023,7 +1023,7 @@
         <string>Change</string>
        </property>
       </widget>
-      <widget class="QCheckBox" name="checkBox">
+      <widget class="QCheckBox" name="clearLog">
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -1036,7 +1036,7 @@
         <string>Clear chat log on model change / new dialog</string>
        </property>
       </widget>
-      <widget class="QCheckBox" name="checkBox_2">
+      <widget class="QCheckBox" name="savePrompt">
        <property name="geometry">
         <rect>
          <x>10</x>

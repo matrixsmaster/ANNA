@@ -67,6 +67,8 @@ MainWnd::MainWnd(QWidget *parent)
     last_username = false;
 
     ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
+    AnnaClient cl(&config,guiconfig.server.toStdString());
+    qDebug("client state = %d, error = %s",cl.getState(),cl.getError().c_str());
 }
 
 MainWnd::~MainWnd()
@@ -98,6 +100,7 @@ void MainWnd::DefaultConfig()
     config.user = &guiconfig;
     guiconfig.enter_key = 0;
     guiconfig.md_fix = true;
+    guiconfig.server = ANNA_DEFAULT_SERVER;
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
 }
@@ -225,7 +228,7 @@ void MainWnd::LoadLLM(const QString &fn)
 
     // Process initial prompt
     ProcessInput(config.params.prompt);
-    seed_label->setText(QString("Seed: %1").arg((int)brain->getConfig()->params.seed));
+    seed_label->setText(QString("Seed: %1").arg((int)brain->getConfig().params.seed));
     ui->statusbar->showMessage("Brain is ready");
 }
 
@@ -617,8 +620,7 @@ void MainWnd::on_actionSettings_triggered()
 
         if (brain) {
             // update things which can be updated on the fly
-            brain->getConfig()->convert_eos_to_nl = config.convert_eos_to_nl;
-            brain->getConfig()->nl_to_turnover = config.nl_to_turnover;
+            brain->setConfig(config);
 
             // warn the user about others
             if (!cur_chat.isEmpty()) {

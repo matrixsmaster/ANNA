@@ -38,7 +38,8 @@ public:
     virtual AnnaState getState()                    { return state; }
     virtual const std::string & getError()          { return internal_error; }
     virtual int getTokensUsed()                     { return n_past; }
-    virtual AnnaConfig* getConfig()                 { return &config; }
+    virtual AnnaConfig getConfig()                  { return config; }
+    virtual void setConfig(const AnnaConfig& cfg)   { config = cfg; }
 
     virtual std::string getOutput();
     virtual void setInput(std::string inp);
@@ -58,7 +59,7 @@ public:
     virtual void Reset();
     virtual void Undo();
 
-private:
+protected:
     AnnaState state = ANNA_NOT_INITIALIZED;
     AnnaConfig config;
     std::string internal_error;

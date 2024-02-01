@@ -21,6 +21,7 @@
 #define ANNA_QUICK_FILE "quicksave.anna"
 #define ANNA_QUICK_TEXT "quicksave.txt"
 #define ANNA_MDFIX_FAILSAFE 100000
+#define ANNA_DEFAULT_SERVER "127.0.0.1:8080"
 
 #define GUI_MAXTEXT 100*1024*1024
 #define GUI_ICON_W 48
@@ -37,6 +38,7 @@ struct AnnaAttachment {
 struct AnnaGuiSettings {
     int enter_key;
     bool md_fix;
+    QString server;
     QFont log_fnt, usr_fnt;
 };
 

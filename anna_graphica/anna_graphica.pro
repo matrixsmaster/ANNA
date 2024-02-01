@@ -6,6 +6,7 @@ CONFIG += c++20
 
 SOURCES += \
     ../brain.cpp \
+    ../netclient.cpp \
     aboutbox.cpp \
     helpbox.cpp \
     main.cpp \
@@ -14,6 +15,8 @@ SOURCES += \
 
 HEADERS += \
     ../brain.h \
+    ../httplib.h \
+    ../netclient.h \
     aboutbox.h \
     helpbox.h \
     mainwnd.h \
@@ -68,6 +71,8 @@ win32 {
         QMAKE_CFLAGS += -march=haswell
         QMAKE_CXXFLAGS += -march=haswell
     }
+
+    LIBS += -lws2_32
 
     RC_ICONS = anna1.ico
 }

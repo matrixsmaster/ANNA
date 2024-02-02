@@ -42,7 +42,8 @@ win32 {
         ../ggml-alloc.c \
         ../ggml-backend.c \
         ../ggml.c \
-        ../k_quants.c \
+        ../ggml-quants.c \
+        ../grammar-parser.cpp \
         ../llama.cpp \
         ../sampling.cpp
 
@@ -52,7 +53,10 @@ win32 {
         ../ggml-alloc.h \
         ../ggml-backend.h \
         ../ggml.h \
-        ../k_quants.h \
+        ../ggml-backend-impl.h \
+        ../ggml-impl.h \
+        ../ggml-quants.h \
+        ../grammar-parser.h \
         ../llama.h \
         ../sampling.h \
         ../stb_image.h \

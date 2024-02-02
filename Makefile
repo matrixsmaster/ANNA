@@ -503,7 +503,7 @@ clip.o: clip.cpp clip.h stb_image.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
 anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -std=c++20 $(filter-out %.h,$^) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
 libanna.a: ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS)
 	ar cru $@ $^

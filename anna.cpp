@@ -173,9 +173,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             g_nonl = true;
             break;
         case 'G':
-#ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
             p->n_gpu_layers = atoi(optarg);
-#endif
             break;
         case 'H':
             // TODO: prompt Hub support
@@ -873,7 +871,7 @@ int main(int argc, char* argv[])
                 skip_sampling = true;
                 continue;
 
-            } else if (inp_str == "save()\n" || inp_str == "load\n") {
+            } else if (inp_str == "save()\n" || inp_str == "load()\n") {
                 bool load = (inp_str[0] == 'l');
                 printf("Enter state cache file name\n");
                 inp_str = get_input(NULL,NULL);

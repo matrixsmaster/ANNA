@@ -59,7 +59,7 @@ AnnaBrain::AnnaBrain(AnnaConfig* cfg)
     llama_adjust_rope_freq(ctx,config.params.n_ctx);
 
     // initialize sampling
-    ctx_sp = llama_sampling_init(cfg->params);
+    ctx_sp = llama_sampling_init(cfg->params.sparams);
     state = ANNA_READY;
 }
 
@@ -101,9 +101,11 @@ void AnnaBrain::Evaluate()
     if (!queue.empty() || !ext_emb.empty()) {
         int n_embd  = llama_n_embd(llama_get_model(ctx));
         int n_ext_emb = (int)ext_emb.size() / n_embd;
+        int ga_n = config.params.grp_attn_n;
+        int ga_w = config.params.grp_attn_w;
 
         // check context window
-        if (n_past + (int)queue.size() + n_ext_emb > llama_n_ctx(ctx)) {
+        if (n_past + (int)queue.size() + n_ext_emb > (int)llama_n_ctx(ctx)) {
             if (!n_past) {
                 internal_error = myformat("Impossible queue length for the context window size: queue = %lu, ext_emb = %d\n",queue.size(),n_ext_emb);
                 state = ANNA_ERROR;
@@ -124,16 +126,41 @@ void AnnaBrain::Evaluate()
                 continue;
             }
 #endif
-            int n_left    = n_past - config.params.n_keep - 1;
-            int n_discard = n_left/2;
-            DBG("n_past = %d, n_left = %d, n_discard = %d\n",n_past,n_left,n_discard);
+            if (ga_n == 1) {
+                int n_left    = n_past - config.params.n_keep - 1;
+                int n_discard = n_left/2;
+                DBG("n_past = %d, n_left = %d, n_discard = %d\n",n_past,n_left,n_discard);
 
-            llama_kv_cache_seq_rm(ctx,0,config.params.n_keep + 1,config.params.n_keep + n_discard + 1);
-            llama_kv_cache_seq_shift(ctx,0,config.params.n_keep + 1 + n_discard,n_past,-n_discard);
+                llama_kv_cache_seq_rm(ctx,0,config.params.n_keep + 1,config.params.n_keep + n_discard + 1);
+                llama_kv_cache_seq_shift(ctx,0,config.params.n_keep + 1 + n_discard,n_past,-n_discard);
 
-            n_past -= n_discard;
-            state = ANNA_PROCESSING;
-            return;
+                n_past -= n_discard;
+                state = ANNA_PROCESSING;
+                return;
+
+            } else {
+                // context extension via Self-Extend
+                while (n_past >= ga_i + ga_w) {
+                    const int ib = (ga_n*ga_i)/ga_w;
+                    const int bd = (ga_w/ga_n)*(ga_n - 1);
+                    const int dd = (ga_w/ga_n) - ib*bd - ga_w;
+
+                    DBG("\n");
+                    DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i, n_past, ib*bd, ga_i + ib*bd, n_past + ib*bd);
+                    DBG("div:   [%6d, %6d] / %6d -> [%6d, %6d]\n", ga_i + ib*bd, ga_i + ib*bd + ga_w, ga_n, (ga_i + ib*bd)/ga_n, (ga_i + ib*bd + ga_w)/ga_n);
+                    DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i + ib*bd + ga_w, n_past + ib*bd, dd, ga_i + ib*bd + ga_w + dd, n_past + ib*bd + dd);
+
+                    llama_kv_cache_seq_shift(ctx, 0, ga_i,                n_past,              ib*bd);
+                    llama_kv_cache_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
+                    llama_kv_cache_seq_shift(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
+
+                    n_past -= bd;
+
+                    ga_i += ga_w/ga_n;
+
+                    DBG("\nn_past_old = %d, n_past = %d, ga_i = %d\n\n", n_past + bd, n_past, ga_i);
+                }
+            }
         }
 
         // token queue
@@ -171,7 +198,7 @@ void AnnaBrain::Evaluate()
     if (!inp_emb.empty()) {
         while ((int)inp_emb.size() > n_consumed) {
             queue.push_back(inp_emb[n_consumed]);
-            llama_sampling_accept(ctx_sp,ctx,inp_emb[n_consumed]);
+            llama_sampling_accept(ctx_sp,ctx,inp_emb[n_consumed],false);
             ++n_consumed;
             if ((int)queue.size() >= config.params.n_batch) break;
         }
@@ -199,7 +226,7 @@ void AnnaBrain::Generate()
 
     // prediction max length reached, force EOS
     if (--n_remain == 0) {
-        tok = llama_token_eos(ctx);
+        tok = llama_token_eos(llama_get_model(ctx));
         n_remain = config.params.n_predict; // reset for next round
     }
 
@@ -207,17 +234,17 @@ void AnnaBrain::Generate()
     if (tok < 0) tok = llama_sampling_sample(ctx_sp,ctx,NULL);
 
     // check if we should stop at new line
-    if (config.nl_to_turnover && tok == llama_token_nl(ctx))
+    if (config.nl_to_turnover && tok == llama_token_nl(llama_get_model(ctx)))
         state = ANNA_TURNOVER;
 
     // Deal with EOS token
-    if (tok == llama_token_eos(ctx)) {
+    if (tok == llama_token_eos(llama_get_model(ctx))) {
         DBG("*** EOS detected ***\n");
-        if (config.convert_eos_to_nl) tok = llama_token_nl(ctx);
+        if (config.convert_eos_to_nl) tok = llama_token_nl(llama_get_model(ctx));
         state = ANNA_TURNOVER; // turn over to the user or any other external information supplier
     }
 
-    llama_sampling_accept(ctx_sp,ctx,tok);
+    llama_sampling_accept(ctx_sp,ctx,tok,false);
     queue.push_back(tok);
     accumulator += llama_token_to_piece(ctx,tok);
 }
@@ -239,6 +266,7 @@ void AnnaBrain::Reset()
     n_past = 0;
     n_remain = 0;
     n_consumed = 0;
+    ga_i = 0;
     queue.clear();
     inp_emb.clear();
     ext_emb.clear();
@@ -246,7 +274,7 @@ void AnnaBrain::Reset()
     accumulator.clear();
 
     if (ctx_sp) llama_sampling_free(ctx_sp);
-    ctx_sp = llama_sampling_init(config.params);
+    ctx_sp = llama_sampling_init(config.params.sparams);
     state = ANNA_READY;
 }
 
@@ -267,7 +295,7 @@ void AnnaBrain::setInput(string inp)
 
     auto emb = ::llama_tokenize(ctx,inp,true);
     if (emb.empty()) return;
-    if ((int)emb.size() >= llama_n_ctx(ctx)) {
+    if (emb.size() >= llama_n_ctx(ctx)) {
         internal_error = myformat("Too many tokens in input: %d tokens for a %d tokens context window!\n",(int)emb.size(),llama_n_ctx(ctx));
         state = ANNA_ERROR;
     }

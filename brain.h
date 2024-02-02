@@ -6,7 +6,7 @@
 #include "common.h"
 #include "llama.h"
 
-#define ANNA_VERSION "0.6.7-pre3"
+#define ANNA_VERSION "0.6.7"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 
@@ -68,6 +68,7 @@ protected:
     llama_sampling_context* ctx_sp = nullptr;
     int n_past = 0, old_past = 0;
     int n_remain, n_consumed = 0;
+    int ga_i = 0;
     std::vector<llama_token> queue,prompt,inp_emb;
     std::vector<llama_token> oldqueue,oldcontext;
     std::deque<llama_token> forced_start;

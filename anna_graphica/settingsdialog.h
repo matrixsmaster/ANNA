@@ -37,6 +37,12 @@ private slots:
 
     void on_pushButton_2_clicked();
 
+    void on_gaFactor_editingFinished();
+
+    void on_gaWidth_editingFinished();
+
+    void on_gaFactor_valueChanged(int arg1);
+
 private:
     Ui::SettingsDialog *ui;
 

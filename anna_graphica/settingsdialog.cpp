@@ -29,6 +29,13 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->maxTok->setValue(p->n_predict);
         ui->conLen->setValue(p->n_ctx);
         ui->n_gpu->setValue(p->n_gpu_layers);
+        ui->gaFactor->setValue(p->ga_factor);
+        ui->gaWidth->setValue(p->ga_width);
+
+        if (p->ga_factor > 1)
+            ui->ctxUseGA->setChecked(true);
+        else
+            ui->ctxRopeScale->setChecked(true);
 
         llama_sampling_params* s = &(p->sampling_params);
         ui->topP->setValue(s->top_p);
@@ -61,6 +68,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->userInExample->setFont(gs->usr_fnt);
     }
 
+    ui->gaWidth->setSingleStep(1);
     QDialog::showEvent(event);
 }
 
@@ -78,6 +86,8 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("max_tokens",p->n_predict);
     sets->setValue("context",p->n_ctx);
     sets->setValue("gpu",p->n_gpu_layers);
+    sets->setValue("ga_factor",p->ga_factor);
+    sets->setValue("ga_width",p->ga_width);
 
     llama_sampling_params* s = &(p->sampling_params);
     sets->endGroup();
@@ -117,6 +127,11 @@ void SettingsDialog::on_buttonBox_accepted()
     p->n_predict = ui->maxTok->value();
     p->n_ctx = ui->conLen->value();
     p->n_gpu_layers = ui->n_gpu->value();
+    p->ga_factor = ui->gaFactor->value();
+    p->ga_width = ui->gaWidth->value();
+
+    if (ui->ctxRopeScale->isChecked())
+        p->ga_factor = 1;
 
     llama_sampling_params* s = &(p->sampling_params);
     s->top_p = ui->topP->value();
@@ -160,6 +175,8 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     p->n_predict = sets->value("max_tokens",p->n_predict).toInt();
     p->n_ctx = sets->value("context",p->n_ctx).toInt();
     p->n_gpu_layers = sets->value("gpu",p->n_gpu_layers).toInt();
+    p->ga_factor = sets->value("ga_factor",p->ga_factor).toInt();
+    p->ga_width = sets->value("ga_width",p->ga_width).toInt();
 
     llama_sampling_params* s = &(p->sampling_params);
     sets->endGroup();
@@ -218,4 +235,20 @@ QFont SettingsDialog::LoadFont(QSettings* sets, QString prefix, const QFont& pre
     QString s = sets->value(prefix,QString()).toString();
     if (!s.isEmpty()) fnt.fromString(s);
     return fnt;
+}
+
+void SettingsDialog::on_gaFactor_editingFinished()
+{
+    int rem = (int)ui->gaWidth->value() % ui->gaFactor->value();
+    if (rem > 0) ui->gaWidth->setValue(ui->gaWidth->value()-rem);
+}
+
+void SettingsDialog::on_gaWidth_editingFinished()
+{
+    on_gaFactor_editingFinished();
+}
+
+void SettingsDialog::on_gaFactor_valueChanged(int arg1)
+{
+    ui->gaWidth->setSingleStep(arg1);
 }

@@ -95,7 +95,7 @@ void MainWnd::DefaultConfig()
     p->n_gpu_layers = 0;
     p->model.clear();
     p->prompt.clear();
-    p->sampling_params.temp = ANNA_DEFAULT_TEMP;
+    p->sparams.temp = ANNA_DEFAULT_TEMP;
 
     config.user = &guiconfig;
     guiconfig.enter_key = 0;

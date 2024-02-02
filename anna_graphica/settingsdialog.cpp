@@ -29,15 +29,15 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->maxTok->setValue(p->n_predict);
         ui->conLen->setValue(p->n_ctx);
         ui->n_gpu->setValue(p->n_gpu_layers);
-        ui->gaFactor->setValue(p->ga_factor);
-        ui->gaWidth->setValue(p->ga_width);
+        ui->gaFactor->setValue(p->grp_attn_n);
+        ui->gaWidth->setValue(p->grp_attn_w);
 
-        if (p->ga_factor > 1)
+        if (p->grp_attn_n > 1)
             ui->ctxUseGA->setChecked(true);
         else
             ui->ctxRopeScale->setChecked(true);
 
-        llama_sampling_params* s = &(p->sampling_params);
+        llama_sampling_params* s = &(p->sparams);
         ui->topP->setValue(s->top_p);
         ui->topK->setValue(s->top_k);
         ui->tailFree->setValue(s->tfs_z);
@@ -45,8 +45,8 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->Entropy->setValue(s->mirostat_tau);
         ui->learnRate->setValue(s->mirostat_eta);
         ui->tempEdit->setValue(s->temp);
-        ui->lastN->setValue(s->repeat_last_n);
-        ui->repPenalty->setValue(s->repeat_penalty);
+        ui->lastN->setValue(s->penalty_last_n);
+        ui->repPenalty->setValue(s->penalty_repeat);
 
         if (s->mirostat == 1)
             ui->sampMiro1->setChecked(true);
@@ -86,10 +86,10 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("max_tokens",p->n_predict);
     sets->setValue("context",p->n_ctx);
     sets->setValue("gpu",p->n_gpu_layers);
-    sets->setValue("ga_factor",p->ga_factor);
-    sets->setValue("ga_width",p->ga_width);
+    sets->setValue("ga_factor",p->grp_attn_n);
+    sets->setValue("ga_width",p->grp_attn_w);
 
-    llama_sampling_params* s = &(p->sampling_params);
+    llama_sampling_params* s = &(p->sparams);
     sets->endGroup();
     sets->beginGroup("Sampling");
     sets->setValue("topp",s->top_p);
@@ -99,8 +99,8 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("mtau",s->mirostat_tau);
     sets->setValue("meta",s->mirostat_eta);
     sets->setValue("temp",s->temp);
-    sets->setValue("rep_last_n",s->repeat_last_n);
-    sets->setValue("rep_penalty",s->repeat_penalty);
+    sets->setValue("rep_last_n",s->penalty_last_n);
+    sets->setValue("rep_penalty",s->penalty_repeat);
     sets->setValue("mirostat",s->mirostat);
 
     AnnaGuiSettings* gs = (AnnaGuiSettings*)cfg->user;
@@ -127,13 +127,13 @@ void SettingsDialog::on_buttonBox_accepted()
     p->n_predict = ui->maxTok->value();
     p->n_ctx = ui->conLen->value();
     p->n_gpu_layers = ui->n_gpu->value();
-    p->ga_factor = ui->gaFactor->value();
-    p->ga_width = ui->gaWidth->value();
+    p->grp_attn_n = ui->gaFactor->value();
+    p->grp_attn_w = ui->gaWidth->value();
 
     if (ui->ctxRopeScale->isChecked())
-        p->ga_factor = 1;
+        p->grp_attn_n = 1;
 
-    llama_sampling_params* s = &(p->sampling_params);
+    llama_sampling_params* s = &(p->sparams);
     s->top_p = ui->topP->value();
     s->top_k = ui->topK->value();
     s->tfs_z = ui->tailFree->value();
@@ -141,8 +141,8 @@ void SettingsDialog::on_buttonBox_accepted()
     s->mirostat_tau = ui->Entropy->value();
     s->mirostat_eta = ui->learnRate->value();
     s->temp = ui->tempEdit->value();
-    s->repeat_last_n = ui->lastN->value();
-    s->repeat_penalty = ui->repPenalty->value();
+    s->penalty_last_n = ui->lastN->value();
+    s->penalty_repeat = ui->repPenalty->value();
 
     s->mirostat = 0;
     if (ui->sampMiro1->isChecked() || ui->sampMiro2->isChecked())
@@ -175,10 +175,10 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     p->n_predict = sets->value("max_tokens",p->n_predict).toInt();
     p->n_ctx = sets->value("context",p->n_ctx).toInt();
     p->n_gpu_layers = sets->value("gpu",p->n_gpu_layers).toInt();
-    p->ga_factor = sets->value("ga_factor",p->ga_factor).toInt();
-    p->ga_width = sets->value("ga_width",p->ga_width).toInt();
+    p->grp_attn_n = sets->value("ga_factor",p->grp_attn_n).toInt();
+    p->grp_attn_w = sets->value("ga_width",p->grp_attn_w).toInt();
 
-    llama_sampling_params* s = &(p->sampling_params);
+    llama_sampling_params* s = &(p->sparams);
     sets->endGroup();
     sets->beginGroup("Sampling");
     s->top_p = sets->value("topp",s->top_p).toFloat();
@@ -188,8 +188,8 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     s->mirostat_tau = sets->value("mtau",s->mirostat_tau).toFloat();
     s->mirostat_eta = sets->value("meta",s->mirostat_eta).toFloat();
     s->temp = sets->value("temp",s->temp).toFloat();
-    s->repeat_last_n = sets->value("rep_last_n",s->repeat_last_n).toInt();
-    s->repeat_penalty = sets->value("rep_penalty",s->repeat_penalty).toFloat();
+    s->penalty_last_n = sets->value("rep_last_n",s->penalty_last_n).toInt();
+    s->penalty_repeat = sets->value("rep_penalty",s->penalty_repeat).toFloat();
     s->mirostat = sets->value("mirostat",s->mirostat).toInt();
 
     AnnaGuiSettings* gs = (AnnaGuiSettings*)cfg->user;

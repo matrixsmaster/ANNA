@@ -44,7 +44,6 @@ int32_t get_num_physical_cores();
 
 struct gpt_params {
     uint32_t seed                 = -1;    // RNG seed
-
     int32_t n_threads             = get_num_physical_cores();
     int32_t n_threads_draft       = -1;
     int32_t n_threads_batch       = -1;    // number of threads to use for batch processing (-1 = use n_threads)
@@ -78,41 +77,9 @@ struct gpt_params {
     int8_t  rope_scaling_type     = LLAMA_ROPE_SCALING_UNSPECIFIED; // TODO: better to be int32_t for alignment
                                                                     //       pinging @cebtenzzre
 
-    // // sampling parameters
-    struct llama_sampling_params sparams;
-
-    std::string model             = "models/7B/ggml-model-f16.gguf"; // model path
-    std::string model_draft       = "";                              // draft model for speculative decoding
-    std::string model_alias       = "unknown"; // model alias
-    std::string prompt            = "";
-    std::string prompt_file       = "";  // store the external prompt file name
-    std::string path_prompt_cache = "";  // path to file for saving/loading prompt eval state
-    std::string input_prefix      = "";  // string to prefix user inputs with
-    std::string input_suffix      = "";  // string to suffix user inputs with
-    std::vector<std::string> antiprompt; // string upon seeing which more user input is prompted
-    std::string logdir            = "";  // directory in which to save YAML log files
-    std::string logits_file       = "";  // file for saving *all* logits
-
-    std::vector<llama_model_kv_override> kv_overrides;
-
     // TODO: avoid tuple, use struct
-    std::vector<std::tuple<std::string, float>> lora_adapter; // lora adapter path with user defined scale
-    std::string lora_base  = "";                              // base model path for the lora adapter
-
-    int  ppl_stride        = 0;     // stride for perplexity calculations. If left at 0, the pre-existing approach will be used.
-    int  ppl_output_type   = 0;     // = 0 -> ppl output is as usual, = 1 -> ppl output is num_tokens, ppl, one per line
-                                    //                                       (which is more convenient to use for plotting)
-                                    //
-    bool   hellaswag       = false; // compute HellaSwag score over random tasks from datafile supplied in prompt
-    size_t hellaswag_tasks = 400;   // number of tasks to use when computing the HellaSwag score
-
-    bool   winogrande      = false; // compute Winogrande score over random tasks from datafile supplied in prompt
-    size_t winogrande_tasks= 0;     // number of tasks to use when computing the Winogrande score. If 0, all tasks will be computed
-
-    bool   multiple_choice = false; // compute TruthfulQA score over random tasks from datafile supplied in prompt
-    size_t multiple_choice_tasks = 0;     // number of tasks to use when computing the TruthfulQA score. If 0, all tasks will be computed
-
-    bool   kl_divergence   = false; // compute KL-divergence
+    //std::vector<std::tuple<std::string, float>> lora_adapter; // lora adapter path with user defined scale
+    //std::string lora_base  = "";                              // base model path for the lora adapter
 
     bool mul_mat_q         = true;  // if true, use mul_mat_q kernels instead of cuBLAS
     bool random_prompt     = false; // do not randomize prompt if none provided
@@ -142,12 +109,17 @@ struct gpt_params {
     bool dump_kv_cache     = false; // dump the KV cache contents for debugging purposes
     bool no_kv_offload     = false; // disable KV offloading
 
-    std::string cache_type_k = "f16"; // KV cache data type for the K
-    std::string cache_type_v = "f16"; // KV cache data type for the V
+    ggml_type cache_type_k = GGML_TYPE_F16; // KV cache data type for the K
+    ggml_type cache_type_v = GGML_TYPE_F16; // KV cache data type for the V
 
-    // multimodal models (see examples/llava)
-    std::string mmproj = ""; // path to multimodal projector
-    std::string image  = ""; // path to an image file
+    uint32_t magic_end     = 0xDEADBEEF;
+
+    struct llama_sampling_params sparams;
+
+    std::string model             = ""; // model path
+    std::string prompt            = "";
+
+    std::vector<llama_model_kv_override> kv_overrides;
 };
 
 bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params);

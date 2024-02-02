@@ -28,19 +28,21 @@ typedef struct llama_sampling_params {
     float       mirostat_tau          = 5.00f;    // target entropy
     float       mirostat_eta          = 0.10f;    // learning rate
     bool        penalize_nl           = true;     // consider newlines as a repeatable token
-    std::string samplers_sequence     = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
+    char        samplers_sequence[1024] = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
+
+    uint32_t    magic_end             = 0xC0FFEE11;
 
     std::string grammar;  // optional BNF-like grammar to constrain sampling
 
     // Classifier-Free Guidance
     // https://arxiv.org/abs/2306.17806
-    std::string cfg_negative_prompt; // string to help guidance
-    float       cfg_scale     = 1.f; // how strong is guidance
+    //std::string cfg_negative_prompt; // string to help guidance
+    //float       cfg_scale     = 1.f; // how strong is guidance
 
-    std::unordered_map<llama_token, float> logit_bias; // logit bias for specific tokens
+    //std::unordered_map<llama_token, float> logit_bias; // logit bias for specific tokens
 
-    std::vector<llama_token> penalty_prompt_tokens;
-    bool                     use_penalty_prompt_tokens = false;
+    //std::vector<llama_token> penalty_prompt_tokens;
+    //bool                     use_penalty_prompt_tokens = false;
 } llama_sampling_params;
 
 // general sampler context

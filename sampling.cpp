@@ -197,14 +197,14 @@ static llama_token llama_sampling_sample_impl(
     }
 
     // apply params.logit_bias map
-    for (auto it = params.logit_bias.begin(); it != params.logit_bias.end(); it++) {
+    /*for (auto it = params.logit_bias.begin(); it != params.logit_bias.end(); it++) {
         logits[it->first] += it->second;
-    }
+    }*/
 
-    if (ctx_cfg) {
+    /*if (ctx_cfg) {
         float * logits_guidance = llama_get_logits_ith(ctx_cfg, idx);
         llama_sample_apply_guidance(ctx_main, logits, logits_guidance, params.cfg_scale);
-    }
+    }*/
 
     cur.clear();
 
@@ -215,7 +215,7 @@ static llama_token llama_sampling_sample_impl(
     llama_token_data_array cur_p = { cur.data(), cur.size(), false };
 
     // apply penalties
-    const auto& penalty_tokens = params.use_penalty_prompt_tokens ? params.penalty_prompt_tokens : prev;
+    const auto& penalty_tokens = prev;
     const int penalty_tokens_used_size = std::min((int)penalty_tokens.size(), penalty_last_n);
     if (penalty_tokens_used_size) {
         const float nl_logit = logits[llama_token_nl(llama_get_model(ctx_main))];

@@ -28,7 +28,7 @@ FORMS += \
     mainwnd.ui \
     settingsdialog.ui
 
-DEFINES += _XOPEN_SOURCE=600 GGML_USE_K_QUANTS
+DEFINES += _XOPEN_SOURCE=600
 
 QMAKE_CFLAGS += -fPIC
 QMAKE_CXXFLAGS += -fPIC

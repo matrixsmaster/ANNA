@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.3"
+#define ANNA_VERSION "0.5.5"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -103,7 +103,7 @@ static string load_file(const string & fn)
 static int set_params(gpt_params* p, int argc, char* argv[])
 {
     int opt;
-    llama_sampling_params* sp = &p->sampling_params;
+    llama_sampling_params* sp = &p->sparams;
     p->model.clear();
     p->prompt.clear();
     p->seed = 0;
@@ -405,7 +405,7 @@ static string run_request()
     return res;
 }
 
-static void anna_no_log(ggml_log_level level, const char * text, void * user_data)
+static void anna_no_log(ggml_log_level, const char *, void *)
 {
     /* NOTHING TO SEE HERE */
 }
@@ -437,8 +437,6 @@ static bool prepare_clip_and_image(int n_threads, string imgfile, vector<float> 
             return false;
         }
 
-        int n_img_pos  = clip_n_patches(ctx_clip);
-        int n_img_embd = clip_n_mmproj_embd(ctx_clip);
         embs.resize(clip_n_patches(ctx_clip) * clip_n_mmproj_embd(ctx_clip));
         if (!clip_image_encode(ctx_clip,n_threads,&img_res,embs.data())) {
             ERRS("Unable to encode image\n");
@@ -498,7 +496,7 @@ int main(int argc, char* argv[])
     }
 
     int n_ctx = llama_n_ctx(ctx);
-    int n_vocab = llama_n_vocab(llama_get_model(ctx));
+    //int n_vocab = llama_n_vocab(llama_get_model(ctx));
     int n_past = 0, old_past = 0;
     int n_remain = params.n_predict;
     int n_consumed = 0;
@@ -506,6 +504,8 @@ int main(int argc, char* argv[])
     bool skip_sampling = false, was_skipped = false;
     bool no_input = false;
     bool reload_on_reset = false;
+    int ga_n = 1; //TODO: expand
+    int ga_w = 1;
 
     vector<llama_token> queue,prompt,inp_emb,forced_start;
     vector<llama_token> oldqueue,oldcontext;
@@ -514,10 +514,12 @@ int main(int argc, char* argv[])
     //fill(context.begin(),context.end(),0);
     string output_line;
     string full_convo = params.prompt;
-    llama_sampling_context * ctx_sampling = llama_sampling_init(params);
-    llama_adjust_rope_freq(ctx,params.n_ctx);
+    llama_sampling_context * ctx_sampling = llama_sampling_init(params.sparams);
 
-    const llama_token tok_newline = llama_token_nl(ctx);
+    if (ga_n <= 1) llama_adjust_rope_freq(ctx,params.n_ctx);
+    int ga_i = 0; // number of grouped KV tokens so far
+
+    const llama_token tok_newline = llama_token_nl(llama_get_model(ctx));
     DBG("Newline token = %d\n",tok_newline);
 
     if (!g_tokenf.empty()) {
@@ -577,7 +579,7 @@ int main(int argc, char* argv[])
 
     bool user_turn = skip_sampling;
     bool force_prefix = !skip_sampling;
-    bool image_served = false;
+    //bool image_served = false;
     while (!g_quit) {
         //DBG("Main loop: n_remain = %d, queue size = %ld\n",n_remain,queue.size());
         if (!queue.empty() || !ext_emb.empty()) {
@@ -602,15 +604,41 @@ int main(int argc, char* argv[])
                     continue;
                 }
 
-                int n_left    = n_past - params.n_keep - 1;
-                int n_discard = n_left/2;
-                DBG("n_past = %d, n_left = %d, n_discard = %d\n",n_past,n_left,n_discard);
+                if (ga_n == 1) {
+                    // context widening with RoPE scale (done above, here's just sliding window)
+                    int n_left    = n_past - params.n_keep - 1;
+                    int n_discard = n_left/2;
+                    DBG("n_past = %d, n_left = %d, n_discard = %d\n",n_past,n_left,n_discard);
 
-                llama_kv_cache_seq_rm(ctx,0,params.n_keep + 1,params.n_keep + n_discard + 1);
-                llama_kv_cache_seq_shift(ctx,0,params.n_keep + 1 + n_discard,n_past,-n_discard);
+                    llama_kv_cache_seq_rm(ctx,0,params.n_keep + 1,params.n_keep + n_discard + 1);
+                    llama_kv_cache_seq_shift(ctx,0,params.n_keep + 1 + n_discard,n_past,-n_discard);
 
-                n_past -= n_discard;
-                continue;
+                    n_past -= n_discard;
+                    continue;
+
+                } else {
+                    // context extension via Self-Extend
+                    while (n_past >= ga_i + ga_w) {
+                        const int ib = (ga_n*ga_i)/ga_w;
+                        const int bd = (ga_w/ga_n)*(ga_n - 1);
+                        const int dd = (ga_w/ga_n) - ib*bd - ga_w;
+
+                        DBG("\n");
+                        DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i, n_past, ib*bd, ga_i + ib*bd, n_past + ib*bd);
+                        DBG("div:   [%6d, %6d] / %6d -> [%6d, %6d]\n", ga_i + ib*bd, ga_i + ib*bd + ga_w, ga_n, (ga_i + ib*bd)/ga_n, (ga_i + ib*bd + ga_w)/ga_n);
+                        DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i + ib*bd + ga_w, n_past + ib*bd, dd, ga_i + ib*bd + ga_w + dd, n_past + ib*bd + dd);
+
+                        llama_kv_cache_seq_shift(ctx, 0, ga_i,                n_past,              ib*bd);
+                        llama_kv_cache_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
+                        llama_kv_cache_seq_shift(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
+
+                        n_past -= bd;
+
+                        ga_i += ga_w/ga_n;
+
+                        DBG("\nn_past_old = %d, n_past = %d, ga_i = %d\n\n", n_past + bd, n_past, ga_i);
+                    }
+                }
             }
 
             // token queue
@@ -653,7 +681,7 @@ int main(int argc, char* argv[])
                 queue.push_back(inp_emb[n_consumed]);
                 //context.erase(context.begin());
                 //context.push_back(inp_emb[n_consumed]);
-                llama_sampling_accept(ctx_sampling,ctx,inp_emb[n_consumed]);
+                llama_sampling_accept(ctx_sampling,ctx,inp_emb[n_consumed],false);
                 ++n_consumed;
                 if ((int)queue.size() >= params.n_batch) break;
             }
@@ -686,7 +714,7 @@ int main(int argc, char* argv[])
             // prediction max length reached, force EOS
             if (--n_remain == 0) {
                 if (no_input) break; // prevent infinite generation in non-interactive mode
-                tok = llama_token_eos(ctx);
+                tok = llama_token_eos(llama_get_model(ctx));
                 n_remain = params.n_predict;
             }
 
@@ -705,7 +733,7 @@ int main(int argc, char* argv[])
             full_convo += llama_token_to_str(ctx,tok);
 
             // Deal with EOS token
-            if (tok == llama_token_eos(ctx)) {
+            if (tok == llama_token_eos(llama_get_model(ctx))) {
                 DBG("*** EOS detected ***\n");
                 if (g_eos) {
                     if (no_input) break; // don't ignore EOS in non-interactive mode if EOS flag is set
@@ -715,7 +743,7 @@ int main(int argc, char* argv[])
 
             //context.erase(context.begin());
             //context.push_back(tok);
-            llama_sampling_accept(ctx_sampling,ctx,tok);
+            llama_sampling_accept(ctx_sampling,ctx,tok,false);
             queue.push_back(tok);
 
             // Now check for terminating condition or request condition
@@ -729,12 +757,7 @@ int main(int argc, char* argv[])
                     // run request and try to make sense of it
                     string res = "\n" + run_request();
                     if (!res.empty()) {
-#if 0
-                        inp_emb = ::llama_tokenize(ctx,res,g_eos);
-                        if (g_eos) inp_emb.push_back(llama_token_eos(ctx));
-#else
                         inp_emb = ::llama_tokenize(ctx,res,false);
-#endif
                         printf("\n"); // by this point the model would think a newline was pushed to the output already
                         // don't forget to reset consumption count
                         n_consumed = 0;
@@ -776,11 +799,11 @@ int main(int argc, char* argv[])
             //was_skipped = true;
         }
 
-        if (tok == tok_newline || tok == llama_token_eos(ctx))
+        if (tok == tok_newline || tok == llama_token_eos(llama_get_model(ctx)))
             g_outcache.clear(); // terminator/request pattern can't include newline or EOS
 
         // different conditions to turn control back to user (or external input)
-        if (g_eos && tok == llama_token_eos(ctx)) user_turn = true;
+        if (g_eos && tok == llama_token_eos(llama_get_model(ctx))) user_turn = true;
         if (!g_nonl && tok == tok_newline) user_turn = true;
 
         if (user_turn && !no_input) {
@@ -800,10 +823,9 @@ int main(int argc, char* argv[])
                     inp_str.erase(0,2);
                     DBG("Loading image file '%s'\n",inp_str.c_str());
                     ext_emb.clear();
-                    if (!prepare_clip_and_image(params.n_threads,inp_str,ext_emb)) {
+                    if (!prepare_clip_and_image(params.n_threads,inp_str,ext_emb))
                         ERR("Unable to load or convert image file '%s'",inp_str.c_str());
-                        inp_str.clear();
-                    }
+                    inp_str.clear();
                     skip_sampling = true; // never sample right after the image
                 } else if (inp_str.ends_with("\n")) {
                     DBG("Newline token at the end of a secondary prompt, skipping sampling for the first round...\n");

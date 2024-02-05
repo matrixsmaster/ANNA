@@ -748,14 +748,14 @@ void MainWnd::on_actionShow_prompt_triggered()
 void MainWnd::FixMarkdown(QString& s)
 {
     for (int i = 0; md_fix_tab[i]; i+=2) {
-        qDebug("Filter %d before: '%s'\n",i,s.toStdString().c_str());
+        //qDebug("Filter %d before: '%s'\n",i,s.toStdString().c_str());
         QRegExp ex(md_fix_tab[i]);
         for (int n = 0; n < ANNA_MDFIX_FAILSAFE && ex.indexIn(s) != -1; n++) {
-            qDebug("%d %d %d\n",i,ex.indexIn(s),ex.matchedLength());
+            //qDebug("%d %d %d\n",i,ex.indexIn(s),ex.matchedLength());
             s.replace(ex,md_fix_tab[i+1]);
             if (s.length() > GUI_MAXTEXT) break;
         }
-        qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
+        //qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
     }
 }
 

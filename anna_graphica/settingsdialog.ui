@@ -282,7 +282,7 @@
         <item>
          <widget class="QRadioButton" name="ctxRopeScale">
           <property name="text">
-           <string>RoPE scaling</string>
+           <string>RoPE scaling + sliding</string>
           </property>
           <property name="checked">
            <bool>true</bool>

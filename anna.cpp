@@ -18,7 +18,7 @@
 #include "clip.h"
 #include "ggml-cuda.h"
 
-#define ANNA_VERSION "0.5.5"
+#define ANNA_VERSION "0.5.5b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -585,25 +585,26 @@ int main(int argc, char* argv[])
             int n_ext_emb = (int)ext_emb.size() / n_embd;
 
             // check context window
-            if (n_past + (int)queue.size() + n_ext_emb > n_ctx) {
-                if (!n_past) {
-                    ERR("Impossible queue length for the context window size: queue = %lu, ext_emb = %d\n",queue.size(),n_ext_emb);
-                    break;
-                }
-                DBG("Context overflow: n_past = %d, queue = %lu, ext_emb = %d\n",n_past,queue.size(),n_ext_emb);
-                int nseed = llama_get_rng_seed(ctx);
-                if (reload_on_reset && load_cache(ctx,n_past,ctx_sampling->prev)) {
-                    queue.clear();
-                    ext_emb.clear();
-                    inp_emb.clear();
-                    llama_set_rng_seed(ctx,nseed);
-                    n_remain = params.n_predict;
-                    DBG("State reloaded from cache due to context overflow. nseed = %d, n_past = %d\n",nseed,n_past);
-                    continue;
-                }
+            if (ga_n == 1) {
+                if (n_past + (int)queue.size() + n_ext_emb > (int)llama_n_ctx(ctx)) {
+                    // context overflow
+                    if (!n_past) {
+                        ERR("Impossible queue length for the context window size: queue = %lu, ext_emb = %d\n",queue.size(),n_ext_emb);
+                        break;
+                    }
 
-                if (ga_n == 1) {
-                    // context widening with RoPE scale (done above, here's just sliding window)
+                    DBG("Context overflow: n_past = %d, queue = %lu, ext_emb = %d\n",n_past,queue.size(),n_ext_emb);
+                    int nseed = llama_get_rng_seed(ctx);
+                    if (reload_on_reset && load_cache(ctx,n_past,ctx_sampling->prev)) {
+                        queue.clear();
+                        ext_emb.clear();
+                        inp_emb.clear();
+                        llama_set_rng_seed(ctx,nseed);
+                        n_remain = params.n_predict;
+                        DBG("State reloaded from cache due to context overflow. nseed = %d, n_past = %d\n",nseed,n_past);
+                        continue;
+                    }
+
                     int n_left    = n_past - params.n_keep - 1;
                     int n_discard = n_left/2;
                     DBG("n_past = %d, n_left = %d, n_discard = %d\n",n_past,n_left,n_discard);
@@ -612,30 +613,29 @@ int main(int argc, char* argv[])
                     llama_kv_cache_seq_shift(ctx,0,params.n_keep + 1 + n_discard,n_past,-n_discard);
 
                     n_past -= n_discard;
-                    continue;
+                }
 
-                } else {
-                    // context extension via Self-Extend
-                    while (n_past >= ga_i + ga_w) {
-                        const int ib = (ga_n*ga_i)/ga_w;
-                        const int bd = (ga_w/ga_n)*(ga_n - 1);
-                        const int dd = (ga_w/ga_n) - ib*bd - ga_w;
+            } else {
+                // context extension via Self-Extend
+                while (n_past >= ga_i + ga_w) {
+                    const int ib = (ga_n*ga_i)/ga_w;
+                    const int bd = (ga_w/ga_n)*(ga_n - 1);
+                    const int dd = (ga_w/ga_n) - ib*bd - ga_w;
 
-                        DBG("\n");
-                        DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i, n_past, ib*bd, ga_i + ib*bd, n_past + ib*bd);
-                        DBG("div:   [%6d, %6d] / %6d -> [%6d, %6d]\n", ga_i + ib*bd, ga_i + ib*bd + ga_w, ga_n, (ga_i + ib*bd)/ga_n, (ga_i + ib*bd + ga_w)/ga_n);
-                        DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i + ib*bd + ga_w, n_past + ib*bd, dd, ga_i + ib*bd + ga_w + dd, n_past + ib*bd + dd);
+                    DBG("\n");
+                    DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i, n_past, ib*bd, ga_i + ib*bd, n_past + ib*bd);
+                    DBG("div:   [%6d, %6d] / %6d -> [%6d, %6d]\n", ga_i + ib*bd, ga_i + ib*bd + ga_w, ga_n, (ga_i + ib*bd)/ga_n, (ga_i + ib*bd + ga_w)/ga_n);
+                    DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i + ib*bd + ga_w, n_past + ib*bd, dd, ga_i + ib*bd + ga_w + dd, n_past + ib*bd + dd);
 
-                        llama_kv_cache_seq_shift(ctx, 0, ga_i,                n_past,              ib*bd);
-                        llama_kv_cache_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
-                        llama_kv_cache_seq_shift(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
+                    llama_kv_cache_seq_shift(ctx, 0, ga_i,                n_past,              ib*bd);
+                    llama_kv_cache_seq_div  (ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
+                    llama_kv_cache_seq_shift(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
 
-                        n_past -= bd;
+                    n_past -= bd;
 
-                        ga_i += ga_w/ga_n;
+                    ga_i += ga_w/ga_n;
 
-                        DBG("\nn_past_old = %d, n_past = %d, ga_i = %d\n\n", n_past + bd, n_past, ga_i);
-                    }
+                    DBG("\nn_past_old = %d, n_past = %d, ga_i = %d\n\n", n_past + bd, n_past, ga_i);
                 }
             }
 

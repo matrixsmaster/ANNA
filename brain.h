@@ -3,10 +3,11 @@
 #include <vector>
 #include <string>
 #include <deque>
-#include "common.h"
 #include "llama.h"
+#include "common.h"
+#include "sampling.h"
 
-#define ANNA_VERSION "0.6.7b"
+#define ANNA_VERSION "0.6.8"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 

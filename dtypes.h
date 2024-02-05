@@ -5,11 +5,11 @@
 #include <vector>
 #include <map>
 
-int32_t get_num_physical_cores();
+#define LLAMA_MAX_FILENAME_LEN 4096
+#define LLAMA_MAX_PROMPT_LEN (1UL*1024UL*1024UL)
+#define LLAMA_MAX_GRAMMAR_LEN (1UL*1024UL*1024UL)
 
-struct gpt_string_params {
-    std::string model, prompt, grammar;
-};
+int32_t get_num_physical_cores();
 
 // sampling parameters
 struct __attribute__((packed)) llama_sampling_params {
@@ -33,9 +33,7 @@ struct __attribute__((packed)) llama_sampling_params {
     bool        penalize_nl           = true;     // consider newlines as a repeatable token
     char        samplers_sequence[1024] = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
 
-    //uint32_t    magic_end             = 0xC0FFEE11;
-
-    //std::string grammar;  // optional BNF-like grammar to constrain sampling
+    char grammar[LLAMA_MAX_GRAMMAR_LEN] = {0};  // optional BNF-like grammar to constrain sampling
 
     // Classifier-Free Guidance
     // https://arxiv.org/abs/2306.17806
@@ -118,13 +116,11 @@ struct __attribute__((packed)) gpt_params {
     ggml_type cache_type_k = GGML_TYPE_F16; // KV cache data type for the K
     ggml_type cache_type_v = GGML_TYPE_F16; // KV cache data type for the V
 
-    //uint32_t magic_end     = 0xDEADBEEF;
-
     llama_sampling_params sparams;
 
-    //std::string model             = ""; // model path
-    //std::string prompt            = "";
+    char model[LLAMA_MAX_FILENAME_LEN] = {0}; // model path
+    char prompt[LLAMA_MAX_PROMPT_LEN]  = {0};
 
     //std::vector<llama_model_kv_override> kv_overrides;
-    gpt_string_params* strings;
+    //gpt_string_params* strings;
 };

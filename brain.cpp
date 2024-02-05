@@ -52,7 +52,7 @@ AnnaBrain::AnnaBrain(AnnaConfig* cfg)
     // load the model
     tie(model,ctx) = llama_init_from_gpt_params(cfg->params);
     if (!model) {
-        internal_error = myformat("Failed to load model '%s'",cfg->params.model.c_str());
+        internal_error = myformat("Failed to load model '%s'",cfg->params.model);
         state = ANNA_ERROR;
         return;
     }

@@ -176,9 +176,9 @@ void llama_batch_add(
 std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_params(gpt_params & params) {
     auto mparams = llama_model_params_from_gpt_params(params);
 
-    llama_model * model  = llama_load_model_from_file(params.strings->model.c_str(), mparams);
+    llama_model * model  = llama_load_model_from_file(params.model, mparams);
     if (model == NULL) {
-        fprintf(stderr, "%s: error: failed to load model '%s'\n", __func__, params.strings->model.c_str());
+        fprintf(stderr, "%s: error: failed to load model '%s'\n", __func__, params.model);
         return std::make_tuple(nullptr, nullptr);
     }
 
@@ -186,7 +186,7 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
 
     llama_context * lctx = llama_new_context_with_model(model, cparams);
     if (lctx == NULL) {
-        fprintf(stderr, "%s: error: failed to create context with model '%s'\n", __func__, params.strings->model.c_str());
+        fprintf(stderr, "%s: error: failed to create context with model '%s'\n", __func__, params.model);
         llama_free_model(model);
         return std::make_tuple(nullptr, nullptr);
     }

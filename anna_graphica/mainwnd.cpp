@@ -1,3 +1,4 @@
+#include <string.h>
 #include "mainwnd.h"
 #include "ui_mainwnd.h"
 #include "settingsdialog.h"
@@ -93,8 +94,8 @@ void MainWnd::DefaultConfig()
     p->n_ctx = ANNA_DEFAULT_CONTEXT;
     p->n_batch = ANNA_DEFAULT_BATCH;
     p->n_gpu_layers = 0;
-    p->model.clear();
-    p->prompt.clear();
+    p->model[0] = 0;
+    p->prompt[0] = 0;
     p->sparams.temp = ANNA_DEFAULT_TEMP;
 
     config.user = &guiconfig;
@@ -217,7 +218,7 @@ void MainWnd::LoadLLM(const QString &fn)
     // Actual loading
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
-    config.params.model = fn.toStdString();
+    strncpy(config.params.model,fn.toStdString().c_str(),sizeof(config.params.model)-1);
     brain = new AnnaBrain(&config);
     if (brain->getState() != ANNA_READY) {
         ui->statusbar->showMessage("Unable to load LLM file!");
@@ -383,14 +384,14 @@ void MainWnd::on_ModelFindButton_clicked()
     if (fn.isEmpty()) return;
     ui->ModelPath->setText(fn);
 
-    if (config.params.prompt.empty()) {
+    if (!config.params.prompt[0]) {
         auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
                                         QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
-        config.params.prompt = ANNA_DEFAULT_PROMPT;
+        strcpy(config.params.prompt,ANNA_DEFAULT_PROMPT);
         if (uq == QMessageBox::Yes)
             on_actionLoad_initial_prompt_triggered();
         else if (uq == QMessageBox::Cancel) {
-            config.params.prompt.clear();
+            config.params.prompt[0] = 0;
             return;
         }
     }
@@ -619,7 +620,7 @@ void MainWnd::on_actionLoad_initial_prompt_triggered()
     QString fn = GetOpenFileName(ANNA_FILE_PROMPT);
     QString np;
     if (fn.isEmpty() || !LoadFile(fn,np)) return;
-    config.params.prompt = np.toStdString();
+    strncpy(config.params.prompt,np.toStdString().c_str(),sizeof(config.params.prompt)-1);
 }
 
 void MainWnd::on_actionSettings_triggered()
@@ -715,7 +716,7 @@ void MainWnd::on_actionLoad_state_triggered()
     // shortcut for loading model + state in an easier way
     if (!brain) {
         if (!ui->ModelPath->text().isEmpty()) {
-            config.params.prompt.clear(); // no need for that
+            config.params.prompt[0] = 0; // no need for that
             LoadLLM(ui->ModelPath->text());
         }
         if (!brain) return;

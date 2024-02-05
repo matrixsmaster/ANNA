@@ -126,6 +126,8 @@ private slots:
 
     void on_actionOffline_help_triggered();
 
+    void on_actionClear_chat_log_triggered();
+
 private:
     Ui::MainWnd *ui;
     QLabel* seed_label;

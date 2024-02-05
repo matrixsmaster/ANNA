@@ -56,10 +56,11 @@ AnnaBrain::AnnaBrain(AnnaConfig* cfg)
         state = ANNA_ERROR;
         return;
     }
-    llama_adjust_rope_freq(ctx,config.params.n_ctx);
+    if (config.params.grp_attn_n <= 1)
+        llama_adjust_rope_freq(ctx,config.params.n_ctx);
 
     // initialize sampling
-    ctx_sp = llama_sampling_init(cfg->params.sparams);
+    ctx_sp = llama_sampling_init(cfg->params);
     state = ANNA_READY;
 }
 
@@ -276,7 +277,7 @@ void AnnaBrain::Reset()
     accumulator.clear();
 
     if (ctx_sp) llama_sampling_free(ctx_sp);
-    ctx_sp = llama_sampling_init(config.params.sparams);
+    ctx_sp = llama_sampling_init(config.params);
     state = ANNA_READY;
 }
 

@@ -414,6 +414,7 @@
     </property>
     <addaction name="actionRefresh_chat_box"/>
     <addaction name="actionShow_context_tokens"/>
+    <addaction name="actionClear_chat_log"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuModel"/>
@@ -591,6 +592,11 @@
    </property>
    <property name="shortcut">
     <string>F1</string>
+   </property>
+  </action>
+  <action name="actionClear_chat_log">
+   <property name="text">
+    <string>Clear chat log</string>
    </property>
   </action>
  </widget>

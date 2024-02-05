@@ -738,7 +738,7 @@ void MainWnd::on_actionLoad_state_triggered()
 
 void MainWnd::on_actionShow_prompt_triggered()
 {
-    QString r = QString::fromStdString(config.params.prompt);
+    QString r = QString(config.params.prompt);
     if (guiconfig.md_fix) FixMarkdown(r);
     if (!cur_chat.startsWith(r)) {
         cur_chat = r + "\n\n" + cur_chat;
@@ -832,4 +832,10 @@ void MainWnd::on_actionOffline_help_triggered()
 {
     HelpBox hb;
     hb.exec();
+}
+
+void MainWnd::on_actionClear_chat_log_triggered()
+{
+    cur_chat.clear();
+    ui->ChatLog->clear();
 }

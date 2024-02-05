@@ -513,7 +513,7 @@ int main(int argc, char* argv[])
     //fill(context.begin(),context.end(),0);
     string output_line;
     string full_convo = params.prompt;
-    llama_sampling_context * ctx_sampling = llama_sampling_init(params.sparams);
+    llama_sampling_context * ctx_sampling = llama_sampling_init(params);
 
     if (ga_n <= 1) llama_adjust_rope_freq(ctx,params.n_ctx);
     int ga_i = 0; // number of grouped KV tokens so far

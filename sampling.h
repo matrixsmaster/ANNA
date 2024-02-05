@@ -27,7 +27,7 @@ struct llama_sampling_context {
 };
 
 // Create a new sampling context instance.
-llama_sampling_context * llama_sampling_init(const llama_sampling_params & params);
+llama_sampling_context * llama_sampling_init(const gpt_params &params);
 
 void llama_sampling_free(struct llama_sampling_context * ctx);
 

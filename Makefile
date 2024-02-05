@@ -487,7 +487,7 @@ OBJS += ggml-alloc.o ggml-backend.o ggml-quants.o
 llama.o: llama.cpp ggml.h ggml-alloc.h ggml-backend.h ggml-cuda.h llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-COMMON_H_DEPS = common.h sampling.h
+COMMON_H_DEPS = common.h sampling.h dtypes.h
 COMMON_DEPS   = common.o sampling.o grammar-parser.o
 
 common.o: common.cpp $(COMMON_H_DEPS)
@@ -502,10 +502,10 @@ grammar-parser.o: grammar-parser.cpp grammar-parser.h
 clip.o: clip.cpp clip.h stb_image.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
-anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS)
+anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
-libanna.a: ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS)
+libanna.a: ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
 	ar cru $@ $^
 
 clean:

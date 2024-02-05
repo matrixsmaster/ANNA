@@ -13,12 +13,13 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include "common.h"
 #include "llama.h"
 #include "clip.h"
 #include "ggml-cuda.h"
+#include "common.h"
+#include "sampling.h"
 
-#define ANNA_VERSION "0.5.5b"
+#define ANNA_VERSION "0.5.6"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -104,8 +105,8 @@ static int set_params(gpt_params* p, int argc, char* argv[])
 {
     int opt;
     llama_sampling_params* sp = &p->sparams;
-    p->model.clear();
-    p->prompt.clear();
+    p->strings->model.clear();
+    p->strings->prompt.clear();
     p->seed = 0;
     p->n_threads = MYLLAMATHREADS;
     p->n_predict = -1;
@@ -115,7 +116,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:vT:PSNG:H:F:M:V:i:")) != -1) {
         switch (opt) {
         case 'm':
-            p->model = optarg;
+            p->strings->model = optarg;
             break;
         case 's':
             p->seed = atoi(optarg);
@@ -124,8 +125,8 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             p->n_threads = atoi(optarg);
             break;
         case 'p':
-            if (p->prompt.empty())
-                p->prompt = load_file(optarg);
+            if (p->strings->prompt.empty())
+                p->strings->prompt = load_file(optarg);
             else
                 g_sprompts.push_back(load_file(optarg));
             break;
@@ -196,7 +197,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
         }
     }
 
-    if (p->model.empty()) return 1;
+    if (p->strings->model.empty()) return 1;
     if (!p->seed) p->seed = time(NULL);
     DBG("seed = %u\n",p->seed);
 
@@ -472,7 +473,9 @@ int main(int argc, char* argv[])
     fprintf(stderr,"ANNA version " ANNA_VERSION "\n\n");
 
     // get CLI arguments
+    gpt_string_params parstrings;
     gpt_params params;
+    params.strings = &parstrings;
     if (argc < 2) {
         usage(argv[0]);
         return -1;
@@ -489,7 +492,7 @@ int main(int argc, char* argv[])
     llama_backend_init(false);
     tie(model,ctx) = llama_init_from_gpt_params(params);
     if (!model) {
-        ERR("Failed to load model '%s'",params.model.c_str());
+        ERR("Failed to load model '%s'",params.strings->model.c_str());
         return 1;
     }
 
@@ -511,7 +514,7 @@ int main(int argc, char* argv[])
     //vector<llama_token> context(n_ctx);
     //fill(context.begin(),context.end(),0);
     string output_line;
-    string full_convo = params.prompt;
+    string full_convo = params.strings->prompt;
     llama_sampling_context * ctx_sampling = llama_sampling_init(params.sparams);
 
     if (ga_n <= 1) llama_adjust_rope_freq(ctx,params.n_ctx);
@@ -529,11 +532,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (params.prompt.empty())
+    if (params.strings->prompt.empty())
         skip_sampling = true;
     else {
-        //params.prompt.insert(0,1,' '); // ~add space~, no needed as tokenizer does it now
-        inp_emb = ::llama_tokenize(ctx,params.prompt,true);
+        //params.strings->prompt.insert(0,1,' '); // ~add space~, no needed as tokenizer does it now
+        inp_emb = ::llama_tokenize(ctx,params.strings->prompt,true);
         prompt = inp_emb; // save first sequence as prompt
         params.n_keep = prompt.size(); // always keep the prompt
         DBG("Prompt size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),params.n_ctx-(int)inp_emb.size());
@@ -570,7 +573,7 @@ int main(int argc, char* argv[])
         inp_emb.clear();
         populate_cache = false;
         llama_set_rng_seed(ctx,params.seed);
-        if (params.prompt.empty()) reload_on_reset = true;
+        if (params.strings->prompt.empty()) reload_on_reset = true;
     }
 
     if (g_first) skip_sampling = (g_first != 'A');
@@ -954,11 +957,11 @@ int main(int argc, char* argv[])
             // don't run on empty
             if (inp_str.empty() || inp_str == "\n") continue;
 
-            if (params.prompt.empty()) {
+            if (params.strings->prompt.empty()) {
                 // first input will be considered prompt now
                 //inp_str.insert(0,1,' '); // add space
                 inp_emb = ::llama_tokenize(ctx,inp_str,true);
-                params.prompt = inp_str;
+                params.strings->prompt = inp_str;
                 prompt = inp_emb;
             } else {
                 if (g_uprefix.size() == 1 && !full_convo.ends_with(g_uprefix.at(0)) && !was_skipped)

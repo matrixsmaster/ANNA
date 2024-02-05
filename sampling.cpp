@@ -1,14 +1,15 @@
 #include "sampling.h"
+#include "common.h"
 
-struct llama_sampling_context * llama_sampling_init(const struct llama_sampling_params & params) {
-    struct llama_sampling_context * result = new llama_sampling_context();
+llama_sampling_context * llama_sampling_init(const gpt_params & params) {
+    llama_sampling_context * result = new llama_sampling_context();
 
-    result->params  = params;
+    result->params  = params.sparams;
     result->grammar = nullptr;
 
     // if there is a grammar, parse it
-    if (!params.grammar.empty()) {
-        result->parsed_grammar = grammar_parser::parse(params.grammar.c_str());
+    if (!params.strings->grammar.empty()) {
+        result->parsed_grammar = grammar_parser::parse(params.strings->grammar.c_str());
 
         // will be empty (default) if there are parse errors
         if (result->parsed_grammar.rules.empty()) {
@@ -24,12 +25,12 @@ struct llama_sampling_context * llama_sampling_init(const struct llama_sampling_
                 grammar_rules.size(), result->parsed_grammar.symbol_ids.at("root"));
     }
 
-    result->prev.resize(params.n_prev);
+    result->prev.resize(params.sparams.n_prev);
 
     return result;
 }
 
-void llama_sampling_free(struct llama_sampling_context * ctx) {
+void llama_sampling_free(llama_sampling_context * ctx) {
     if (ctx->grammar != NULL) {
         llama_grammar_free(ctx->grammar);
     }

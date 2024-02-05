@@ -50,6 +50,7 @@ win32 {
     HEADERS += \
         ../clip.h \
         ../common.h \
+        ../dtypes.h \
         ../ggml-alloc.h \
         ../ggml-backend.h \
         ../ggml.h \

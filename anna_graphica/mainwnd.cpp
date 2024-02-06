@@ -68,8 +68,6 @@ MainWnd::MainWnd(QWidget *parent)
     last_username = false;
 
     ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
-    AnnaClient cl(&config,guiconfig.server.toStdString());
-    qDebug("client state = %d, error = %s",cl.getState(),cl.getError().c_str());
 }
 
 MainWnd::~MainWnd()
@@ -219,7 +217,8 @@ void MainWnd::LoadLLM(const QString &fn)
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
     strncpy(config.params.model,fn.toStdString().c_str(),sizeof(config.params.model)-1);
-    brain = new AnnaBrain(&config);
+
+    brain = guiconfig.use_server? new AnnaClient(&config,guiconfig.server.toStdString()) : new AnnaBrain(&config);
     if (brain->getState() != ANNA_READY) {
         ui->statusbar->showMessage("Unable to load LLM file!");
         delete brain;

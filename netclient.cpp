@@ -12,6 +12,10 @@ using namespace std;
 AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
 {
     DBG("client c'tor\n");
+    auto rng = std::mt19937(time(NULL));
+    clid = (uint32_t)rng() & ANNA_CLIENT_MASK;
+    DBG("clid = %u (0x%08X)\n",clid,clid);
+
     state = ANNA_NOT_INITIALIZED;
     if (!cfg) return;
 
@@ -21,11 +25,11 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
         internal_error = myformat("Server '%s' is not valid",server.c_str());
         return;
     }
-
     config = *cfg;
+
+    state = ANNA_READY;
     command("/sessionStart");
     AnnaClient::setConfig(config);
-    state = ANNA_READY;
 }
 
 AnnaClient::~AnnaClient()
@@ -38,6 +42,7 @@ AnnaState AnnaClient::getState()
 {
     if (state != ANNA_READY) return state; // internal state
     int r = atoi(request("/getState").c_str());
+    if (state == ANNA_ERROR) return state; // request failed
     return (r < 0 || r >= ANNA_NUM_STATES)? ANNA_ERROR : (AnnaState)r;
 }
 
@@ -61,7 +66,7 @@ AnnaConfig AnnaClient::getConfig()
 
 void AnnaClient::setConfig(const AnnaConfig &cfg)
 {
-    //TODO
+    string enc = asBase64((void*)&(cfg.params),sizeof(cfg));
 }
 
 string AnnaClient::getOutput()
@@ -134,6 +139,14 @@ string AnnaClient::asBase64(void *data, int len)
 
 string AnnaClient::request(std::string cmd)
 {
+    auto r = client->Get(cmd);
+    if (r) {
+        DBG("res = %d\n",r->status);
+        DBG("body = '%s'\n",r->body.c_str());
+    } else {
+        state = ANNA_ERROR;
+        internal_error = myformat("Remote request failed: %s",cmd.c_str());
+    }
     return "";
 }
 
@@ -145,11 +158,19 @@ string AnnaClient::request(std::string cmd, std::string arg)
 void AnnaClient::command(std::string cmd)
 {
     if (state != ANNA_READY) return;
+    cmd += myformat("/%d",clid);
     DBG("command/1: '%s'\n",cmd.c_str());
-    auto r = client->Get(cmd);
+    auto r = client->Post(cmd);
     if (r) {
         DBG("res = %d\n",r->status);
-        DBG("body = '%s'\n",r->body.c_str());
+        if (r->status != httplib::OK_200) {
+            state = ANNA_ERROR;
+            internal_error = myformat("Remote rejected command %s: %d",cmd.c_str(),r->status);
+        }
+        //DBG("body = '%s'\n",r->body.c_str());
+    } else {
+        state = ANNA_ERROR;
+        internal_error = myformat("Remote command failed: %s",cmd.c_str());
     }
 }
 

@@ -4,6 +4,8 @@
 #include <string>
 #include "brain.h"
 
+#define ANNA_CLIENT_MASK 0x3FFFFFFFUL
+
 // Avoid inclusion of httplib.h into any header files
 namespace httplib {
     class Client;
@@ -40,6 +42,7 @@ public:
 
 private:
     httplib::Client* client;
+    uint32_t clid;
 
     std::string asBase64(void* data, int len);
     std::string request(std::string cmd);

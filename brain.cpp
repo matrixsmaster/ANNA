@@ -89,8 +89,9 @@ string AnnaBrain::myformat(const char* fmt, ...)
     res.resize(ANNA_FORMAT_DEF_CHARS);
     va_list vl;
     va_start(vl,fmt);
-    vsnprintf((char*)&(res[0]),res.size(),fmt,vl); // tricky avoidance of a known "issue"
+    int r = vsnprintf((char*)&(res[0]),res.size(),fmt,vl); // tricky avoidance of a known "issue"
     va_end(vl);
+    res.resize(r);
     return res;
 }
 

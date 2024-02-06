@@ -708,7 +708,7 @@ void MainWnd::on_actionSave_state_triggered()
     if (brain->SaveState(fn.toStdString()))
         ui->statusbar->showMessage("Model state has been saved to "+fn);
     else
-        ui->statusbar->showMessage("Unable to save model state!");
+        ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
 
 void MainWnd::on_actionLoad_state_triggered()
@@ -733,7 +733,7 @@ void MainWnd::on_actionLoad_state_triggered()
         if (guiconfig.md_fix) FixMarkdown(cur_chat);
         on_actionRefresh_chat_box_triggered();
     } else
-        ui->statusbar->showMessage("Unable to load model state!");
+        ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
 
 void MainWnd::on_actionShow_prompt_triggered()
@@ -789,7 +789,7 @@ void MainWnd::on_actionQuick_save_triggered()
     if (brain->SaveState(fns.toStdString()) && SaveFile(fnt,cur_chat))
         ui->statusbar->showMessage("Quicksave point saved");
     else
-        ui->statusbar->showMessage("Unable to do quicksave!");
+        ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
 
 void MainWnd::on_actionQuick_load_triggered()
@@ -802,7 +802,7 @@ void MainWnd::on_actionQuick_load_triggered()
         if (guiconfig.md_fix) FixMarkdown(cur_chat);
         ui->ChatLog->setMarkdown(cur_chat);
     } else
-        ui->statusbar->showMessage("Unable to do quickload!");
+        ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
 
 void MainWnd::SaveComboBox(QSettings* sets, QString prefix, QComboBox* box)

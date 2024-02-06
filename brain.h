@@ -7,7 +7,7 @@
 #include "common.h"
 #include "sampling.h"
 
-#define ANNA_VERSION "0.6.8"
+#define ANNA_VERSION "0.6.8b"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 

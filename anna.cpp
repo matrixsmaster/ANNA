@@ -67,6 +67,7 @@ static const char* argstrings[] = {
     "[-M mirostat_version]",
     "[-V vision_projector]",
     "[-i image_file]",
+    "[-g group_attn_n:group_attn_w]",
     NULL
 };
 
@@ -113,7 +114,7 @@ static int set_params(gpt_params* p, int argc, char* argv[])
     p->n_ctx = 4096;
     p->n_batch = 512;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:vT:PSNG:H:F:M:V:i:")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:vT:PSNG:H:F:M:V:i:g:")) != -1) {
         switch (opt) {
         case 'm':
             strncpy(p->model,optarg,sizeof(p->model)-1);
@@ -190,6 +191,9 @@ static int set_params(gpt_params* p, int argc, char* argv[])
             break;
         case 'i':
             g_sprompts.push_back(string("::") + optarg);
+            break;
+        case 'g':
+            sscanf(optarg,"%d:%d",&p->grp_attn_n,&p->grp_attn_w);
             break;
         default:
             usage(argv[0]);
@@ -503,8 +507,9 @@ int main(int argc, char* argv[])
     bool skip_sampling = false, was_skipped = false;
     bool no_input = false;
     bool reload_on_reset = false;
-    int ga_n = 1; //TODO: expand
-    int ga_w = 1;
+    int ga_n = params.grp_attn_n;
+    int ga_w = params.grp_attn_w;
+    DBG("Gn = %d, Gw = %d\n",ga_n,ga_w);
 
     vector<llama_token> queue,prompt,inp_emb,forced_start;
     vector<llama_token> oldqueue,oldcontext;

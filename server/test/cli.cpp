@@ -69,6 +69,9 @@ int main()
         cerr << "Invalid client." << endl;
         return 1;
     }
+    cli.set_read_timeout(50,0); // 50 seconds
+    cli.set_write_timeout(50,0);
+    cli.set_connection_timeout(50,0);
     cout << "Started." << endl;
 
     auto res = cli.Get("/hi/1234");

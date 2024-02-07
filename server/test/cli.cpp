@@ -43,9 +43,10 @@ void postfile(httplib::Client* cli, const char* fn)
     }
 
     auto res = cli->Post("/test/1234",[f](size_t offset, httplib::DataSink &sink) {
-        char buf[3], sbuf[16];
-        if (fread(buf,3,1,f)) {
-            encode(sbuf,sizeof(sbuf),buf,3);
+        char buf[300], sbuf[4096];
+        int r = fread(buf,1,300,f);
+        if (r > 0) {
+            encode(sbuf,sizeof(sbuf),buf,r);
             cout << "Sending piece: " << sbuf << endl;
             sink.os << sbuf;
         } else

@@ -81,9 +81,14 @@ int main()
             cerr << "Unable to write output file" << endl;
             return false;
         }
-        char buf[4096];
-        size_t r = decode(buf,sizeof(buf),req.body.c_str());
-        fwrite(buf,r,1,f);
+        while (!s.empty()) {
+            string ss = s.substr(0,300);
+            s.erase(0,300);
+            cout << ss << endl;
+            char buf[4096];
+            size_t r = decode(buf,sizeof(buf),ss.c_str());
+            fwrite(buf,r,1,f);
+        }
         fclose(f);
         cout << "File written" << endl;
         return true;

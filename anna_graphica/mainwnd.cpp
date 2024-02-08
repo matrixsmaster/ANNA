@@ -469,8 +469,8 @@ void MainWnd::on_SendButton_clicked()
         next_attach = nullptr;
     }
 
-    qDebug("usr = '%s'\n",usr.toStdString().c_str());
-    qDebug("log = '%s'\n",log.toStdString().c_str());
+    //qDebug("usr = '%s'\n",usr.toStdString().c_str());
+    //qDebug("log = '%s'\n",log.toStdString().c_str());
 
     if (guiconfig.md_fix) FixMarkdown(log);
     cur_chat += log;

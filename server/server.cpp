@@ -4,10 +4,13 @@
 #include <iostream>
 #include <thread>
 #include <utility>
+#include <unistd.h>
 #include "httplib.h"
 #include "base64m.h"
 #include "../dtypes.h"
 #include "../brain.h"
+
+#define SERVER_VERSION "0.0.1-pre2"
 
 #define PORT 8080
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -113,15 +116,105 @@ void install_services(Server* srv)
         INFO("%lu bytes decoded\n",r);
         INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",ptr->model,ptr->n_ctx,ptr->prompt,ptr->seed);
         AnnaBrain* bp = usermap.at(id).brain;
+        AnnaConfig cfg;
+        cfg.params = usermap.at(id).params;
+        cfg.verbose_level = 0;
+        cfg.user = nullptr;
         if (bp) {
-            AnnaConfig cfg;
-            cfg.params = usermap.at(id).params;
-            cfg.verbose_level = 0;
-            cfg.user = nullptr;
             bp->setConfig(cfg);
             INFO("Brain config set\n");
+        } else {
+            INFO("Creating new brain...\n");
+            bp = new AnnaBrain(&cfg);
+            usermap[id].brain = bp;
+            INFO("New brain created and config is set\n");
         }
         INFO("setConfig() complete\n");
+        return;
+    });
+
+    srv->Get("/processing/:id", [](const Request &req, Response &res) {
+        cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!req.has_param("arg")) {
+            WARN("processing() requested for user %d without argument\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        if (!usermap.count(id)) {
+            WARN("processing() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        AnnaBrain* ptr = usermap.at(id).brain;
+        if (!ptr) {
+            ERROR("processing() for user %d requested before brain is created\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        string arg = req.get_param_value("arg");
+        AnnaState s = ptr->Processing(arg == "skip");
+        string str = AnnaBrain::myformat("%d",(int)s);
+        res.set_content(str,"text/plain");
+        INFO("processing(%s) for user %d: %s\n",arg.c_str(),id,str.c_str());
+    });
+
+    srv->Get("/getOutput/:id", [](const Request &req, Response &res) {
+        cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!usermap.count(id)) {
+            WARN("getOutput() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        AnnaBrain* ptr = usermap.at(id).brain;
+        if (!ptr) {
+            ERROR("getOutput() for user %d requested before brain is created\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        string str = ptr->getOutput();
+        res.set_content(str,"text/plain");
+        INFO("getOutput() for user %d: %s\n",id,str.c_str());
+    });
+
+    srv->Post("/setInput/:id", [](const Request& req, Response& res) {
+        cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!usermap.count(id)) {
+            WARN("setInput() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        INFO("setInput() for user %d: '%s'\n",id,req.body.c_str());
+        AnnaBrain* ptr = usermap.at(id).brain;
+        if (!ptr) {
+            ERROR("setInput() for user %d requested before brain is created\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        ptr->setInput(req.body);
+        INFO("Brain input set\n");
+        return;
+    });
+
+    srv->Post("/setPrefix/:id", [](const Request& req, Response& res) {
+        cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!usermap.count(id)) {
+            WARN("setPrefix() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        INFO("setPrefix() for user %d: '%s'\n",id,req.body.c_str());
+        AnnaBrain* ptr = usermap.at(id).brain;
+        if (!ptr) {
+            ERROR("setPrefix() for user %d requested before brain is created\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        ptr->setPrefix(req.body);
+        INFO("Brain input set\n");
         return;
     });
 }
@@ -145,5 +238,7 @@ int main(int argc, char* argv[])
 
     while (1) {
         // main loop
+        // TODO
+        sleep(1);
     }
 }

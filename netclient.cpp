@@ -31,9 +31,9 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
 
     state = ANNA_READY;
     if (!command("/sessionStart")) {
-        //state = ANNA_ERROR;
+        state = ANNA_ERROR;
         internal_error = "Unable to create remote session!";
-        //return;
+        return;
     }
 
     AnnaClient::setConfig(config);
@@ -62,7 +62,8 @@ const string &AnnaClient::getError()
 
 int AnnaClient::getTokensUsed()
 {
-    return atoi(request("/getTokensUsed").c_str());
+    //return atoi(request("/getTokensUsed").c_str());
+    return 1;
 }
 
 AnnaConfig AnnaClient::getConfig()
@@ -175,7 +176,24 @@ string AnnaClient::request(std::string cmd)
 
 string AnnaClient::request(std::string cmd, std::string arg)
 {
-    // TODO
+    if (state != ANNA_READY) return "";
+    cmd += myformat("/%d",clid);
+    DBG("request/2: '%s' '%s'\n",cmd.c_str(),arg.c_str());
+    Params params { { "arg", arg } };
+    auto r = client->Get(cmd,params,Headers(),Progress());
+    if (r) {
+        DBG("status = %d\n",r->status);
+        if (r->status != OK_200) {
+            state = ANNA_ERROR;
+            internal_error = myformat("Remote rejected request %s: %d",cmd.c_str(),r->status);
+            return "";
+        }
+        DBG("body = '%s'\n",r->body.c_str());
+        return r->body;
+    }
+
+    state = ANNA_ERROR;
+    internal_error = myformat("Remote request failed: %s",cmd.c_str());
     return "";
 }
 
@@ -188,7 +206,7 @@ bool AnnaClient::command(std::string cmd, std::string arg)
 {
     if (state != ANNA_READY) return false;
     cmd += myformat("/%d",clid);
-    DBG("command/1: '%s'\n",cmd.c_str());
+    DBG("command: '%s'\n",cmd.c_str());
     auto r = client->Post(cmd,arg,"text/plain");
     if (r) {
         DBG("status = %d\n",r->status);

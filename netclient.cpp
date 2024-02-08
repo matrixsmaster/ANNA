@@ -31,9 +31,9 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
 
     state = ANNA_READY;
     if (!command("/sessionStart")) {
-        state = ANNA_ERROR;
+        //state = ANNA_ERROR;
         internal_error = "Unable to create remote session!";
-        return;
+        //return;
     }
 
     AnnaClient::setConfig(config);
@@ -73,9 +73,10 @@ AnnaConfig AnnaClient::getConfig()
 
 void AnnaClient::setConfig(const AnnaConfig &cfg)
 {
+    DBG("sizeof gpt_params = %lu\n",sizeof(gpt_params));
     string enc = asBase64((void*)&(cfg.params),sizeof(cfg));
     DBG("encoded state len = %lu\n",enc.size());
-    command("setConfig",enc);
+    command("/setConfig",enc);
 }
 
 string AnnaClient::getOutput()
@@ -145,7 +146,7 @@ string AnnaClient::asBase64(void *data, int len)
 {
     string s;
     s.resize(len*2);
-    size_t n = encode(s.data(),s.size(),data,len);
+    size_t n = encode((char*)s.data(),s.size(),data,len);
     s.resize(n);
     return s;
 }

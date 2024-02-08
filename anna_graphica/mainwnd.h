@@ -10,8 +10,8 @@
 #include <QListWidget>
 #include <QComboBox>
 #include <QSettings>
-#include "brain.h"
-#include "netclient.h"
+#include "../brain.h"
+#include "../netclient.h"
 
 #define ANNA_DEFAULT_CONTEXT 4096
 #define ANNA_DEFAULT_BATCH 512

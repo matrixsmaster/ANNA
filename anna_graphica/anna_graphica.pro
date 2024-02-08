@@ -65,8 +65,10 @@ win32 {
     CWARNS = -Wall -Wextra -Wpedantic -Wcast-qual -Wdouble-promotion -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Wno-unused-function -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter
     CXXWARNS = -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter -Wno-format-truncation -Wno-array-bounds -Wno-unused-result
 
-    QMAKE_CFLAGS += $$CWARNS
-    QMAKE_CXXFLAGS += $$CXXWARNS
+    QMAKE_CFLAGS += $$CWARNS -mno-ms-bitfields
+    QMAKE_CXXFLAGS += $$CXXWARNS -mno-ms-bitfields
+
+    QMAKE_LFLAGS_WINDOWS += -Wl,--stack,100000000
 
     oldcpu = $$(ANNA_OLDCPU)
     #message($$oldcpu)

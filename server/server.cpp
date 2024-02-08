@@ -10,9 +10,9 @@
 #include "../brain.h"
 
 #define PORT 8080
-#define INFO(...) fprintf(stderr,"[INFO] " __VA_ARGS__);
-#define WARN(...) fprintf(stderr,"[WARN] " __VA_ARGS__);
-#define ERROR(...) fprintf(stderr,"[ERROR] " __VA_ARGS__);
+#define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
+#define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
+#define ERROR(...) do { fprintf(stderr,"[ERROR] " __VA_ARGS__); fflush(stderr); } while (0)
 
 using namespace std;
 using namespace httplib;
@@ -65,6 +65,7 @@ void install_services(Server* srv)
         }
         session s;
         s.state = 0;
+        s.brain = nullptr;
         usermap[id] = s;
         INFO("User %d session created\n",id);
         return;
@@ -94,6 +95,7 @@ void install_services(Server* srv)
     });
 
     srv->Post("/setConfig/:id", [](const Request& req, Response& res) {
+        cout << rlog(req) << endl;
         int id = atoi(req.path_params.at("id").c_str());
         if (!usermap.count(id)) {
             WARN("getState() requested for non-existing user %d\n",id);
@@ -108,6 +110,8 @@ void install_services(Server* srv)
             res.status = BadRequest_400;
             return;
         }
+        INFO("%lu bytes decoded\n",r);
+        INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",ptr->model,ptr->n_ctx,ptr->prompt,ptr->seed);
         AnnaBrain* bp = usermap.at(id).brain;
         if (bp) {
             AnnaConfig cfg;
@@ -134,6 +138,8 @@ void server_thread()
 
 int main(int argc, char* argv[])
 {
+    INFO("sizeof gpt_params = %lu\n",sizeof(gpt_params));
+
     thread srv_thr(server_thread);
     cout << "Server started." << endl;
 

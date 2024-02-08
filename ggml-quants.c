@@ -8521,7 +8521,7 @@ void ggml_vec_dot_iq2_xs_q8_K(const int n, float * restrict s, const void * rest
     }
     *s = 0.125f * sumf;
 
-#elif defined(__AVX2__)
+#elif defined(__AVX2__) && !defined(__WIN32)
 
     const __m128i m4 = _mm_set1_epi8(0xf);
     const __m128i m1 = _mm_set1_epi8(1);

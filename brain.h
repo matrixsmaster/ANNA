@@ -4,6 +4,7 @@
 #include <string>
 #include <deque>
 #include "llama.h"
+#include "dtypes.h"
 #include "common.h"
 #include "sampling.h"
 

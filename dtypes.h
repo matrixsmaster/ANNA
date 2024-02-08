@@ -5,9 +5,11 @@
 #include <vector>
 #include <map>
 
-#define LLAMA_MAX_FILENAME_LEN 4096
-#define LLAMA_MAX_PROMPT_LEN (1UL*1024UL*1024UL)
-#define LLAMA_MAX_GRAMMAR_LEN (1UL*1024UL*1024UL)
+#define LLAMA_MAX_FILENAME_LEN 512
+#define LLAMA_MAX_PROMPT_LEN (1*1024UL*1024UL)
+// FIXME: grammars are not used atm, so this field is simply not needed;
+// we'll get it back once it'll be required
+#define LLAMA_MAX_GRAMMAR_LEN 4
 
 int32_t get_num_physical_cores();
 
@@ -78,7 +80,7 @@ struct __attribute__((packed)) gpt_params {
     float   yarn_beta_fast        = 32.0f; // YaRN low correction dim
     float   yarn_beta_slow        = 1.0f;  // YaRN high correction dim
     int32_t yarn_orig_ctx         = 0;     // YaRN original context length
-    int8_t  rope_scaling_type     = LLAMA_ROPE_SCALING_UNSPECIFIED; // TODO: better to be int32_t for alignment
+    int  rope_scaling_type     = LLAMA_ROPE_SCALING_UNSPECIFIED; // TODO: better to be int32_t for alignment
                                                                     //       pinging @cebtenzzre
 
     // TODO: avoid tuple, use struct

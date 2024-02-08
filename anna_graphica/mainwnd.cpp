@@ -220,7 +220,7 @@ void MainWnd::LoadLLM(const QString &fn)
 
     brain = guiconfig.use_server? new AnnaClient(&config,guiconfig.server.toStdString()) : new AnnaBrain(&config);
     if (brain->getState() != ANNA_READY) {
-        ui->statusbar->showMessage("Unable to load LLM file!");
+        ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
         delete brain;
         brain = nullptr;
         return;

@@ -62,8 +62,7 @@ const string &AnnaClient::getError()
 
 int AnnaClient::getTokensUsed()
 {
-    //return atoi(request("/getTokensUsed").c_str());
-    return 1;
+    return atoi(request("/getTokensUsed").c_str());
 }
 
 AnnaConfig AnnaClient::getConfig()
@@ -74,8 +73,14 @@ AnnaConfig AnnaClient::getConfig()
 
 void AnnaClient::setConfig(const AnnaConfig &cfg)
 {
-    DBG("sizeof gpt_params = %lu\n",sizeof(gpt_params));
-    string enc = asBase64((void*)&(cfg.params),sizeof(cfg));
+    DBG("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
+    config = cfg;
+    string fn = config.params.model;
+    memset(config.params.model,0,sizeof(config.params.model));
+    auto ps = fn.rfind('/');
+    if (ps != string::npos) fn.erase(0,ps+1);
+    strncpy(config.params.model,fn.c_str(),sizeof(config.params.model));
+    string enc = asBase64((void*)&(config),sizeof(config));
     DBG("encoded state len = %lu\n",enc.size());
     command("/setConfig",enc);
 }

@@ -10,7 +10,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.1-pre2"
+#define SERVER_VERSION "0.0.1"
 
 #define PORT 8080
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -22,7 +22,7 @@ using namespace httplib;
 
 struct session {
     int state; // FIXME: placeholder
-    gpt_params params;
+    //AnnaConfig cfg;
     AnnaBrain* brain;
 };
 
@@ -77,6 +77,8 @@ void install_services(Server* srv)
     srv->Post("/sessionEnd/:id", [](const Request &req, Response &res) {
         cout << rlog(req) << endl;
         int id = atoi(req.path_params.at("id").c_str());
+        AnnaBrain* ptr = usermap.at(id).brain;
+        if (ptr) delete ptr;
         usermap.erase(id);
         INFO("User %d session ended\n",id);
     });
@@ -106,20 +108,19 @@ void install_services(Server* srv)
             return;
         }
         INFO("setConfig() for user %d...\n",id);
-        gpt_params* ptr = &(usermap.at(id).params);
-        size_t r = decode(ptr,sizeof(gpt_params),req.body.c_str());
-        if (r != sizeof(gpt_params)) {
-            ERROR("Unable to decode params: %lu bytes read, %lu bytes needed\n",r,sizeof(gpt_params));
+        AnnaConfig cfg;
+        size_t r = decode(&cfg,sizeof(cfg),req.body.c_str());
+        if (r != sizeof(cfg)) {
+            ERROR("Unable to decode params: %lu bytes read, %lu bytes needed\n",r,sizeof(cfg));
             res.status = BadRequest_400;
             return;
         }
         INFO("%lu bytes decoded\n",r);
-        INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",ptr->model,ptr->n_ctx,ptr->prompt,ptr->seed);
+        INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
+                cfg.params.model,cfg.params.n_ctx,cfg.params.prompt,cfg.params.seed);
+        //usermap[id].cfg = cfg;
         AnnaBrain* bp = usermap.at(id).brain;
-        AnnaConfig cfg;
-        cfg.params = usermap.at(id).params;
-        cfg.verbose_level = 0;
-        cfg.user = nullptr;
+        cfg.user = nullptr; // doesn't make any sense on the server
         if (bp) {
             bp->setConfig(cfg);
             INFO("Brain config set\n");
@@ -217,6 +218,44 @@ void install_services(Server* srv)
         INFO("Brain input set\n");
         return;
     });
+
+    srv->Get("/getError/:id", [](const Request &req, Response &res) {
+        cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!usermap.count(id)) {
+            WARN("getError() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        AnnaBrain* ptr = usermap.at(id).brain;
+        if (!ptr) {
+            ERROR("getError() for user %d requested before brain is created\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        string str = ptr->getError();
+        res.set_content(str,"text/plain");
+        INFO("getError() for user %d: %s\n",id,str.c_str());
+    });
+
+    srv->Get("/getTokensUsed/:id", [](const Request &req, Response &res) {
+        cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!usermap.count(id)) {
+            WARN("getTokensUsed() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        AnnaBrain* ptr = usermap.at(id).brain;
+        if (!ptr) {
+            ERROR("getTokensUsed() for user %d requested before brain is created\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+        string str = AnnaBrain::myformat("%d",ptr->getTokensUsed());
+        res.set_content(str,"text/plain");
+        INFO("getTokensUsed() for user %d: %s\n",id,str.c_str());
+    });
 }
 
 void server_thread()
@@ -231,7 +270,7 @@ void server_thread()
 
 int main(int argc, char* argv[])
 {
-    INFO("sizeof gpt_params = %lu\n",sizeof(gpt_params));
+    INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
 
     thread srv_thr(server_thread);
     cout << "Server started." << endl;

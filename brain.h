@@ -8,7 +8,7 @@
 #include "common.h"
 #include "sampling.h"
 
-#define ANNA_VERSION "0.7.0-pre2"
+#define ANNA_VERSION "0.7.0"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 
@@ -22,7 +22,7 @@ enum AnnaState
     ANNA_NUM_STATES
 };
 
-struct AnnaConfig
+struct __attribute__((packed)) AnnaConfig
 {
     int verbose_level;
     bool convert_eos_to_nl;

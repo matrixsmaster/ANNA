@@ -12,3 +12,4 @@
 build-anna_graphica-*
 anna
 anna_server
+*.gguf

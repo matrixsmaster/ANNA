@@ -1,5 +1,6 @@
 #include "netclient.h"
-#include "httplib.h"
+#include "../server/httplib.h"
+#include "../server/base64m.h"
 
 //#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -8,6 +9,7 @@
 //#endif
 
 using namespace std;
+using namespace httplib;
 
 AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
 {
@@ -19,7 +21,7 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
     state = ANNA_NOT_INITIALIZED;
     if (!cfg) return;
 
-    client = new httplib::Client(server);
+    client = new Client(server);
     if (!client->is_valid()) {
         state = ANNA_ERROR;
         internal_error = myformat("Server '%s' is not valid",server.c_str());
@@ -28,7 +30,12 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
     config = *cfg;
 
     state = ANNA_READY;
-    command("/sessionStart");
+    if (!command("/sessionStart")) {
+        state = ANNA_ERROR;
+        internal_error = "Unable to create remote session!";
+        return;
+    }
+
     AnnaClient::setConfig(config);
 }
 
@@ -67,6 +74,8 @@ AnnaConfig AnnaClient::getConfig()
 void AnnaClient::setConfig(const AnnaConfig &cfg)
 {
     string enc = asBase64((void*)&(cfg.params),sizeof(cfg));
+    DBG("encoded state len = %lu\n",enc.size());
+    command("setConfig",enc);
 }
 
 string AnnaClient::getOutput()
@@ -134,36 +143,55 @@ void AnnaClient::Undo()
 
 string AnnaClient::asBase64(void *data, int len)
 {
-    return "";
+    string s;
+    s.resize(len*2);
+    size_t n = encode(s.data(),s.size(),data,len);
+    s.resize(n);
+    return s;
 }
 
 string AnnaClient::request(std::string cmd)
 {
+    if (state != ANNA_READY) return "";
+    cmd += myformat("/%d",clid);
+    DBG("request/1: '%s'\n",cmd.c_str());
     auto r = client->Get(cmd);
     if (r) {
-        DBG("res = %d\n",r->status);
+        DBG("status = %d\n",r->status);
+        if (r->status != OK_200) {
+            state = ANNA_ERROR;
+            internal_error = myformat("Remote rejected request %s: %d",cmd.c_str(),r->status);
+            return "";
+        }
         DBG("body = '%s'\n",r->body.c_str());
-    } else {
-        state = ANNA_ERROR;
-        internal_error = myformat("Remote request failed: %s",cmd.c_str());
+        return r->body;
     }
+
+    state = ANNA_ERROR;
+    internal_error = myformat("Remote request failed: %s",cmd.c_str());
     return "";
 }
 
 string AnnaClient::request(std::string cmd, std::string arg)
 {
+    // TODO
     return "";
 }
 
-void AnnaClient::command(std::string cmd)
+bool AnnaClient::command(std::string cmd)
 {
-    if (state != ANNA_READY) return;
+    return command(cmd,"<empty>");
+}
+
+bool AnnaClient::command(std::string cmd, std::string arg)
+{
+    if (state != ANNA_READY) return false;
     cmd += myformat("/%d",clid);
     DBG("command/1: '%s'\n",cmd.c_str());
-    auto r = client->Post(cmd);
+    auto r = client->Post(cmd,arg,"text/plain");
     if (r) {
-        DBG("res = %d\n",r->status);
-        if (r->status != httplib::OK_200) {
+        DBG("status = %d\n",r->status);
+        if (r->status != OK_200) {
             state = ANNA_ERROR;
             internal_error = myformat("Remote rejected command %s: %d",cmd.c_str(),r->status);
         }
@@ -172,9 +200,5 @@ void AnnaClient::command(std::string cmd)
         state = ANNA_ERROR;
         internal_error = myformat("Remote command failed: %s",cmd.c_str());
     }
-}
-
-void AnnaClient::command(std::string cmd, std::string arg)
-{
-
+    return true;
 }

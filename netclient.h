@@ -47,6 +47,6 @@ private:
     std::string asBase64(void* data, int len);
     std::string request(std::string cmd);
     std::string request(std::string cmd, std::string arg);
-    void command(std::string cmd);
-    void command(std::string cmd, std::string arg);
+    bool command(std::string cmd);
+    bool command(std::string cmd, std::string arg);
 };

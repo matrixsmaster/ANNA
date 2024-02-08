@@ -5,7 +5,6 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++20
 
 SOURCES += \
-    ../brain.cpp \
     ../netclient.cpp \
     aboutbox.cpp \
     helpbox.cpp \
@@ -14,8 +13,6 @@ SOURCES += \
     settingsdialog.cpp
 
 HEADERS += \
-    ../brain.h \
-    ../httplib.h \
     ../netclient.h \
     aboutbox.h \
     helpbox.h \
@@ -37,6 +34,7 @@ win32 {
     DEFINES += _WIN32_WINNT=0x602
 
     SOURCES += \
+        ../brain.cpp \
         ../clip.cpp \
         ../common.cpp \
         ../ggml-alloc.c \
@@ -48,6 +46,7 @@ win32 {
         ../sampling.cpp
 
     HEADERS += \
+        ../brain.h \
         ../clip.h \
         ../common.h \
         ../dtypes.h \

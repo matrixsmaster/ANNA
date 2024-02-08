@@ -6,12 +6,24 @@
 #include <utility>
 #include "httplib.h"
 #include "base64m.h"
+#include "../dtypes.h"
+#include "../brain.h"
 
 #define PORT 8080
 #define INFO(...) fprintf(stderr,"[INFO] " __VA_ARGS__);
+#define WARN(...) fprintf(stderr,"[WARN] " __VA_ARGS__);
+#define ERROR(...) fprintf(stderr,"[ERROR] " __VA_ARGS__);
 
 using namespace std;
 using namespace httplib;
+
+struct session {
+    int state; // FIXME: placeholder
+    gpt_params params;
+    AnnaBrain* brain;
+};
+
+map<int,session> usermap;
 
 string rlog(const Request &req) {
     std::string s;
@@ -42,34 +54,71 @@ string rlog(const Request &req) {
 
 void install_services(Server* srv)
 {
-    srv->Get("/hi/:id", [](const Request &req, Response &res) {
-        int id = atoi(req.path_params.at("id").c_str());
-        char buf[256];
-        snprintf(buf,sizeof(buf),"Hello world, user #%d!",id);
-        res.set_content(buf,"text/plain");
+    srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
         cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        INFO("Starting session for user %d\n",id);
+        if (usermap.count(id) > 0) {
+            ERROR("User %d already exists, rejecting.\n",id);
+            res.status = Forbidden_403;
+            return;
+        }
+        session s;
+        s.state = 0;
+        usermap[id] = s;
+        INFO("User %d session created\n",id);
+        return;
     });
 
-    srv->Post("/test/:id", [](const Request& req, Response& res) {
+    srv->Post("/sessionEnd/:id", [](const Request &req, Response &res) {
+        cout << rlog(req) << endl;
         int id = atoi(req.path_params.at("id").c_str());
-        string s = req.body;
-        printf("Post from user #%d:\n'%s'\n",id,s.c_str());
-        FILE* f = fopen("/tmp/test.out","wb");
-        if (!f) {
-            cerr << "Unable to write output file" << endl;
-            return false;
+        usermap.erase(id);
+        INFO("User %d session ended\n",id);
+    });
+
+    srv->Get("/getState/:id", [](const Request &req, Response &res) {
+        cout << rlog(req) << endl;
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!usermap.count(id)) {
+            WARN("getState() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
         }
-        while (!s.empty()) {
-            string ss = s.substr(0,300);
-            s.erase(0,300);
-            cout << ss << endl;
-            char buf[4096];
-            size_t r = decode(buf,sizeof(buf),ss.c_str());
-            fwrite(buf,r,1,f);
+        AnnaBrain* ptr = usermap.at(id).brain;
+        AnnaState s = ANNA_NOT_INITIALIZED;
+        if (ptr) s = ptr->getState();
+        string str = AnnaBrain::myformat("%d",(int)s);
+        res.set_content(str,"text/plain");
+        INFO("getState() for user %d: %s\n",id,str.c_str());
+    });
+
+    srv->Post("/setConfig/:id", [](const Request& req, Response& res) {
+        int id = atoi(req.path_params.at("id").c_str());
+        if (!usermap.count(id)) {
+            WARN("getState() requested for non-existing user %d\n",id);
+            res.status = BadRequest_400;
+            return;
         }
-        fclose(f);
-        cout << "File written" << endl;
-        return true;
+        INFO("setConfig() for user %d...\n",id);
+        gpt_params* ptr = &(usermap.at(id).params);
+        size_t r = decode(ptr,sizeof(gpt_params),req.body.c_str());
+        if (r != sizeof(gpt_params)) {
+            ERROR("Unable to decode params: %lu bytes read, %lu bytes needed\n",r,sizeof(gpt_params));
+            res.status = BadRequest_400;
+            return;
+        }
+        AnnaBrain* bp = usermap.at(id).brain;
+        if (bp) {
+            AnnaConfig cfg;
+            cfg.params = usermap.at(id).params;
+            cfg.verbose_level = 0;
+            cfg.user = nullptr;
+            bp->setConfig(cfg);
+            INFO("Brain config set\n");
+        }
+        INFO("setConfig() complete\n");
+        return;
     });
 }
 

@@ -3,7 +3,7 @@
 LLAMA_CUBLAS=1
 #LLAMA_DEBUG=1
 
-all: anna libanna.a
+all: anna libanna.a anna_server
 .PHONY: all
 
 # Define the default target now so that it is always the first target
@@ -502,10 +502,13 @@ grammar-parser.o: grammar-parser.cpp grammar-parser.h
 clip.o: clip.cpp clip.h stb_image.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
-anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
+brain.o: brain.cpp brain.h
+	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
+
+anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o brain.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
-libanna.a: ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
+libanna.a: ggml.o llama.o common.o sampling.o clip.o brain.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
 	ar cru $@ $^
 
 anna_server: server/server.cpp server/base64m.h server/httplib.h libanna.a

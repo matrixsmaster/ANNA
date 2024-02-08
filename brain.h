@@ -7,7 +7,7 @@
 #include "common.h"
 #include "sampling.h"
 
-#define ANNA_VERSION "0.6.9"
+#define ANNA_VERSION "0.7.0-pre"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 
@@ -60,6 +60,8 @@ public:
     virtual void Reset();
     virtual void Undo();
 
+    static std::string myformat(const char* fmt, ...);
+
 protected:
     AnnaState state = ANNA_NOT_INITIALIZED;
     AnnaConfig config;
@@ -80,7 +82,6 @@ protected:
     static void anna_no_log(ggml_log_level level, const char * text, void * user_data);
     static void backend_init();
     static void backend_free();
-    static std::string myformat(const char* fmt, ...);
 
     llama_batch batch_embeddings(int n_tokens, float *embeds, int n_past);
     void print_vec(std::string& str, const std::vector<llama_token>& vec);

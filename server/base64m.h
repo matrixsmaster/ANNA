@@ -6,9 +6,9 @@
 // This string was slightly modified: slash replaced with minus for better compatibility with paths
 static const char base64_str[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
 
-void encode(char* out, size_t maxlen, const void* in, size_t inlen)
+size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
 {
-    if (!in || !out || !inlen || !maxlen) return;
+    if (!in || !out || !inlen || !maxlen) return 0;
 
     size_t n = 0;
     uint8_t b;
@@ -31,6 +31,7 @@ void encode(char* out, size_t maxlen, const void* in, size_t inlen)
         if (n < maxlen-1) out[n++] = base64_str[b & 0x3F];
     }
     out[n] = 0;
+    return n;
 }
 
 size_t decode(void* out, size_t maxlen, const char* in)

@@ -124,7 +124,7 @@ endif # LLAMA_DISABLE_LOGS
 WARN_FLAGS    = -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function
 MK_CFLAGS    += $(WARN_FLAGS) -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int \
 				-Werror=implicit-function-declaration
-MK_CXXFLAGS  += $(WARN_FLAGS) -Wmissing-declarations -Wmissing-noreturn
+MK_CXXFLAGS  += $(WARN_FLAGS) -Wmissing-noreturn
 
 # this version of Apple ld64 is buggy
 ifneq '' '$(findstring dyld-1015.7,$(shell $(CC) $(LDFLAGS) -Wl,-v 2>&1))'
@@ -507,6 +507,9 @@ anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS
 
 libanna.a: ggml.o llama.o common.o sampling.o clip.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
 	ar cru $@ $^
+
+anna_server: server/server.cpp server/base64m.h server/httplib.h libanna.a
+	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
 clean:
 	rm -vrf *.o tests/*.o *.so *.a *.dll *.dot libanna.a $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)

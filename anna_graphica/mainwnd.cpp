@@ -231,7 +231,7 @@ void MainWnd::LoadLLM(const QString &fn)
     // Process initial prompt
     ProcessInput(config.params.prompt);
     seed_label->setText(QString("Seed: %1").arg((int)brain->getConfig().params.seed));
-    ui->statusbar->showMessage("Brain is ready");
+    if (brain->getState() != ANNA_ERROR) ui->statusbar->showMessage("Brain is ready");
 }
 
 void MainWnd::ForceAIName(const QString &nm)
@@ -258,6 +258,8 @@ void MainWnd::ProcessInput(std::string str)
         ui->ContextFull->setValue(brain->getTokensUsed());
         qApp->processEvents();
     }
+    if (brain->getState() == ANNA_ERROR)
+        ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
 
 void MainWnd::Generate()

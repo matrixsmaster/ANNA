@@ -5,6 +5,7 @@
 #include "brain.h"
 
 #define ANNA_CLIENT_MASK 0x3FFFFFFFUL
+#define ANNA_CLIENT_TIMEOUT (4*60)
 
 // Avoid inclusion of httplib.h into any header files
 namespace httplib {
@@ -47,6 +48,6 @@ private:
     std::string asBase64(void* data, int len);
     std::string request(std::string cmd);
     std::string request(std::string cmd, std::string arg);
-    bool command(std::string cmd);
-    bool command(std::string cmd, std::string arg);
+    bool command(std::string cmd, bool force = false);
+    bool command(std::string cmd, std::string arg, bool force = false);
 };

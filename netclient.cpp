@@ -27,9 +27,13 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
         internal_error = myformat("Server '%s' is not valid",server.c_str());
         return;
     }
-    config = *cfg;
+    client->set_read_timeout(ANNA_CLIENT_TIMEOUT,0);
+    client->set_write_timeout(ANNA_CLIENT_TIMEOUT,0);
+    client->set_connection_timeout(ANNA_CLIENT_TIMEOUT,0);
 
+    config = *cfg;
     state = ANNA_READY;
+
     if (!command("/sessionStart")) {
         state = ANNA_ERROR;
         internal_error = "Unable to create remote session!";
@@ -42,12 +46,12 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
 AnnaClient::~AnnaClient()
 {
     DBG("client d'tor\n");
-    command("/sessionEnd");
+    command("/sessionEnd",true);
 }
 
 AnnaState AnnaClient::getState()
 {
-    if (state != ANNA_READY) return state; // internal state
+    if (state == ANNA_ERROR) return state; // internal error has already occured
     int r = atoi(request("/getState").c_str());
     if (state == ANNA_ERROR) return state; // request failed
     return (r < 0 || r >= ANNA_NUM_STATES)? ANNA_ERROR : (AnnaState)r;
@@ -202,14 +206,14 @@ string AnnaClient::request(std::string cmd, std::string arg)
     return "";
 }
 
-bool AnnaClient::command(std::string cmd)
+bool AnnaClient::command(std::string cmd, bool force)
 {
-    return command(cmd,"<empty>");
+    return command(cmd,"<empty>",force);
 }
 
-bool AnnaClient::command(std::string cmd, std::string arg)
+bool AnnaClient::command(std::string cmd, std::string arg, bool force)
 {
-    if (state != ANNA_READY) return false;
+    if (!force && state != ANNA_READY) return false;
     cmd += myformat("/%d",clid);
     DBG("command: '%s'\n",cmd.c_str());
     auto r = client->Post(cmd,arg,"text/plain");

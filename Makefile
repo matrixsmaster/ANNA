@@ -3,11 +3,12 @@
 LLAMA_CUBLAS=1
 #LLAMA_DEBUG=1
 
-all: anna libanna.a anna_server
-.PHONY: all
 
 # Define the default target now so that it is always the first target
-BUILD_TARGETS = anna
+BUILD_TARGETS = libanna.a anna anna_server
+
+all: $(BUILD_TARGETS)
+.PHONY: all
 
 ifndef UNAME_S
 UNAME_S := $(shell uname -s)
@@ -515,4 +516,4 @@ anna_server: server/server.cpp server/base64m.h server/httplib.h libanna.a
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
 clean:
-	rm -vrf *.o tests/*.o *.so *.a *.dll *.dot libanna.a $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
+	rm -vrf *.o tests/*.o *.so *.a *.dll *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)

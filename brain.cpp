@@ -172,6 +172,11 @@ void AnnaBrain::Evaluate()
             int n_eval = (int)queue.size() - i;
             if (n_eval > config.params.n_batch) n_eval = config.params.n_batch;
 
+            //FIXME: DEBUG ONLY
+            //for (int i = n_past; i < n_past+n_eval; i++) {
+            //    DBG("%05d: %d (%s)\n",i,queue[i],llama_token_to_piece(ctx,queue[i]).c_str());
+            //}
+            ///
             int r = llama_decode(ctx,llama_batch_get_one(&queue[i],n_eval,n_past,0));
             if (r) {
                 string ts = llama_token_to_piece(ctx,queue[i]);
@@ -297,7 +302,7 @@ void AnnaBrain::setInput(string inp)
     DBG("Input: '%s'\n",inp.c_str());
     if (inp.empty()) return;
 
-    auto emb = ::llama_tokenize(ctx,inp,true);
+    auto emb = prompt.empty()? ::llama_tokenize(ctx,inp,true) : ::llama_tokenize(ctx,inp,false,true);
     if (emb.empty()) return;
     if (emb.size() >= llama_n_ctx(ctx)) {
         internal_error = myformat("Too many tokens in input: %d tokens for a %d tokens context window!\n",(int)emb.size(),llama_n_ctx(ctx));
@@ -315,7 +320,10 @@ void AnnaBrain::setInput(string inp)
     oldqueue = queue;
     old_past = n_past;
 
-    if (prompt.empty()) prompt = emb; // save the first sequence as prompt
+    if (prompt.empty()) {
+        prompt = emb; // save the first sequence as prompt
+        config.params.n_keep = prompt.size();
+    }
 }
 
 void AnnaBrain::Undo()

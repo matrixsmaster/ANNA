@@ -19,16 +19,16 @@
 #include "common.h"
 #include "sampling.h"
 
-#define ANNA_VERSION "0.5.6"
+#define ANNA_VERSION "0.5.7"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
-#else
-#define DBG(...)
-#endif
+//#else
+//#define DBG(...)
+//#endif
 
 #define MAX_INPUT_LEN 2048
 #define MAX_INPUT_WAIT_MS 250
@@ -650,6 +650,11 @@ int main(int argc, char* argv[])
                 int n_eval = (int)queue.size() - i;
                 if (n_eval > params.n_batch) n_eval = params.n_batch;
 
+                //FIXME: DEBUG ONLY
+                //for (int i = n_past; i < n_past+n_eval; i++) {
+                //    DBG("%05d: %d (%s)\n",i,queue[i],llama_token_to_str(ctx,queue[i]));
+                //}
+                ///
                 int r = llama_decode(ctx,llama_batch_get_one(&queue[i],n_eval,n_past,0));
                 if (r) {
                 //if (llama_eval(ctx,&queue[i],n_eval,n_past)) {

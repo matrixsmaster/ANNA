@@ -10,6 +10,7 @@ SOURCES += \
     helpbox.cpp \
     main.cpp \
     mainwnd.cpp \
+    rqpeditor.cpp \
     settingsdialog.cpp
 
 HEADERS += \
@@ -17,12 +18,14 @@ HEADERS += \
     aboutbox.h \
     helpbox.h \
     mainwnd.h \
+    rqpeditor.h \
     settingsdialog.h
 
 FORMS += \
     aboutbox.ui \
     helpbox.ui \
     mainwnd.ui \
+    rqpeditor.ui \
     settingsdialog.ui
 
 DEFINES += _XOPEN_SOURCE=600

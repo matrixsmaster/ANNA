@@ -71,7 +71,17 @@ int AnnaClient::getTokensUsed()
 
 AnnaConfig AnnaClient::getConfig()
 {
-    // TODO: request
+    string r = request("/getConfig");
+    if (r.empty()) return config; // return internal config (server busy?)
+
+    AnnaConfig cfg;
+    size_t n = decode(&cfg,sizeof(cfg),r.c_str());
+    if (n != sizeof(cfg)) {
+        state = ANNA_ERROR;
+        internal_error = "Failed to read encoded config";
+    } else
+        config = cfg;
+
     return config;
 }
 
@@ -79,11 +89,15 @@ void AnnaClient::setConfig(const AnnaConfig &cfg)
 {
     DBG("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
     config = cfg;
+
+    // replace full file path with just file name
     string fn = config.params.model;
     memset(config.params.model,0,sizeof(config.params.model));
     auto ps = fn.rfind('/');
     if (ps != string::npos) fn.erase(0,ps+1);
     strncpy(config.params.model,fn.c_str(),sizeof(config.params.model));
+
+    // encode and send
     string enc = asBase64((void*)&(config),sizeof(config));
     DBG("encoded state len = %lu\n",enc.size());
     command("/setConfig",enc);

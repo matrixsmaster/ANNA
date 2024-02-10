@@ -35,12 +35,18 @@ struct AnnaAttachment {
     QListWidgetItem* itm;
 };
 
+struct AnnaRQPFile {
+    QString fn;
+    bool enabled;
+};
+
 struct AnnaGuiSettings {
     int enter_key;
     bool md_fix, save_prompt, clear_log;
     QString server;
     bool use_server;
     QFont log_fnt, usr_fnt;
+    std::vector<AnnaRQPFile> rqps;
 };
 
 enum AnnaFileDialogType {

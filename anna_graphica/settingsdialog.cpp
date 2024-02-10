@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
 #include "mainwnd.h"
+#include "rqpeditor.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent) :
     QDialog(parent),
@@ -66,6 +67,9 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->useServer->setChecked(gs->use_server);
         ui->chatLogExample->setFont(gs->log_fnt);
         ui->userInExample->setFont(gs->usr_fnt);
+
+        ui->rqpList->clear();
+        for (auto & i : gs->rqps) addRQPfile(i.fn,i.enabled);
     }
 
     ui->gaWidth->setSingleStep(1);
@@ -114,6 +118,14 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("use_server",gs->use_server);
     sets->setValue("chat_font",gs->log_fnt.toString());
     sets->setValue("user_font",gs->usr_fnt.toString());
+
+    sets->beginWriteArray("RQP");
+    for (int i = 0; i < (int)gs->rqps.size(); i++) {
+        sets->setArrayIndex(i);
+        sets->setValue("file",gs->rqps.at(i).fn);
+        sets->setValue("en",gs->rqps.at(i).enabled);
+    }
+    sets->endArray();
 }
 
 void SettingsDialog::on_buttonBox_accepted()
@@ -159,6 +171,14 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->use_server = ui->useServer->isChecked();
     gs->log_fnt = ui->chatLogExample->font();
     gs->usr_fnt = ui->userInExample->font();
+
+    gs->rqps.clear();
+    for (int i = 0; i < ui->rqpList->count(); i++) {
+        AnnaRQPFile r;
+        r.fn = ui->rqpList->item(i)->text();
+        r.enabled = ui->rqpList->item(i)->checkState();
+        gs->rqps.push_back(r);
+    }
 }
 
 void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
@@ -203,6 +223,27 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->use_server = sets->value("use_server",gs->use_server).toBool();
     gs->log_fnt = LoadFont(sets,"chat_font",gs->log_fnt);
     gs->usr_fnt = LoadFont(sets,"user_font",gs->usr_fnt);
+
+    int n_rqps = sets->beginReadArray("RQP");
+    gs->rqps.clear();
+    for (int i = 0; i < n_rqps; i++) {
+        AnnaRQPFile r;
+        sets->setArrayIndex(i);
+        r.fn = sets->value("file").toString();
+        r.enabled = sets->value("en").toBool();
+        gs->rqps.push_back(r);
+    }
+    sets->endArray();
+}
+
+QString SettingsDialog::GetSaveFileName(QString title, QString filter, QString ext)
+{
+    QString fn = QFileDialog::getSaveFileName(this,title,"",filter);
+    if (!fn.isEmpty()) {
+        QFileInfo fi(fn);
+        if (fi.suffix().isEmpty()) fn += ext;
+    }
+    return fn;
 }
 
 void SettingsDialog::on_tempKnob_valueChanged(int value)
@@ -251,4 +292,55 @@ void SettingsDialog::on_gaWidth_editingFinished()
 void SettingsDialog::on_gaFactor_valueChanged(int arg1)
 {
     ui->gaWidth->setSingleStep(arg1);
+}
+
+void SettingsDialog::on_pushButton_3_clicked()
+{
+    QString fn = GetSaveFileName("Create new RQP file","RQP files (*.ini)",".ini");
+    if (fn.isEmpty()) return;
+
+    QSettings sts(fn,QSettings::IniFormat);
+    sts.beginGroup("MAIN");
+    sts.setValue("created",true); // just to create a new INI file
+    addRQPfile(fn,true);
+}
+
+void SettingsDialog::on_pushButton_4_clicked()
+{
+    QString fn = QFileDialog::getOpenFileName(this,"Add existing RQP file","","RQP files (*.ini)");
+    if (!fn.isEmpty()) addRQPfile(fn,true);
+}
+
+void SettingsDialog::on_pushButton_5_clicked()
+{
+    for (int i = 0; i < ui->rqpList->count(); i++)
+        ui->rqpList->item(i)->setCheckState(Qt::Checked);
+}
+
+void SettingsDialog::on_pushButton_6_clicked()
+{
+    for (int i = 0; i < ui->rqpList->count(); i++)
+        ui->rqpList->item(i)->setCheckState((ui->rqpList->item(i)->checkState() == Qt::Checked)? Qt::Unchecked : Qt::Checked);
+}
+
+void SettingsDialog::on_pushButton_7_clicked()
+{
+    // show Edit RQP dialog
+}
+
+void SettingsDialog::addRQPfile(QString fn, bool checked)
+{
+    ui->rqpList->addItem(fn);
+    int i = ui->rqpList->count() - 1;
+    Qt::ItemFlags f = ui->rqpList->item(i)->flags() | Qt::ItemIsUserCheckable;
+    ui->rqpList->item(i)->setFlags(f);
+    ui->rqpList->item(i)->setCheckState(checked? Qt::Checked : Qt::Unchecked);
+    ui->rqpList->sortItems();
+}
+
+void SettingsDialog::on_pushButton_8_clicked()
+{
+    if (ui->rqpList->currentRow() < 0 || ui->rqpList->currentRow() >= ui->rqpList->count()) return;
+    auto ptr = ui->rqpList->takeItem(ui->rqpList->currentRow());
+    if (ptr) delete ptr;
 }

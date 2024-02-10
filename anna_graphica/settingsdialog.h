@@ -4,7 +4,7 @@
 #include <QDialog>
 #include <QSettings>
 #include <QFontDialog>
-#include "brain.h"
+#include "../brain.h"
 
 namespace Ui {
 class SettingsDialog;
@@ -43,10 +43,24 @@ private slots:
 
     void on_gaFactor_valueChanged(int arg1);
 
+    void on_pushButton_3_clicked();
+
+    void on_pushButton_4_clicked();
+
+    void on_pushButton_5_clicked();
+
+    void on_pushButton_6_clicked();
+
+    void on_pushButton_7_clicked();
+
+    void on_pushButton_8_clicked();
+
 private:
     Ui::SettingsDialog *ui;
 
+    QString GetSaveFileName(QString title, QString filter, QString ext);
     static QFont LoadFont(QSettings* sets, QString prefix, const QFont& prev);
+    void addRQPfile(QString fn, bool checked);
 };
 
 #endif // SETTINGSDIALOG_H

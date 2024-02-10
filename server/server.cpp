@@ -10,13 +10,12 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.2"
+#define SERVER_VERSION "0.0.3"
 
 #define PORT 8080
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
 #define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
 #define ERROR(...) do { fprintf(stderr,"[ERROR] " __VA_ARGS__); fflush(stderr); } while (0)
-#define PLOG cout << rlog(req) << endl
 
 using namespace std;
 using namespace httplib;
@@ -25,9 +24,11 @@ struct session {
     int state; // FIXME: placeholder
     string addr;
     AnnaBrain* brain;
+    int reqs;
 };
 
 map<int,session> usermap;
+bool quit = false;
 
 string rlog(const Request &req) {
     std::string s;
@@ -56,10 +57,23 @@ string rlog(const Request &req) {
     return s;
 }
 
+int check_request(const Request& req, Response& res, const string fname)
+{
+    //cout << rlog(req) << endl;
+    int id = atoi(req.path_params.at("id").c_str());
+    if (!usermap.count(id)) {
+        WARN("%s() requested for non-existing user %d\n",fname.c_str(),id);
+        res.status = BadRequest_400;
+        return 0;
+    }
+    usermap[id].reqs++;
+    return id;
+}
+
 void install_services(Server* srv)
 {
     srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
-        PLOG;
+        cout << rlog(req) << endl;
         int id = atoi(req.path_params.at("id").c_str());
         INFO("Starting session for user %d\n",id);
         if (usermap.count(id) > 0) {
@@ -71,14 +85,15 @@ void install_services(Server* srv)
         s.state = 0;
         s.addr = req.remote_addr;
         s.brain = nullptr;
+        s.reqs = 0;
         usermap[id] = s;
         INFO("User %d session created\n",id);
         return;
     });
 
-    srv->Post("/sessionEnd/:id", [](const Request &req, Response &) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
+    srv->Post("/sessionEnd/:id", [](const Request &req, Response &res) {
+        int id = check_request(req,res,"sessionEnd");
+        if (!id) return;
         AnnaBrain* ptr = usermap.at(id).brain;
         if (ptr) delete ptr;
         usermap.erase(id);
@@ -86,13 +101,8 @@ void install_services(Server* srv)
     });
 
     srv->Get("/getState/:id", [](const Request &req, Response &res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("getState() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"getState");
+        if (!id) return;
         AnnaBrain* ptr = usermap.at(id).brain;
         AnnaState s = ANNA_NOT_INITIALIZED;
         if (ptr) s = ptr->getState();
@@ -102,13 +112,9 @@ void install_services(Server* srv)
     });
 
     srv->Post("/setConfig/:id", [](const Request& req, Response& res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("setConfig() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"setConfig");
+        if (!id) return;
+        INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
         INFO("setConfig() for user %d...\n",id);
         AnnaConfig cfg;
         size_t r = decode(&cfg,sizeof(cfg),req.body.c_str());
@@ -137,13 +143,8 @@ void install_services(Server* srv)
     });
 
     srv->Get("/getConfig/:id", [](const Request& req, Response& res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("getConfig() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"getConfig");
+        if (!id) return;
         INFO("getConfig() for user %d...\n",id);
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
@@ -163,15 +164,10 @@ void install_services(Server* srv)
     });
 
     srv->Get("/processing/:id", [](const Request &req, Response &res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
+        int id = check_request(req,res,"processing");
+        if (!id) return;
         if (!req.has_param("arg")) {
             WARN("processing() requested for user %d without argument\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
-        if (!usermap.count(id)) {
-            WARN("processing() requested for non-existing user %d\n",id);
             res.status = BadRequest_400;
             return;
         }
@@ -189,13 +185,8 @@ void install_services(Server* srv)
     });
 
     srv->Get("/getOutput/:id", [](const Request &req, Response &res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("getOutput() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"getOutput");
+        if (!id) return;
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
             ERROR("getOutput() for user %d requested before brain is created\n",id);
@@ -208,13 +199,8 @@ void install_services(Server* srv)
     });
 
     srv->Post("/setInput/:id", [](const Request& req, Response& res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("setInput() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"setInput");
+        if (!id) return;
         INFO("setInput() for user %d: '%s'\n",id,req.body.c_str());
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
@@ -228,13 +214,8 @@ void install_services(Server* srv)
     });
 
     srv->Post("/setPrefix/:id", [](const Request& req, Response& res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("setPrefix() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"setPrefix");
+        if (!id) return;
         INFO("setPrefix() for user %d: '%s'\n",id,req.body.c_str());
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
@@ -248,13 +229,8 @@ void install_services(Server* srv)
     });
 
     srv->Get("/getError/:id", [](const Request &req, Response &res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("getError() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"getError");
+        if (!id) return;
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
             ERROR("getError() for user %d requested before brain is created\n",id);
@@ -267,13 +243,8 @@ void install_services(Server* srv)
     });
 
     srv->Get("/getTokensUsed/:id", [](const Request &req, Response &res) {
-        PLOG;
-        int id = atoi(req.path_params.at("id").c_str());
-        if (!usermap.count(id)) {
-            WARN("getTokensUsed() requested for non-existing user %d\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        int id = check_request(req,res,"getTokensUsed");
+        if (!id) return;
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
             ERROR("getTokensUsed() for user %d requested before brain is created\n",id);
@@ -286,28 +257,57 @@ void install_services(Server* srv)
     });
 }
 
-void server_thread()
+void server_thread(Server* srv)
 {
-    Server srv;
-    install_services(&srv);
+    install_services(srv);
 
     INFO("Starting to listen at %d\n",PORT);
-    srv.listen("0.0.0.0",PORT);
-    INFO("Stopped listening");
+    srv->listen("0.0.0.0",PORT);
+    INFO("Stopped listening\n");
+}
+
+string get_input()
+{
+    string s;
+    ssize_t n = -1;
+    char cbuf[2];
+
+    while (!quit) {
+        n = read(0,cbuf,1);
+        if (n <= 0) break;
+        if (*cbuf == '\n') break;
+        else s += *cbuf;
+    }
+    return s;
 }
 
 int main()
 {
-    INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
-
     printf("\nANNA Server version " SERVER_VERSION " starting up\n\n");
 
-    thread srv_thr(server_thread);
+    Server srv;
+    thread srv_thr(server_thread,&srv);
     puts("Server started.");
 
-    while (1) {
-        // main loop
-        // TODO
-        sleep(1);
+    // main CLI loop
+    while (!quit) {
+        string c = get_input();
+
+        if (c == "quit") {
+            quit = true;
+            break;
+
+        } else if (c == "list") {
+            puts("=======================================");
+            for (auto & i : usermap)
+                printf("Client %d (0x%08X): IP %s, %d requests\n",i.first,i.first,i.second.addr.c_str(),i.second.reqs);
+            puts("=======================================");
+        }
     }
+
+    puts("Stopping the server...");
+    srv.stop();
+    srv_thr.join();
+
+    puts("Server exits normally.");
 }

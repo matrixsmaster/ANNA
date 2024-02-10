@@ -61,6 +61,7 @@ MainWnd::MainWnd(QWidget *parent)
     ui->menubar->installEventFilter(this);
     ui->AttachmentsList->setIconSize(QSize(GUI_ICON_W,GUI_ICON_H));
 
+    block = false;
     on_actionSimple_view_triggered();
     DefaultConfig();
     LoadSettings();
@@ -205,6 +206,8 @@ bool MainWnd::SaveFile(const QString& fn, const QString& str)
 
 void MainWnd::LoadLLM(const QString &fn)
 {
+    if (block) return;
+
     // Create new Brain
     if (brain) {
         // delete old brain first
@@ -214,6 +217,7 @@ void MainWnd::LoadLLM(const QString &fn)
     }
 
     // Actual loading
+    block = true;
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
     strncpy(config.params.model,fn.toStdString().c_str(),sizeof(config.params.model)-1);
@@ -223,10 +227,12 @@ void MainWnd::LoadLLM(const QString &fn)
         ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
         delete brain;
         brain = nullptr;
+        block = false;
         return;
     }
     ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
     qApp->processEvents();
+    block = false;
 
     // Process initial prompt
     ProcessInput(config.params.prompt);
@@ -238,12 +244,13 @@ void MainWnd::ForceAIName(const QString &nm)
 {
     if (!brain) return;
 
+    brain->setPrefix(std::string()); // erase any existing prefix first, to prevent accumulation
     if (nm.isEmpty() || nm == "<none>") {
-        brain->setPrefix(std::string());
         qDebug("AI prefix removed");
         return;
     }
 
+    // set actual prefix
     brain->setPrefix(nm.toStdString());
     qDebug("AI prefix set to %s",nm.toLatin1().data());
 }
@@ -256,8 +263,13 @@ void MainWnd::ProcessInput(std::string str)
     while (brain->Processing(true) == ANNA_PROCESSING) {
         ui->ContextFull->setMaximum(config.params.n_ctx);
         ui->ContextFull->setValue(brain->getTokensUsed());
+
+        // simulate multi-threaded UI, but don't forget to block out sync-only functions
+        block = true;
         qApp->processEvents();
+        block = false;
     }
+
     if (brain->getState() == ANNA_ERROR)
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
@@ -268,6 +280,7 @@ void MainWnd::Generate()
     std::string str;
     QString convo;
     stop = false;
+    block = true;
 
     while (brain && !stop) {
         AnnaState s = brain->Processing(skips);
@@ -304,6 +317,7 @@ void MainWnd::Generate()
         qApp->processEvents();
     }
 
+    block = false;
     cur_chat += convo + "\n";
     on_actionRefresh_chat_box_triggered();
 }
@@ -410,7 +424,7 @@ void MainWnd::on_ModelFindButton_clicked()
 
 void MainWnd::on_SendButton_clicked()
 {
-    if (!brain) return;
+    if (!brain || block) return;
 
     QString usr, line, log;
     if (!cur_chat.endsWith("\n")) {
@@ -478,10 +492,12 @@ void MainWnd::on_SendButton_clicked()
     cur_chat += log;
     on_actionRefresh_chat_box_triggered();
     ui->statusbar->showMessage("Processing...");
+    block = true;
     qApp->processEvents();
 
     brain->setInput(usr.toStdString());
     Generate();
+    block = false;
 }
 
 void MainWnd::closeEvent(QCloseEvent* event)
@@ -574,6 +590,8 @@ void MainWnd::on_actionLoad_model_triggered()
 
 void MainWnd::on_actionNew_dialog_triggered()
 {
+    if (block) return;
+
     if (!cur_chat.isEmpty()) {
         if (QMessageBox::question(this,"ANNA","Reset dialog?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes) != QMessageBox::Yes)
             return;

@@ -148,6 +148,7 @@ private:
     AnnaAttachment* next_attach;
     bool last_username;
     bool stop;
+    bool block;
     QString filedlg_cache[ANNA_NUM_FILETYPES];
 
     void DefaultConfig();

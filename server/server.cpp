@@ -10,7 +10,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.3"
+#define SERVER_VERSION "0.0.3b"
 
 #define PORT 8080
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -64,6 +64,11 @@ int check_request(const Request& req, Response& res, const string fname)
     if (!usermap.count(id)) {
         WARN("%s() requested for non-existing user %d\n",fname.c_str(),id);
         res.status = BadRequest_400;
+        return 0;
+    }
+    if (usermap.at(id).addr != req.remote_addr) {
+        ERROR("Request %s() for user %d came from wrong IP (%s expected, got %s)!\n",fname.c_str(),id,usermap.at(id).addr.c_str(),req.remote_addr.c_str());
+        res.status = Forbidden_403;
         return 0;
     }
     usermap[id].reqs++;
@@ -126,7 +131,6 @@ void install_services(Server* srv)
         INFO("%lu bytes decoded\n",r);
         INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
                 cfg.params.model,cfg.params.n_ctx,cfg.params.prompt,cfg.params.seed);
-        //usermap[id].cfg = cfg;
         AnnaBrain* bp = usermap.at(id).brain;
         cfg.user = nullptr; // not needed on the server
         if (bp) {

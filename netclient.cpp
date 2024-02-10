@@ -188,7 +188,7 @@ string AnnaClient::request(std::string cmd)
             internal_error = myformat("Remote rejected request %s: %d",cmd.c_str(),r->status);
             return "";
         }
-        DBG("body = '%s'\n",r->body.c_str());
+        //DBG("body = '%s'\n",r->body.c_str());
         return r->body;
     }
 
@@ -211,7 +211,7 @@ string AnnaClient::request(std::string cmd, std::string arg)
             internal_error = myformat("Remote rejected request %s: %d",cmd.c_str(),r->status);
             return "";
         }
-        DBG("body = '%s'\n",r->body.c_str());
+        //DBG("body = '%s'\n",r->body.c_str());
         return r->body;
     }
 

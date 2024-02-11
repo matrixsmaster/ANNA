@@ -88,7 +88,7 @@ string to_base64(uint32_t clid, const void* in, size_t inlen)
     codec_forward(clid,tmp,inlen);
 
     string s;
-    s.resize(inlen*2);
+    s.resize(inlen*2+1);
     size_t n = encode((char*)s.data(),s.size(),tmp,inlen);
     s.resize(n);
 

@@ -5,6 +5,7 @@
 
 // This string was slightly modified: slash replaced with minus for better compatibility with paths
 static const char base64_str[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
+static int* base64_decode_lut = NULL;
 
 size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
 {
@@ -34,19 +35,31 @@ size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
     return n;
 }
 
+void base64_mktab()
+{
+    if (base64_decode_lut) return;
+    base64_decode_lut = (int*)malloc(128*sizeof(int));
+    if (!base64_decode_lut) abort();
+
+    for (int i = 0; i < 128; i++) {
+        const char* ptr = (i < 32)? NULL : strchr(base64_str,i);
+        base64_decode_lut[i] = ptr? (ptr - base64_str) : -1;
+    }
+}
+
 size_t decode(void* out, size_t maxlen, const char* in)
 {
     if (!in || !out || !maxlen) return 0;
+    base64_mktab();
 
     size_t n = 0;
     uint16_t acc = 0, c = 0;
     uint8_t* outb = (uint8_t*)out;
-    const char* ptr;
     while (*in) {
-        ptr = strchr(base64_str,*in);
-        if (!ptr) break;
+        int ex = base64_decode_lut[(*in) & 0x7F];
+        if (ex < 0) break;
         acc <<= 6;
-        acc |= (ptr - base64_str);
+        acc |= ex;
         c += 6;
         if (c >= 8) {
             outb[n++] = acc >> (c-8);

@@ -1,7 +1,6 @@
 #include "netclient.h"
 #include "../server/httplib.h"
 #include "../server/base64m.h"
-#include "../server/codec.h"
 
 //#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -15,7 +14,8 @@ using namespace httplib;
 AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
 {
     DBG("client c'tor\n");
-    clid = make_clid();
+    auto rng = std::mt19937(time(NULL));
+    clid = (uint32_t)rng() & ANNA_CLIENT_MASK;
     DBG("clid = %u (0x%08X)\n",clid,clid);
 
     state = ANNA_NOT_INITIALIZED;

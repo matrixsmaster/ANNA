@@ -4,6 +4,7 @@
 #include <string>
 #include "brain.h"
 
+#define ANNA_CLIENT_MASK 0x3FFFFFFFUL
 #define ANNA_CLIENT_TIMEOUT (4*60)
 
 // Avoid inclusion of httplib.h into any header files

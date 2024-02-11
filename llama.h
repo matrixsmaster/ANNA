@@ -671,7 +671,8 @@ extern "C" {
                      llama_token * tokens,
                          int32_t   n_max_tokens,
                             bool   add_bos,
-                            bool   special);
+                            bool   special,
+                            bool   no_space);
 
     // Token Id -> Piece.
     // Uses the vocabulary in the provided context.

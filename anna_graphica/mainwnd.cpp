@@ -276,14 +276,14 @@ void MainWnd::ProcessInput(std::string str)
 
 void MainWnd::Generate()
 {
-    bool skips = false;
+    //bool skips = false;
     std::string str;
     QString convo;
     stop = false;
     block = true;
 
     while (brain && !stop) {
-        AnnaState s = brain->Processing(skips);
+        AnnaState s = brain->Processing(ui->SamplingCheck->isChecked());
         qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
         switch (s) {
         case ANNA_READY:

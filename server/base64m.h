@@ -3,19 +3,8 @@
 
 #include <stdint.h>
 
-#define BASE64M_LIGHT
-
-#ifndef BASE64M_LIGHT
-    // This string was slightly modified: slash replaced with minus for better compatibility with paths
-    static const char base64_str[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
-    static int* base64_decode_lut = NULL;
-    #define BASE64M_TOCHAR(X) (base64_str[(X)])
-#else
-    // Even more "modified" encoding - fast to encode and decode, but not compatible with "classic" ASCII armoring
-    #define BASE64M_START '.'
-    #define BASE64M_TOCHAR(X) (X) + (BASE64M_START)
-#endif
-
+// This string was slightly modified: slash replaced with minus for better compatibility with paths
+static const char base64_str[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
 
 size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
 {
@@ -29,7 +18,7 @@ size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
         uint8_t s = (i < inlen-1)? ina[i+1] : 0;
         switch (i % 3) {
         case 0:
-            out[n++] = BASE64M_TOCHAR(t >> 2);
+            out[n++] = base64_str[t >> 2];
             b = (t << 4) | (s >> 4);
             break;
         case 1:
@@ -39,49 +28,25 @@ size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
             b = t;
             break;
         }
-        if (n < maxlen-1) out[n++] = BASE64M_TOCHAR(b & 0x3F);
+        if (n < maxlen-1) out[n++] = base64_str[b & 0x3F];
     }
     out[n] = 0;
     return n;
 }
 
-#ifndef BASE64M_LIGHT
-void base64_mktab()
-{
-    if (base64_decode_lut) return;
-    base64_decode_lut = (int*)malloc(128*sizeof(int));
-    if (!base64_decode_lut) abort();
-
-    for (int i = 0; i < 128; i++) {
-        const char* ptr = (i < 32)? NULL : strchr(base64_str,i);
-        base64_decode_lut[i] = ptr? (ptr - base64_str) : -1;
-    }
-}
-#endif
-
 size_t decode(void* out, size_t maxlen, const char* in)
 {
     if (!in || !out || !maxlen) return 0;
 
-#ifndef BASE64M_LIGHT
-    base64_mktab();
-#endif
-
     size_t n = 0;
     uint16_t acc = 0, c = 0;
     uint8_t* outb = (uint8_t*)out;
+    const char* ptr;
     while (*in) {
-
-#ifndef BASE64M_LIGHT
-        int ex = base64_decode_lut[(*in) & 0x7F];
-        if (ex < 0) break;
-#else
-        if ((*in) < BASE64M_START || (*in) >= (BASE64M_START+64)) break;
-        uint8_t ex = (*in) - BASE64M_START;
-#endif
-
+        ptr = strchr(base64_str,*in);
+        if (!ptr) break;
         acc <<= 6;
-        acc |= ex;
+        acc |= (ptr - base64_str);
         c += 6;
         if (c >= 8) {
             outb[n++] = acc >> (c-8);

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "httplib.h"
 #include "base64m.h"
+#include "codec.h"
 #include "../dtypes.h"
 #include "../brain.h"
 
@@ -75,6 +76,44 @@ int check_request(const Request& req, Response& res, const string fname)
     return id;
 }
 
+string to_base64(uint32_t clid, const void* in, size_t inlen)
+{
+    uint8_t* tmp = (uint8_t*)malloc(inlen);
+    if (!tmp) {
+        ERROR("Unable to allocate %lu bytes of memory!\n",inlen);
+        return 0;
+    }
+
+    memcpy(tmp,in,inlen);
+    codec_forward(clid,tmp,inlen);
+
+    string s;
+    s.resize(inlen*2);
+    size_t n = encode((char*)s.data(),s.size(),tmp,inlen);
+    s.resize(n);
+
+    INFO("Data encoded: %lu bytes from %lu bytes\n",n,inlen);
+    free(tmp);
+    return s;
+}
+
+size_t from_base64(uint32_t clid, void* out, size_t maxlen, const char* in)
+{
+    size_t n = decode(out,maxlen,in);
+    codec_backward(clid,out,n);
+    INFO("%lu bytes decoded from %lu bytes string\n",n,strlen(in));
+    return n;
+}
+
+string from_base64_str(uint32_t clid, string in)
+{
+    string s;
+    s.resize(in.size());
+    size_t n = from_base64(clid,s.data(),s.size(),in.c_str());
+    s.resize(n);
+    return s;
+}
+
 void install_services(Server* srv)
 {
     srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
@@ -102,6 +141,7 @@ void install_services(Server* srv)
         AnnaBrain* ptr = usermap.at(id).brain;
         if (ptr) delete ptr;
         usermap.erase(id);
+        reclaim_clid(id);
         INFO("User %d session ended\n",id);
     });
 
@@ -122,13 +162,12 @@ void install_services(Server* srv)
         INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
         INFO("setConfig() for user %d...\n",id);
         AnnaConfig cfg;
-        size_t r = decode(&cfg,sizeof(cfg),req.body.c_str());
+        size_t r = from_base64(id,&cfg,sizeof(cfg),req.body.c_str());
         if (r != sizeof(cfg)) {
             ERROR("Unable to decode params: %lu bytes read, %lu bytes needed\n",r,sizeof(cfg));
             res.status = BadRequest_400;
             return;
         }
-        INFO("%lu bytes decoded\n",r);
         INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
                 cfg.params.model,cfg.params.n_ctx,cfg.params.prompt,cfg.params.seed);
         AnnaBrain* bp = usermap.at(id).brain;
@@ -157,12 +196,9 @@ void install_services(Server* srv)
             return;
         }
         AnnaConfig cfg = ptr->getConfig();
-        string s;
-        s.resize(sizeof(cfg)*2);
-        size_t n = encode((char*)s.data(),s.size(),&cfg,sizeof(cfg));
-        s.resize(n);
-        INFO("Config encoded: %lu bytes\n",n);
-        res.set_content(s,"text/plain");
+        codec_infill_str(cfg.params.model,sizeof(cfg.params.model));
+        codec_infill_str(cfg.params.prompt,sizeof(cfg.params.prompt));
+        res.set_content(to_base64(id,&cfg,sizeof(cfg)),"text/plain");
         INFO("getConfig() complete\n");
         return;
     });
@@ -198,21 +234,22 @@ void install_services(Server* srv)
             return;
         }
         string str = ptr->getOutput();
-        res.set_content(str,"text/plain");
+        res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getOutput() for user %d: %s\n",id,str.c_str());
     });
 
     srv->Post("/setInput/:id", [](const Request& req, Response& res) {
         int id = check_request(req,res,"setInput");
         if (!id) return;
-        INFO("setInput() for user %d: '%s'\n",id,req.body.c_str());
+        string str = from_base64_str(id,req.body);
+        INFO("setInput() for user %d: '%s'\n",id,str.c_str());
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
             ERROR("setInput() for user %d requested before brain is created\n",id);
             res.status = BadRequest_400;
             return;
         }
-        ptr->setInput(req.body);
+        ptr->setInput(str);
         INFO("Brain input set\n");
         return;
     });
@@ -220,15 +257,16 @@ void install_services(Server* srv)
     srv->Post("/setPrefix/:id", [](const Request& req, Response& res) {
         int id = check_request(req,res,"setPrefix");
         if (!id) return;
-        INFO("setPrefix() for user %d: '%s'\n",id,req.body.c_str());
+        string str = from_base64_str(id,req.body);
+        INFO("setPrefix() for user %d: '%s'\n",id,str.c_str());
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
             ERROR("setPrefix() for user %d requested before brain is created\n",id);
             res.status = BadRequest_400;
             return;
         }
-        ptr->setPrefix(req.body);
-        INFO("Brain input set\n");
+        ptr->setPrefix(str);
+        INFO("Prefix is set\n");
         return;
     });
 
@@ -242,7 +280,7 @@ void install_services(Server* srv)
             return;
         }
         string str = ptr->getError();
-        res.set_content(str,"text/plain");
+        res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getError() for user %d: %s\n",id,str.c_str());
     });
 
@@ -288,6 +326,7 @@ string get_input()
 int main()
 {
     printf("\nANNA Server version " SERVER_VERSION " starting up\n\n");
+    srand(time(NULL));
 
     Server srv;
     thread srv_thr(server_thread,&srv);

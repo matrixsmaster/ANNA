@@ -1,7 +1,9 @@
 // Base64-m encoder/decoder (C) Dmitry 'sciloaf' Solovyev, 2024
 #pragma once
 
+#include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 // This string was slightly modified: slash replaced with minus for better compatibility with paths
 static const char base64_str[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";

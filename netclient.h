@@ -4,6 +4,7 @@
 #include <string>
 #include "brain.h"
 
+#define ANNA_CLIENT_MASK 0x3FFFFFFFUL
 #define ANNA_CLIENT_TIMEOUT (4*60)
 
 // Avoid inclusion of httplib.h into any header files
@@ -44,11 +45,7 @@ private:
     httplib::Client* client;
     uint32_t clid;
 
-    std::string asBase64(const void* data, size_t len);
-    std::string asBase64(const std::string& in);
-    std::string fromBase64(const std::string& in);
-    size_t fromBase64(void *data, size_t len, std::string in);
-
+    std::string asBase64(void* data, int len);
     std::string request(std::string cmd);
     std::string request(std::string cmd, std::string arg);
     bool command(std::string cmd, bool force = false);

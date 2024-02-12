@@ -3054,7 +3054,7 @@ static void llm_load_hparams(
 }
 
 // TODO: This should probably be in llama.h
-static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & vocab, std::string raw_text, bool bos, bool special = false, bool no_space = false);
+static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & vocab, std::string raw_text, bool bos, bool special = false);
 static llama_token llama_byte_to_token(const llama_vocab & vocab, uint8_t ch);
 
 static void llm_load_vocab(
@@ -7849,7 +7849,7 @@ static void tokenizer_st_partition(const llama_vocab & vocab, std::forward_list<
     }
 }
 
-static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & vocab, std::string raw_text, bool bos, bool special, bool no_space) {
+static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & vocab, std::string raw_text, bool bos, bool special) {
     std::vector<llama_vocab::id> output;
 
     // OG tokenizer behavior:
@@ -7885,7 +7885,7 @@ static std::vector<llama_vocab::id> llama_tokenize_internal(const llama_vocab & 
                         //
                         auto raw_text = fragment.raw_text.substr(fragment.offset, fragment.length);
                         if (&fragment == &fragment_buffer.front()) {
-                            if (vocab.add_space_prefix && !no_space) {
+                            if (vocab.add_space_prefix) {
                                 raw_text = " " + raw_text; // prefix with space if the first token is not special
                             }
                         }
@@ -11498,9 +11498,8 @@ int32_t llama_tokenize(
                  llama_token * tokens,
                      int32_t   n_max_tokens,
                         bool   add_bos,
-                        bool   special,
-                        bool   no_space) {
-    auto res = llama_tokenize_internal(model->vocab, std::string(text, text_len), add_bos, special, no_space);
+                        bool   special) {
+    auto res = llama_tokenize_internal(model->vocab, std::string(text, text_len), add_bos, special);
 
     if (n_max_tokens < (int) res.size()) {
         // LLAMA_LOG_ERROR("%s: too many tokens\n", __func__);

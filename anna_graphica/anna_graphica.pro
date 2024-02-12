@@ -15,8 +15,6 @@ SOURCES += \
 
 HEADERS += \
     ../netclient.h \
-    ../server/base64m.h \
-    ../server/codec.h \
     aboutbox.h \
     helpbox.h \
     mainwnd.h \

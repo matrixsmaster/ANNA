@@ -512,7 +512,7 @@ anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o brain.o grammar-parser.
 libanna.a: ggml.o llama.o common.o sampling.o clip.o brain.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
 	ar cru $@ $^
 
-anna_server: server/server.cpp server/base64m.h server/httplib.h server/codec.h libanna.a
+anna_server: server/server.cpp server/base64m.h server/httplib.h libanna.a
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
 clean:

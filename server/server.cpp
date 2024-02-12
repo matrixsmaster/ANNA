@@ -7,10 +7,12 @@
 #include <unistd.h>
 #include "httplib.h"
 #include "base64m.h"
+#include "codec.h"
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.3b"
+#define SERVER_VERSION "0.0.4"
+#define SERVER_SAVE_DIR "saves"
 
 #define PORT 8080
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -20,15 +22,118 @@
 using namespace std;
 using namespace httplib;
 
+enum client_state {
+    ANNASERV_CLIENT_CREATED = 0,
+    ANNASERV_CLIENT_CONFIGURED,
+    ANNASERV_CLIENT_LOADED,
+    ANNASERV_CLIENT_UNLOADED,
+    ANNASERV_CLIENT_NUMSTATES
+};
+
 struct session {
-    int state; // FIXME: placeholder
+    client_state state;
     string addr;
+    AnnaConfig cfg;
     AnnaBrain* brain;
     int reqs;
+    mutex lk;
 };
 
 map<int,session> usermap;
+mutex usermap_mtx;
 bool quit = false;
+
+bool mod_user(int id, AnnaConfig& cfg)
+{
+    if (!usermap.count(id)) return false;
+    INFO("Updating user %d\n",id);
+    INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
+            cfg.params.model,cfg.params.n_ctx,cfg.params.prompt,cfg.params.seed);
+
+    usermap[id].lk.lock();
+    usermap[id].cfg = cfg;
+    usermap[id].state = ANNASERV_CLIENT_CONFIGURED;
+
+    AnnaBrain* bp = usermap.at(id).brain;
+    if (bp) {
+        bp->setConfig(cfg);
+        INFO("Brain config updated\n");
+    } else {
+        INFO("Creating new brain...\n");
+        bp = new AnnaBrain(&cfg);
+        usermap[id].brain = bp;
+        usermap[id].state = ANNASERV_CLIENT_LOADED;
+        INFO("New brain created and config is set\n");
+    }
+
+    usermap[id].lk.unlock();
+    return true;
+}
+
+bool del_user(int id)
+{
+    if (!usermap.count(id)) return false;
+
+    usermap_mtx.lock();
+    usermap[id].lk.lock();
+
+    AnnaBrain* ptr = usermap.at(id).brain;
+    if (ptr) delete ptr;
+
+    usermap.erase(id);
+    reclaim_clid(id);
+    usermap_mtx.unlock();
+
+    INFO("User %d session ended\n",id);
+    return true;
+}
+
+bool hold_user(int id)
+{
+    if (!usermap.count(id)) return false;
+
+    usermap[id].lk.lock();
+    AnnaBrain* ptr = usermap.at(id).brain;
+    if (ptr) {
+        string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
+        INFO("Saving user %d state into %s: ",id,fn.c_str());
+        if (ptr->SaveState(fn)) INFO("success\n");
+        else ERROR("failure!\n");
+        delete ptr;
+        usermap[id].state = ANNASERV_CLIENT_UNLOADED;
+    }
+    usermap[id].lk.unlock();
+
+    INFO("User %d session suspended\n",id);
+    return true;
+}
+
+bool unhold_user(int id)
+{
+    if (!usermap.count(id)) return false;
+    if (usermap.at(id).state != ANNASERV_CLIENT_CONFIGURED && usermap.at(id).state != ANNASERV_CLIENT_UNLOADED) {
+        WARN("Unable to resume unconfigured or loaded client. Client %d state is %d\n",id,usermap.at(id).state);
+        return false;
+    }
+
+    usermap[id].lk.lock();
+    AnnaBrain* ptr = usermap.at(id).brain;
+    if (ptr) {
+        INFO("Re-creating a brain for user %d\n",id);
+        AnnaBrain* bp = new AnnaBrain(&(usermap[id].cfg));
+        usermap[id].brain = bp;
+        usermap[id].state = ANNASERV_CLIENT_LOADED;
+
+        string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
+        INFO("Loading user %d state from %s: ",id,fn.c_str());
+        if (ptr->LoadState(fn)) INFO("success\n");
+        else ERROR("failure!\n");
+    }
+    usermap[id].lk.unlock();
+
+    INFO("User %d session suspended\n",id);
+    return true;
+}
 
 string rlog(const Request &req) {
     std::string s;
@@ -75,6 +180,44 @@ int check_request(const Request& req, Response& res, const string fname)
     return id;
 }
 
+string to_base64(uint32_t clid, const void* in, size_t inlen)
+{
+    uint8_t* tmp = (uint8_t*)malloc(inlen);
+    if (!tmp) {
+        ERROR("Unable to allocate %lu bytes of memory!\n",inlen);
+        return 0;
+    }
+
+    memcpy(tmp,in,inlen);
+    codec_forward(clid,tmp,inlen);
+
+    string s;
+    s.resize(inlen*2+1);
+    size_t n = encode((char*)s.data(),s.size(),tmp,inlen);
+    s.resize(n);
+
+    INFO("Data encoded: %lu bytes from %lu bytes\n",n,inlen);
+    free(tmp);
+    return s;
+}
+
+size_t from_base64(uint32_t clid, void* out, size_t maxlen, const char* in)
+{
+    size_t n = decode(out,maxlen,in);
+    codec_backward(clid,out,n);
+    INFO("%lu bytes decoded from %lu bytes string\n",n,strlen(in));
+    return n;
+}
+
+string from_base64_str(uint32_t clid, string in)
+{
+    string s;
+    s.resize(in.size());
+    size_t n = from_base64(clid,s.data(),s.size(),in.c_str());
+    s.resize(n);
+    return s;
+}
+
 void install_services(Server* srv)
 {
     srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
@@ -86,12 +229,12 @@ void install_services(Server* srv)
             res.status = Forbidden_403;
             return;
         }
-        session s;
-        s.state = 0;
-        s.addr = req.remote_addr;
-        s.brain = nullptr;
-        s.reqs = 0;
-        usermap[id] = s;
+        usermap_mtx.lock();
+        usermap[id].state = ANNASERV_CLIENT_CREATED;
+        usermap[id].addr = req.remote_addr;
+        usermap[id].brain = nullptr;
+        usermap[id].reqs = 0;
+        usermap_mtx.unlock();
         INFO("User %d session created\n",id);
         return;
     });
@@ -99,18 +242,17 @@ void install_services(Server* srv)
     srv->Post("/sessionEnd/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"sessionEnd");
         if (!id) return;
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (ptr) delete ptr;
-        usermap.erase(id);
-        INFO("User %d session ended\n",id);
+        del_user(id);
     });
 
     srv->Get("/getState/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"getState");
         if (!id) return;
+        usermap[id].lk.lock();
         AnnaBrain* ptr = usermap.at(id).brain;
         AnnaState s = ANNA_NOT_INITIALIZED;
         if (ptr) s = ptr->getState();
+        usermap[id].lk.unlock();
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
         INFO("getState() for user %d: %s\n",id,str.c_str());
@@ -122,26 +264,15 @@ void install_services(Server* srv)
         INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
         INFO("setConfig() for user %d...\n",id);
         AnnaConfig cfg;
-        size_t r = decode(&cfg,sizeof(cfg),req.body.c_str());
+        size_t r = from_base64(id,&cfg,sizeof(cfg),req.body.c_str());
         if (r != sizeof(cfg)) {
             ERROR("Unable to decode params: %lu bytes read, %lu bytes needed\n",r,sizeof(cfg));
             res.status = BadRequest_400;
             return;
         }
         INFO("%lu bytes decoded\n",r);
-        INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
-                cfg.params.model,cfg.params.n_ctx,cfg.params.prompt,cfg.params.seed);
-        AnnaBrain* bp = usermap.at(id).brain;
         cfg.user = nullptr; // not needed on the server
-        if (bp) {
-            bp->setConfig(cfg);
-            INFO("Brain config set\n");
-        } else {
-            INFO("Creating new brain...\n");
-            bp = new AnnaBrain(&cfg);
-            usermap[id].brain = bp;
-            INFO("New brain created and config is set\n");
-        }
+        mod_user(id,cfg);
         INFO("setConfig() complete\n");
         return;
     });
@@ -156,13 +287,13 @@ void install_services(Server* srv)
             res.status = BadRequest_400;
             return;
         }
+        usermap[id].lk.lock();
         AnnaConfig cfg = ptr->getConfig();
-        string s;
-        s.resize(sizeof(cfg)*2);
-        size_t n = encode((char*)s.data(),s.size(),&cfg,sizeof(cfg));
-        s.resize(n);
-        INFO("Config encoded: %lu bytes\n",n);
-        res.set_content(s,"text/plain");
+        usermap[id].cfg = cfg;
+        usermap[id].lk.unlock();
+        codec_infill_str(cfg.params.model,sizeof(cfg.params.model));
+        codec_infill_str(cfg.params.prompt,sizeof(cfg.params.prompt));
+        res.set_content(to_base64(id,&cfg,sizeof(cfg)),"text/plain");
         INFO("getConfig() complete\n");
         return;
     });
@@ -182,7 +313,9 @@ void install_services(Server* srv)
             return;
         }
         string arg = req.get_param_value("arg");
+        usermap[id].lk.lock();
         AnnaState s = ptr->Processing(arg == "skip");
+        usermap[id].lk.unlock();
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
         INFO("processing(%s) for user %d: %s\n",arg.c_str(),id,str.c_str());
@@ -197,22 +330,27 @@ void install_services(Server* srv)
             res.status = BadRequest_400;
             return;
         }
+        usermap[id].lk.lock();
         string str = ptr->getOutput();
-        res.set_content(str,"text/plain");
+        usermap[id].lk.unlock();
+        res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getOutput() for user %d: %s\n",id,str.c_str());
     });
 
     srv->Post("/setInput/:id", [](const Request& req, Response& res) {
         int id = check_request(req,res,"setInput");
         if (!id) return;
-        INFO("setInput() for user %d: '%s'\n",id,req.body.c_str());
+        string str = from_base64_str(id,req.body);
+        INFO("setInput() for user %d: '%s'\n",id,str.c_str());
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
             ERROR("setInput() for user %d requested before brain is created\n",id);
             res.status = BadRequest_400;
             return;
         }
-        ptr->setInput(req.body);
+        usermap[id].lk.lock();
+        ptr->setInput(str);
+        usermap[id].lk.unlock();
         INFO("Brain input set\n");
         return;
     });
@@ -220,15 +358,18 @@ void install_services(Server* srv)
     srv->Post("/setPrefix/:id", [](const Request& req, Response& res) {
         int id = check_request(req,res,"setPrefix");
         if (!id) return;
-        INFO("setPrefix() for user %d: '%s'\n",id,req.body.c_str());
+        string str = from_base64_str(id,req.body);
+        INFO("setPrefix() for user %d: '%s'\n",id,str.c_str());
         AnnaBrain* ptr = usermap.at(id).brain;
         if (!ptr) {
             ERROR("setPrefix() for user %d requested before brain is created\n",id);
             res.status = BadRequest_400;
             return;
         }
-        ptr->setPrefix(req.body);
-        INFO("Brain input set\n");
+        usermap[id].lk.lock();
+        ptr->setPrefix(str);
+        usermap[id].lk.unlock();
+        INFO("Prefix is set\n");
         return;
     });
 
@@ -241,8 +382,10 @@ void install_services(Server* srv)
             res.status = BadRequest_400;
             return;
         }
+        usermap[id].lk.lock();
         string str = ptr->getError();
-        res.set_content(str,"text/plain");
+        usermap[id].lk.unlock();
+        res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getError() for user %d: %s\n",id,str.c_str());
     });
 
@@ -255,7 +398,9 @@ void install_services(Server* srv)
             res.status = BadRequest_400;
             return;
         }
+        usermap[id].lk.lock();
         string str = AnnaBrain::myformat("%d",ptr->getTokensUsed());
+        usermap[id].lk.unlock();
         res.set_content(str,"text/plain");
         INFO("getTokensUsed() for user %d: %s\n",id,str.c_str());
     });
@@ -270,11 +415,14 @@ void server_thread(Server* srv)
     INFO("Stopped listening\n");
 }
 
-string get_input()
+string get_input(string prompt)
 {
     string s;
     ssize_t n = -1;
     char cbuf[2];
+
+    printf("%s",prompt.c_str());
+    fflush(stdout);
 
     while (!quit) {
         n = read(0,cbuf,1);
@@ -288,6 +436,7 @@ string get_input()
 int main()
 {
     printf("\nANNA Server version " SERVER_VERSION " starting up\n\n");
+    srand(time(NULL));
 
     Server srv;
     thread srv_thr(server_thread,&srv);
@@ -295,7 +444,7 @@ int main()
 
     // main CLI loop
     while (!quit) {
-        string c = get_input();
+        string c = get_input("ANNA> ");
 
         if (c == "quit") {
             quit = true;
@@ -304,8 +453,18 @@ int main()
         } else if (c == "list") {
             puts("=======================================");
             for (auto & i : usermap)
-                printf("Client %d (0x%08X): IP %s, %d requests\n",i.first,i.first,i.second.addr.c_str(),i.second.reqs);
+                printf("Client %d (0x%08X): state %d, IP %s, %d requests\n",
+                        i.first,i.first,i.second.state,i.second.addr.c_str(),i.second.reqs);
             puts("=======================================");
+
+        } else if (c == "kick" || c == "sus" || c == "res") {
+            string a = get_input("Client ID> ");
+            if (a.empty()) continue;
+            int id = atoi(a.c_str());
+            if (id < 1) continue;
+            if (c == "kick") del_user(id);
+            else if (c == "sus") hold_user(id);
+            else if (c == "res") unhold_user(id);
         }
     }
 

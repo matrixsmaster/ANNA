@@ -1,6 +1,7 @@
 #include "netclient.h"
 #include "../server/httplib.h"
 #include "../server/base64m.h"
+#include "../server/codec.h"
 
 //#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -14,8 +15,7 @@ using namespace httplib;
 AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
 {
     DBG("client c'tor\n");
-    auto rng = std::mt19937(time(NULL));
-    clid = (uint32_t)rng() & ANNA_CLIENT_MASK;
+    clid = make_clid();
     DBG("clid = %u (0x%08X)\n",clid,clid);
 
     state = ANNA_NOT_INITIALIZED;
@@ -60,7 +60,7 @@ AnnaState AnnaClient::getState()
 const string &AnnaClient::getError()
 {
     if (state != ANNA_READY) return internal_error;
-    internal_error = request("/getError");
+    internal_error = fromBase64(request("/getError"));
     return internal_error;
 }
 
@@ -75,7 +75,7 @@ AnnaConfig AnnaClient::getConfig()
     if (r.empty()) return config; // return internal config (server busy?)
 
     AnnaConfig cfg;
-    size_t n = decode(&cfg,sizeof(cfg),r.c_str());
+    size_t n = fromBase64(&cfg,sizeof(cfg),r);
     if (n != sizeof(cfg)) {
         state = ANNA_ERROR;
         internal_error = "Failed to read encoded config";
@@ -97,6 +97,10 @@ void AnnaClient::setConfig(const AnnaConfig &cfg)
     if (ps != string::npos) fn.erase(0,ps+1);
     strncpy(config.params.model,fn.c_str(),sizeof(config.params.model));
 
+    // infill large strings
+    codec_infill_str(config.params.model,sizeof(config.params.model));
+    codec_infill_str(config.params.prompt,sizeof(config.params.prompt));
+
     // encode and send
     string enc = asBase64((void*)&(config),sizeof(config));
     DBG("encoded state len = %lu\n",enc.size());
@@ -105,17 +109,17 @@ void AnnaClient::setConfig(const AnnaConfig &cfg)
 
 string AnnaClient::getOutput()
 {
-    return request("/getOutput");
+    return fromBase64(request("/getOutput"));
 }
 
 void AnnaClient::setInput(string inp)
 {
-    command("/setInput",inp);
+    command("/setInput",asBase64(inp));
 }
 
 void AnnaClient::setPrefix(string str)
 {
-    command("/setPrefix",str);
+    command("/setPrefix",asBase64(str));
 }
 
 //const char *AnnaClient::TokenToStr(llama_token token)
@@ -166,16 +170,49 @@ void AnnaClient::Undo()
     command("/undo");
 }
 
-string AnnaClient::asBase64(void *data, int len)
+string AnnaClient::asBase64(const void *data, size_t len)
+{
+    uint8_t* tmp = (uint8_t*)malloc(len);
+    if (!tmp) {
+        state = ANNA_ERROR;
+        internal_error = myformat("Unable to allocate %lu bytes of memory!\n",len);
+        return "";
+    }
+
+    memcpy(tmp,data,len);
+    codec_forward(clid,tmp,len);
+
+    string s;
+    s.resize(len*2+1);
+    size_t n = encode((char*)s.data(),s.size(),tmp,len);
+    s.resize(n);
+    free(tmp);
+    return s;
+}
+
+string AnnaClient::asBase64(const string& in)
+{
+    return asBase64(in.data(),in.size());
+}
+
+string AnnaClient::fromBase64(const string& in)
 {
     string s;
-    s.resize(len*2);
-    size_t n = encode((char*)s.data(),s.size(),data,len);
+    s.resize(in.size());
+    size_t n = fromBase64((char*)s.data(),s.size(),in);
     s.resize(n);
     return s;
 }
 
-string AnnaClient::request(std::string cmd)
+size_t AnnaClient::fromBase64(void *data, size_t len, string in)
+{
+    size_t n = decode(data,len,in.c_str());
+    codec_backward(clid,data,n);
+    DBG("%lu bytes decoded from %lu bytes string\n",n,strlen(in.c_str()));
+    return n;
+}
+
+string AnnaClient::request(string cmd)
 {
     if (state != ANNA_READY) return "";
     cmd += myformat("/%d",clid);
@@ -197,7 +234,7 @@ string AnnaClient::request(std::string cmd)
     return "";
 }
 
-string AnnaClient::request(std::string cmd, std::string arg)
+string AnnaClient::request(string cmd, string arg)
 {
     if (state != ANNA_READY) return "";
     cmd += myformat("/%d",clid);
@@ -220,12 +257,12 @@ string AnnaClient::request(std::string cmd, std::string arg)
     return "";
 }
 
-bool AnnaClient::command(std::string cmd, bool force)
+bool AnnaClient::command(string cmd, bool force)
 {
     return command(cmd,"<empty>",force);
 }
 
-bool AnnaClient::command(std::string cmd, std::string arg, bool force)
+bool AnnaClient::command(string cmd, string arg, bool force)
 {
     if (!force && state != ANNA_READY) return false;
     cmd += myformat("/%d",clid);

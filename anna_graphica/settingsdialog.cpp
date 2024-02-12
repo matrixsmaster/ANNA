@@ -325,23 +325,7 @@ void SettingsDialog::on_pushButton_6_clicked()
 
 void SettingsDialog::on_pushButton_7_clicked()
 {
-    if (ui->rqpList->currentRow() < 0 || ui->rqpList->currentRow() >= ui->rqpList->count()) return;
-
-    RQPEditor ed;
-    ed.filename = ui->rqpList->item(ui->rqpList->currentRow())->text();
-
-    // create an "undo" point
-    QFile file(ed.filename);
-    if (!file.open(QIODevice::ReadOnly)) return;
-    QByteArray undo = file.readAll();
-    file.close();
-
-    // spawn RQP editor and restore undo point if editing was cancelled
-    if (ed.exec() != QDialog::Accepted) {
-        file.open(QIODevice::WriteOnly);
-        file.write(undo);
-        file.close();
-    }
+    // show Edit RQP dialog
 }
 
 void SettingsDialog::addRQPfile(QString fn, bool checked)

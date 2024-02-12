@@ -75,8 +75,6 @@ MainWnd::~MainWnd()
 {
     SaveSettings();
     if (brain) delete brain;
-    guiconfig.rqps.clear();
-    UpdateRQPs(); // effectively destroys all QSettings() objects
     delete seed_label;
     delete ui;
 }
@@ -278,14 +276,14 @@ void MainWnd::ProcessInput(std::string str)
 
 void MainWnd::Generate()
 {
-    bool skips = false;
+    //bool skips = false;
     std::string str;
     QString convo;
     stop = false;
     block = true;
 
     while (brain && !stop) {
-        AnnaState s = brain->Processing(skips);
+        AnnaState s = brain->Processing(ui->SamplingCheck->isChecked());
         qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
         switch (s) {
         case ANNA_READY:
@@ -653,7 +651,6 @@ void MainWnd::on_actionSettings_triggered()
         // update things which don't require any LLM
         ui->ChatLog->setFont(guiconfig.log_fnt);
         ui->UserInput->setFont(guiconfig.usr_fnt);
-        UpdateRQPs();
 
         if (brain) {
             // update things which can be updated on the fly
@@ -779,22 +776,6 @@ void MainWnd::FixMarkdown(QString& s)
             if (s.length() > GUI_MAXTEXT) break;
         }
         //qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
-    }
-}
-
-void MainWnd::UpdateRQPs()
-{
-    for (auto & i : rqps) {
-        if (i.s) delete i.s;
-    }
-    rqps.clear();
-
-    for (auto & i : guiconfig.rqps) {
-        if (!i.enabled) continue;
-        AnnaRQPState s;
-        s.fsm = 0;
-        s.lpos = 0;
-        s.s = new QSettings(i.fn);
     }
 }
 

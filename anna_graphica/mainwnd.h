@@ -40,11 +40,6 @@ struct AnnaRQPFile {
     bool enabled;
 };
 
-struct AnnaRQPState {
-    QSettings* s;
-    int fsm, lpos;
-};
-
 struct AnnaGuiSettings {
     int enter_key;
     bool md_fix, save_prompt, clear_log;
@@ -155,7 +150,6 @@ private:
     bool stop;
     bool block;
     QString filedlg_cache[ANNA_NUM_FILETYPES];
-    std::vector<AnnaRQPState> rqps;
 
     void DefaultConfig();
     void LoadSettings();
@@ -164,7 +158,6 @@ private:
     bool SaveFile(const QString& fn, const QString& str);
     void LoadLLM(const QString& fn);
     void FixMarkdown(QString& s);
-    void UpdateRQPs();
     void ForceAIName(const QString& nm);
     void ProcessInput(std::string str);
     void Generate();

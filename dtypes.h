@@ -7,6 +7,7 @@
 
 #define LLAMA_MAX_FILENAME_LEN 512
 #define LLAMA_MAX_PROMPT_LEN (1*1024UL*1024UL)
+#define LLAMA_MAX_SAMPLER_SEQ 32
 // FIXME: grammars are not used atm, so this field is simply not needed;
 // we'll get it back once it'll be required
 #define LLAMA_MAX_GRAMMAR_LEN 4
@@ -33,7 +34,7 @@ struct __attribute__((packed)) llama_sampling_params {
     float       mirostat_tau          = 5.00f;    // target entropy
     float       mirostat_eta          = 0.10f;    // learning rate
     bool        penalize_nl           = true;     // consider newlines as a repeatable token
-    char        samplers_sequence[1024] = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
+    char        samplers_sequence[LLAMA_MAX_SAMPLER_SEQ] = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
 
     char grammar[LLAMA_MAX_GRAMMAR_LEN] = {0};  // optional BNF-like grammar to constrain sampling
 

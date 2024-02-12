@@ -344,7 +344,7 @@ void AnnaBrain::setPrefix(string str)
     }
 
     DBG("Token enforcement: '%s' = ",str.c_str());
-    auto tmp = ::llama_tokenize(ctx,str,false,true);
+    auto tmp = ::llama_tokenize(ctx,str,false,true,true);
     for (auto &i : tmp) {
         forced_start.push_back(i);
         DBG("%d (%s) ",i,TokenToStr(i));

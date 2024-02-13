@@ -242,8 +242,8 @@ void AnnaBrain::Generate()
     // usual sampling
     if (tok < 0) tok = llama_sampling_sample(ctx_sp,ctx,NULL);
 
-    // check if we should stop at new line
-    if (config.nl_to_turnover && tok == llama_token_nl(llama_get_model(ctx)))
+    // check if we should stop at new line (don't trust newline token, as there may be more than one token representing byte 0x0A)
+    if (config.nl_to_turnover && !strcmp(TokenToStr(tok),"\n"))
         state = ANNA_TURNOVER;
 
     // Deal with EOS token

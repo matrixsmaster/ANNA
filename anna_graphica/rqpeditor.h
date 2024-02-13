@@ -8,6 +8,16 @@ namespace Ui {
 class RQPEditor;
 }
 
+struct AnnaRQPFile {
+    QString fn;
+    bool enabled;
+};
+
+struct AnnaRQPState {
+    QSettings* s;
+    int fsm, lpos;
+};
+
 class RQPEditor : public QDialog
 {
     Q_OBJECT
@@ -15,6 +25,8 @@ class RQPEditor : public QDialog
 public:
     explicit RQPEditor(QWidget *parent = nullptr);
     ~RQPEditor();
+
+    static QStringList DetectRQP(const QString& in, AnnaRQPState* st);
 
     QString filename;
 

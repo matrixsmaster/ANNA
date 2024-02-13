@@ -97,6 +97,9 @@
               <property name="editable">
                <bool>true</bool>
               </property>
+              <property name="insertPolicy">
+               <enum>QComboBox::InsertAlphabetically</enum>
+              </property>
               <item>
                <property name="text">
                 <string>Anna:</string>
@@ -405,6 +408,7 @@
     <addaction name="actionLoad_model"/>
     <addaction name="actionLoad_vision_encoder"/>
     <addaction name="actionLoad_initial_prompt"/>
+    <addaction name="actionUse_current_input_as_prompt"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
    </widget>
@@ -597,6 +601,11 @@
   <action name="actionClear_chat_log">
    <property name="text">
     <string>Clear chat log</string>
+   </property>
+  </action>
+  <action name="actionUse_current_input_as_prompt">
+   <property name="text">
+    <string>Use current input as prompt</string>
    </property>
   </action>
  </widget>

@@ -60,6 +60,8 @@ MainWnd::MainWnd(QWidget *parent)
     ui->statusbar->installEventFilter(this);
     ui->menubar->installEventFilter(this);
     ui->AttachmentsList->setIconSize(QSize(GUI_ICON_W,GUI_ICON_H));
+    ui->AINameBox->completer()->setCaseSensitivity(Qt::CaseInsensitive);
+    ui->UserNameBox->completer()->setCaseSensitivity(Qt::CaseInsensitive);
 
     block = false;
     on_actionSimple_view_triggered();
@@ -287,6 +289,7 @@ void MainWnd::Generate()
     while (brain && !stop) {
         AnnaState s = brain->Processing(ui->SamplingCheck->isChecked());
         qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
+
         switch (s) {
         case ANNA_READY:
             if (ui->SamplingCheck->isChecked()) return;
@@ -315,6 +318,10 @@ void MainWnd::Generate()
         ui->ChatLog->ensureCursorVisible();
         ui->ContextFull->setMaximum(config.params.n_ctx);
         ui->ContextFull->setValue(brain->getTokensUsed());
+
+        raw_output += convo;
+        CheckRQPs();
+
         if (s == ANNA_TURNOVER) break;
         qApp->processEvents();
     }
@@ -416,6 +423,7 @@ void MainWnd::on_ModelFindButton_clicked()
     if (guiconfig.clear_log) {
         ui->ChatLog->clear();
         cur_chat.clear();
+        raw_output.clear();
     } else if (!cur_chat.isEmpty()) {
         cur_chat += "### New model loaded: " + fn + "\n\n\n\n";
         on_actionRefresh_chat_box_triggered();
@@ -611,6 +619,7 @@ void MainWnd::on_actionNew_dialog_triggered()
     if (guiconfig.clear_log) {
         ui->ChatLog->clear();
         cur_chat.clear();
+        raw_output.clear();
     } else if (!cur_chat.isEmpty()) {
         cur_chat += "### New chat started\n\n\n\n";
         on_actionRefresh_chat_box_triggered();
@@ -795,6 +804,55 @@ void MainWnd::UpdateRQPs()
         s.fsm = 0;
         s.lpos = 0;
         s.s = new QSettings(i.fn);
+        rqps.push_back(s);
+    }
+}
+
+void MainWnd::CheckRQPs()
+{
+    for (auto & i : rqps) {
+        if (!i.s) continue;
+
+        // detect request's presence and extract arguments
+        QStringList r = RQPEditor::DetectRQP(raw_output,&i);
+        if (r.isEmpty()) continue;
+
+        i.s->endGroup();
+        i.s->beginGroup("MAIN");
+
+        // get the command
+        QProcess p(this);
+        QString fn = i.s->value("command").toString();
+        if (fn.isEmpty()) continue;
+
+        // start the process and wait until it's actually started
+        qDebug("Starting %s...\n",fn.toStdString().c_str());
+        p.start(fn,r);
+        if (!p.waitForStarted()) {
+            qDebug("Failed to start process: %s\n",fn.toStdString().c_str());
+            return;
+        }
+
+        // collect process' output and hand it over to the brain
+        QString out;
+        char buf[ANNA_PROCESS_IO_BUFLEN] = {0};
+        bool pre_block = block;
+        block = true;
+        ui->statusbar->showMessage("Running external command "+fn);
+        while (p.state() == QProcess::Running) {
+            auto ri = p.read(buf,sizeof(buf)-1);
+            if (ri > 0) buf[ri] = 0; // make sure it's terminated
+            else if (ri < 0) {
+                qDebug("Warning: Reading past EOF of process output\n");
+                break;
+            }
+            out += buf;
+            qApp->processEvents();
+        }
+        block = pre_block;
+        qDebug("External process finished\n");
+        ui->statusbar->showMessage("Finished running external command");
+        //break; // do one RQP at a time ?
     }
 }
 
@@ -839,6 +897,7 @@ void MainWnd::on_actionQuick_load_triggered()
         ui->statusbar->showMessage("Quickload complete");
         if (guiconfig.md_fix) FixMarkdown(cur_chat);
         ui->ChatLog->setMarkdown(cur_chat);
+        raw_output.clear();
     } else
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
@@ -875,5 +934,6 @@ void MainWnd::on_actionOffline_help_triggered()
 void MainWnd::on_actionClear_chat_log_triggered()
 {
     cur_chat.clear();
+    raw_output.clear();
     ui->ChatLog->clear();
 }

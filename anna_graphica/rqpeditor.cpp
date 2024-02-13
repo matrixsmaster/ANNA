@@ -41,6 +41,11 @@ void RQPEditor::on_buttonBox_accepted()
     sets->setValue("args",ui->args->text());
 }
 
+QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState *st)
+{
+    //
+}
+
 void RQPEditor::on_testEdit_textChanged()
 {
     rescan();

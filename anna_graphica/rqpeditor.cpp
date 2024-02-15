@@ -82,9 +82,9 @@ QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState *st)
             l = stop.length();
         }
         if (i >= 0) {
+            res = CompleteRQP(in.mid(st->lpos,i-st->lpos),st);
             st->fsm = 0;
             st->lpos = i + l;
-            res = CompleteRQP(in,st);
         }
         break;
     }
@@ -94,18 +94,32 @@ QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState *st)
 
 QStringList RQPEditor::CompleteRQP(const QString &in, AnnaRQPState *st)
 {
-    //QRegExp sep("([^\"]*\\s+|\\s+[^\"]*$|\".*\"\\s*)+");
-    QRegExp sep("(\\b.\\b)|(\".*\")");
-    QString arg = st->s->value("args").toString();
-    //QStringList res = arg.split(sep,Qt::SkipEmptyParts);
     QStringList res;
-    if (sep.indexIn(arg) < 0) res.append(arg);
-    else res = sep.capturedTexts();
+    QString arg = st->s->value("args").toString();
+    int fsm = 0;
+    QString acc;
+    for (int i = 0; i < arg.length(); i++) {
+        char c = arg[i].toLatin1();
+        switch (c) {
+        case ' ':
+        case '\t':
+        case '\"':
+            if (!acc.isEmpty() && ((!fsm) || (fsm && c == '\"'))) {
+                res.append(acc);
+                acc.clear();
+            }
+            if (c == '\"') fsm = 1 - fsm;
+            else if (fsm) acc += arg[i];
+            break;
+        default:
+            acc += arg[i];
+        }
+    }
+    if (!acc.isEmpty()) res.append(acc);
 
     for (auto & s : res) {
-        s = s.trimmed();
-        if (s == "%t") // text itself
-            s = in;
+        s = s.replace("%t",in);
+        // TODO: other reps
     }
     return res;
 }
@@ -144,7 +158,7 @@ void RQPEditor::sync()
     sets->setValue("filter",ui->filter->text());
     sets->setValue("args",ui->args->text());
 
-    sets->sync();
+    //sets->sync();
 }
 
 void RQPEditor::on_pushButton_clicked()

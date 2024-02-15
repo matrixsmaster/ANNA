@@ -40,51 +40,51 @@ void RQPEditor::on_buttonBox_accepted()
     sets = nullptr;
 }
 
-QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState *st)
+QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState &st)
 {
-    if (!st || !st->s) return QStringList();
+    if (!st.s) return QStringList();
 
-    st->s->endGroup();
-    st->s->beginGroup("MAIN");
+    st.s->endGroup();
+    st.s->beginGroup("MAIN");
 
-    QString start = st->s->value("start_tag").toString();
-    QString stop = st->s->value("stop_tag").toString();
+    QString start = st.s->value("start_tag").toString();
+    QString stop = st.s->value("stop_tag").toString();
     if (start.isEmpty() || stop.isEmpty()) return QStringList();
 
-    bool regex = st->s->value("regex",false).toBool();
+    bool regex = st.s->value("regex",false).toBool();
     QStringList res;
     int i = -1, l = 0;
-    switch (st->fsm) {
+    switch (st.fsm) {
     case 0:
         if (regex) {
-            st->bex = QRegExp(start);
-            st->eex = QRegExp(stop);
-            if (st->bex.isValid()) {
-                i = st->bex.indexIn(in,st->lpos);
-                l = st->bex.matchedLength();
+            st.bex = QRegExp(start);
+            st.eex = QRegExp(stop);
+            if (st.bex.isValid()) {
+                i = st.bex.indexIn(in,st.lpos);
+                l = st.bex.matchedLength();
             }
         } else {
-            i = in.indexOf(start,st->lpos);
+            i = in.indexOf(start,st.lpos);
             l = start.length();
         }
         if (i >= 0) {
-            st->fsm++;
-            st->lpos = i + l;
+            st.fsm++;
+            st.lpos = i + l;
         }
         break;
 
     case 1:
-        if (regex && st->bex.isValid()) {
-            i = st->eex.indexIn(in,st->lpos);
-            l = st->eex.matchedLength();
+        if (regex && st.bex.isValid()) {
+            i = st.eex.indexIn(in,st.lpos);
+            l = st.eex.matchedLength();
         } else {
-            i = in.indexOf(stop,st->lpos);
+            i = in.indexOf(stop,st.lpos);
             l = stop.length();
         }
         if (i >= 0) {
-            res = CompleteRQP(in.mid(st->lpos,i-st->lpos),st);
-            st->fsm = 0;
-            st->lpos = i + l;
+            res = CompleteRQP(in.mid(st.lpos,i-st.lpos),st);
+            st.fsm = 0;
+            st.lpos = i + l;
         }
         break;
     }
@@ -92,10 +92,10 @@ QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState *st)
     return res;
 }
 
-QStringList RQPEditor::CompleteRQP(const QString &in, AnnaRQPState *st)
+QStringList RQPEditor::CompleteRQP(const QString &in, AnnaRQPState& st)
 {
     QStringList res;
-    QString arg = st->s->value("args").toString();
+    QString arg = st.s->value("args").toString();
     int fsm = 0;
     QString acc;
     for (int i = 0; i < arg.length(); i++) {
@@ -138,8 +138,8 @@ void RQPEditor::rescan()
     s.s = sets;
 
     int pstate = 0;
-    for (int i = 0; i < 100; i++) {
-        QStringList lst = DetectRQP(ui->testEdit->toPlainText(),&s);
+    for (int i = 0; i < ANNA_ARGPARSE_FAILSAFE; i++) {
+        QStringList lst = DetectRQP(ui->testEdit->toPlainText(),s);
         if (!lst.isEmpty()) ui->testResult->setText(lst.join(" "));
         if (s.fsm == pstate) break;
         pstate = s.fsm;
@@ -165,4 +165,61 @@ void RQPEditor::on_pushButton_clicked()
 {
     QString fn = QFileDialog::getOpenFileName(this,"Select a program to execute");
     if (!fn.isEmpty()) ui->command->setText(fn);
+}
+
+QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_events, std::function<void(QString&)> notify)
+{
+    if (!rqp.s) return "";
+
+    // detect request's presence and extract arguments
+    QStringList r = DetectRQP(inp,rqp);
+    if (r.isEmpty()) return "";
+
+    // get the command
+    rqp.s->endGroup();
+    rqp.s->beginGroup("MAIN");
+    QString fn = rqp.s->value("command").toString();
+    if (fn.isEmpty()) return "";
+
+    // start the process and wait until it's actually started
+    QProcess p;
+    qDebug("Starting %s...\n",fn.toStdString().c_str());
+    if (notify) notify(fn);
+    p.start(fn,r);
+    if (!p.waitForStarted()) {
+        qDebug("Failed to start process: %s\n",fn.toStdString().c_str());
+        return "";
+    }
+
+    // collect process' output and hand it over to the brain
+    QString out;
+    char buf[ANNA_PROCESS_IO_BUFLEN] = {0};
+    while (p.state() == QProcess::Running) {
+        auto ri = p.read(buf,sizeof(buf)-1);
+        if (ri < 0) {
+            qDebug("Warning: Reading past EOF of process output\n");
+            break;
+        } else
+            buf[ri] = 0; // make sure it's terminated
+        out += buf;
+        if (do_events) qApp->processEvents();
+    }
+    qDebug("External process finished\n");
+    return out;
+}
+
+void RQPEditor::on_pushButton_2_clicked()
+{
+    AnnaRQPState s;
+    s.fsm = 0;
+    s.lpos = 0;
+    s.s = sets;
+
+    for (int i = 0; i < ANNA_ARGPARSE_FAILSAFE; i++) {
+        QString out = DoRequest(s,ui->testEdit->toPlainText(),true,nullptr);
+        if (!out.isEmpty()) {
+            ui->testOut->setPlainText(out);
+            break;
+        }
+    }
 }

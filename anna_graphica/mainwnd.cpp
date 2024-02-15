@@ -67,6 +67,7 @@ MainWnd::MainWnd(QWidget *parent)
     on_actionSimple_view_triggered();
     DefaultConfig();
     LoadSettings();
+    UpdateRQPs();
     next_attach = nullptr;
     last_username = false;
 
@@ -319,15 +320,14 @@ void MainWnd::Generate()
         ui->ContextFull->setMaximum(config.params.n_ctx);
         ui->ContextFull->setValue(brain->getTokensUsed());
 
-        raw_output += convo;
-        CheckRQPs();
-
+        CheckRQPs(raw_output + convo);
         if (s == ANNA_TURNOVER) break;
         qApp->processEvents();
     }
 
     block = false;
     cur_chat += convo + "\n";
+    raw_output += convo + "\n";
     on_actionRefresh_chat_box_triggered();
 }
 
@@ -430,6 +430,7 @@ void MainWnd::on_ModelFindButton_clicked()
     }
 
     LoadLLM(fn);
+    UpdateRQPs();
 }
 
 void MainWnd::on_SendButton_clicked()
@@ -619,11 +620,13 @@ void MainWnd::on_actionNew_dialog_triggered()
     if (guiconfig.clear_log) {
         ui->ChatLog->clear();
         cur_chat.clear();
-        raw_output.clear();
     } else if (!cur_chat.isEmpty()) {
         cur_chat += "### New chat started\n\n\n\n";
         on_actionRefresh_chat_box_triggered();
     }
+
+    UpdateRQPs();
+    raw_output.clear();
     ui->UserInput->clear();
     last_username = false;
     next_attach = nullptr;
@@ -763,6 +766,7 @@ void MainWnd::on_actionLoad_state_triggered()
         cur_chat = QString::fromStdString(brain->PrintContext()) + "\n";
         if (guiconfig.md_fix) FixMarkdown(cur_chat);
         on_actionRefresh_chat_box_triggered();
+        UpdateRQPs();
     } else
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
@@ -808,51 +812,26 @@ void MainWnd::UpdateRQPs()
     }
 }
 
-void MainWnd::CheckRQPs()
+void MainWnd::CheckRQPs(const QString& inp)
 {
+    bool pre_block = block;
+    block = true;
     for (auto & i : rqps) {
-        if (!i.s) continue;
-
-        // detect request's presence and extract arguments
-        QStringList r = RQPEditor::DetectRQP(raw_output,&i);
-        if (r.isEmpty()) continue;
-
-        // get the command
-        i.s->endGroup();
-        i.s->beginGroup("MAIN");
-        QString fn = i.s->value("command").toString();
-        if (fn.isEmpty()) continue;
-
-        // start the process and wait until it's actually started
-        QProcess p(this);
-        qDebug("Starting %s...\n",fn.toStdString().c_str());
-        p.start(fn,r);
-        if (!p.waitForStarted()) {
-            qDebug("Failed to start process: %s\n",fn.toStdString().c_str());
-            return;
-        }
-
-        // collect process' output and hand it over to the brain
-        QString out;
-        char buf[ANNA_PROCESS_IO_BUFLEN] = {0};
-        bool pre_block = block;
-        block = true;
-        ui->statusbar->showMessage("Running external command "+fn);
-        while (p.state() == QProcess::Running) {
-            auto ri = p.read(buf,sizeof(buf)-1);
-            if (ri > 0) buf[ri] = 0; // make sure it's terminated
-            else if (ri < 0) {
-                qDebug("Warning: Reading past EOF of process output\n");
-                break;
+        QString out = RQPEditor::DoRequest(i,inp,true,[&](QString& fn) {
+            ui->statusbar->showMessage("Running external command "+fn);
+        });
+        if (!out.isEmpty()) {
+            ui->statusbar->showMessage("Finished running external command");
+            ProcessInput(out.toStdString());
+            if (ui->actionShow_RQP_output->isChecked()) {
+                FixMarkdown(out);
+                cur_chat += "\n\n### RQP output:\n\n" + out + "\n\n### End of RQP output\n\n";
+                on_actionRefresh_chat_box_triggered();
             }
-            out += buf;
-            qApp->processEvents();
-        }
-        block = pre_block;
-        qDebug("External process finished\n");
-        ui->statusbar->showMessage("Finished running external command");
-        //break; // do one RQP at a time ?
+        } else
+            ui->statusbar->clearMessage();
     }
+    block = pre_block;
 }
 
 void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
@@ -897,6 +876,7 @@ void MainWnd::on_actionQuick_load_triggered()
         if (guiconfig.md_fix) FixMarkdown(cur_chat);
         ui->ChatLog->setMarkdown(cur_chat);
         raw_output.clear();
+        UpdateRQPs();
     } else
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }

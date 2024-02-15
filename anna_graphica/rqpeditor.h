@@ -1,8 +1,14 @@
 #ifndef RQPEDITOR_H
 #define RQPEDITOR_H
 
+#include <algorithm>
+#include <functional>
 #include <QDialog>
 #include <QSettings>
+#include <QProcess>
+
+#define ANNA_PROCESS_IO_BUFLEN 1024
+#define ANNA_ARGPARSE_FAILSAFE 100
 
 namespace Ui {
 class RQPEditor;
@@ -27,7 +33,8 @@ public:
     explicit RQPEditor(QWidget *parent = nullptr);
     ~RQPEditor();
 
-    static QStringList DetectRQP(const QString& in, AnnaRQPState* st);
+    static QStringList DetectRQP(const QString& in, AnnaRQPState& st);
+    static QString DoRequest(AnnaRQPState& rqp, const QString& inp, bool do_events, std::function<void(QString&)> notify);
 
     QString filename;
 
@@ -41,6 +48,8 @@ private slots:
 
     void on_pushButton_clicked();
 
+    void on_pushButton_2_clicked();
+
 private:
     Ui::RQPEditor *ui;
     QSettings *sets;
@@ -48,7 +57,7 @@ private:
     void rescan();
     void sync();
 
-    static QStringList CompleteRQP(const QString& in, AnnaRQPState* st);
+    static QStringList CompleteRQP(const QString& in, AnnaRQPState& st);
 };
 
 #endif // RQPEDITOR_H

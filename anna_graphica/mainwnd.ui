@@ -419,6 +419,7 @@
     <addaction name="actionRefresh_chat_box"/>
     <addaction name="actionShow_context_tokens"/>
     <addaction name="actionClear_chat_log"/>
+    <addaction name="actionShow_RQP_output"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuModel"/>
@@ -606,6 +607,14 @@
   <action name="actionUse_current_input_as_prompt">
    <property name="text">
     <string>Use current input as prompt</string>
+   </property>
+  </action>
+  <action name="actionShow_RQP_output">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show RQP output</string>
    </property>
   </action>
  </widget>

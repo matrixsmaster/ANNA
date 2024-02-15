@@ -10,7 +10,6 @@
 #include <QListWidget>
 #include <QComboBox>
 #include <QSettings>
-#include <QProcess>
 #include <QCompleter>
 #include "rqpeditor.h"
 #include "../brain.h"
@@ -25,7 +24,6 @@
 #define ANNA_QUICK_TEXT "quicksave.txt"
 #define ANNA_MDFIX_FAILSAFE 100000
 #define ANNA_DEFAULT_SERVER "127.0.0.1:8080"
-#define ANNA_PROCESS_IO_BUFLEN 1024
 
 #define GUI_MAXTEXT 100*1024*1024
 #define GUI_ICON_W 48
@@ -159,7 +157,7 @@ private:
     void LoadLLM(const QString& fn);
     void FixMarkdown(QString& s);
     void UpdateRQPs();
-    void CheckRQPs();
+    void CheckRQPs(const QString& inp);
     void ForceAIName(const QString& nm);
     void ProcessInput(std::string str);
     void Generate();

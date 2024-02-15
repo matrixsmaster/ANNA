@@ -803,7 +803,7 @@ void MainWnd::UpdateRQPs()
         AnnaRQPState s;
         s.fsm = 0;
         s.lpos = 0;
-        s.s = new QSettings(i.fn);
+        s.s = new QSettings(i.fn,QSettings::IniFormat);
         rqps.push_back(s);
     }
 }
@@ -817,15 +817,14 @@ void MainWnd::CheckRQPs()
         QStringList r = RQPEditor::DetectRQP(raw_output,&i);
         if (r.isEmpty()) continue;
 
+        // get the command
         i.s->endGroup();
         i.s->beginGroup("MAIN");
-
-        // get the command
-        QProcess p(this);
         QString fn = i.s->value("command").toString();
         if (fn.isEmpty()) continue;
 
         // start the process and wait until it's actually started
+        QProcess p(this);
         qDebug("Starting %s...\n",fn.toStdString().c_str());
         p.start(fn,r);
         if (!p.waitForStarted()) {

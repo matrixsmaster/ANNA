@@ -34,9 +34,6 @@
      <layout class="QVBoxLayout" name="verticalLayout_9">
       <item>
        <widget class="QCheckBox" name="useRegEx">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
         <property name="text">
          <string>Use regular expressions</string>
         </property>

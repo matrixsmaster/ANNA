@@ -1,3 +1,4 @@
+#include <QFileDialog>
 #include "rqpeditor.h"
 #include "ui_rqpeditor.h"
 
@@ -18,9 +19,10 @@ RQPEditor::~RQPEditor()
 void RQPEditor::showEvent(QShowEvent* event)
 {
     if (sets) delete sets;
-    sets = new QSettings(filename);
+    sets = new QSettings(filename,QSettings::IniFormat);
 
     sets->beginGroup("MAIN");
+    ui->useRegEx->setChecked(sets->value("regex",false).toBool());
     ui->startTag->setText(sets->value("start_tag",QString()).toString());
     ui->stopTag->setText(sets->value("stop_tag",QString()).toString());
     ui->command->setText(sets->value("command",QString()).toString());
@@ -33,25 +35,120 @@ void RQPEditor::showEvent(QShowEvent* event)
 void RQPEditor::on_buttonBox_accepted()
 {
     if (!sets) return;
-    sets->beginGroup("MAIN");
-    sets->setValue("start_tag",ui->startTag->text());
-    sets->setValue("stop_tag",ui->stopTag->text());
-    sets->setValue("command",ui->command->text());
-    sets->setValue("filter",ui->filter->text());
-    sets->setValue("args",ui->args->text());
+    sync();
+    delete sets;
+    sets = nullptr;
 }
 
 QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState *st)
 {
-    //
+    if (!st || !st->s) return QStringList();
+
+    st->s->endGroup();
+    st->s->beginGroup("MAIN");
+
+    QString start = st->s->value("start_tag").toString();
+    QString stop = st->s->value("stop_tag").toString();
+    if (start.isEmpty() || stop.isEmpty()) return QStringList();
+
+    bool regex = st->s->value("regex",false).toBool();
+    QStringList res;
+    int i = -1, l = 0;
+    switch (st->fsm) {
+    case 0:
+        if (regex) {
+            st->bex = QRegExp(start);
+            st->eex = QRegExp(stop);
+            if (st->bex.isValid()) {
+                i = st->bex.indexIn(in,st->lpos);
+                l = st->bex.matchedLength();
+            }
+        } else {
+            i = in.indexOf(start,st->lpos);
+            l = start.length();
+        }
+        if (i >= 0) {
+            st->fsm++;
+            st->lpos = i + l;
+        }
+        break;
+
+    case 1:
+        if (regex && st->bex.isValid()) {
+            i = st->eex.indexIn(in,st->lpos);
+            l = st->eex.matchedLength();
+        } else {
+            i = in.indexOf(stop,st->lpos);
+            l = stop.length();
+        }
+        if (i >= 0) {
+            st->fsm = 0;
+            st->lpos = i + l;
+            res = CompleteRQP(in,st);
+        }
+        break;
+    }
+
+    return res;
+}
+
+QStringList RQPEditor::CompleteRQP(const QString &in, AnnaRQPState *st)
+{
+    //QRegExp sep("([^\"]*\\s+|\\s+[^\"]*$|\".*\"\\s*)+");
+    QRegExp sep("(\\b.\\b)|(\".*\")");
+    QString arg = st->s->value("args").toString();
+    //QStringList res = arg.split(sep,Qt::SkipEmptyParts);
+    QStringList res;
+    if (sep.indexIn(arg) < 0) res.append(arg);
+    else res = sep.capturedTexts();
+
+    for (auto & s : res) {
+        s = s.trimmed();
+        if (s == "%t") // text itself
+            s = in;
+    }
+    return res;
 }
 
 void RQPEditor::on_testEdit_textChanged()
 {
+    sync();
     rescan();
 }
 
 void RQPEditor::rescan()
 {
-    //
+    AnnaRQPState s;
+    s.fsm = 0;
+    s.lpos = 0;
+    s.s = sets;
+
+    int pstate = 0;
+    for (int i = 0; i < 100; i++) {
+        QStringList lst = DetectRQP(ui->testEdit->toPlainText(),&s);
+        if (!lst.isEmpty()) ui->testResult->setText(lst.join(" "));
+        if (s.fsm == pstate) break;
+        pstate = s.fsm;
+    }
+}
+
+void RQPEditor::sync()
+{
+    sets->endGroup();
+    sets->beginGroup("MAIN");
+
+    sets->setValue("regex",ui->useRegEx->isChecked());
+    sets->setValue("start_tag",ui->startTag->text());
+    sets->setValue("stop_tag",ui->stopTag->text());
+    sets->setValue("command",ui->command->text());
+    sets->setValue("filter",ui->filter->text());
+    sets->setValue("args",ui->args->text());
+
+    sets->sync();
+}
+
+void RQPEditor::on_pushButton_clicked()
+{
+    QString fn = QFileDialog::getOpenFileName(this,"Select a program to execute");
+    if (!fn.isEmpty()) ui->command->setText(fn);
 }

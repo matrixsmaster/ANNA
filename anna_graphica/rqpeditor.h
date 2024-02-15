@@ -16,6 +16,7 @@ struct AnnaRQPFile {
 struct AnnaRQPState {
     QSettings* s;
     int fsm, lpos;
+    QRegExp bex, eex;
 };
 
 class RQPEditor : public QDialog
@@ -38,11 +39,16 @@ private slots:
 
     void on_buttonBox_accepted();
 
+    void on_pushButton_clicked();
+
 private:
     Ui::RQPEditor *ui;
     QSettings *sets;
 
     void rescan();
+    void sync();
+
+    static QStringList CompleteRQP(const QString& in, AnnaRQPState* st);
 };
 
 #endif // RQPEDITOR_H

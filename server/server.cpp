@@ -98,8 +98,9 @@ bool hold_user(int id)
         string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
         INFO("Saving user %d state into %s: ",id,fn.c_str());
         if (ptr->SaveState(fn,nullptr,0)) INFO("success\n");
-        else ERROR("failure!\n");
+        else ERROR("failure! %s\n",ptr->getError().c_str());
         delete ptr;
+        usermap[id].brain = nullptr;
         usermap[id].state = ANNASERV_CLIENT_UNLOADED;
     }
     usermap[id].lk.unlock();
@@ -118,20 +119,21 @@ bool unhold_user(int id)
 
     usermap[id].lk.lock();
     AnnaBrain* ptr = usermap.at(id).brain;
-    if (ptr) {
+    if (!ptr) {
         INFO("Re-creating a brain for user %d\n",id);
-        AnnaBrain* bp = new AnnaBrain(&(usermap[id].cfg));
-        usermap[id].brain = bp;
+        ptr = new AnnaBrain(&(usermap[id].cfg));
+        usermap[id].brain = ptr;
         usermap[id].state = ANNASERV_CLIENT_LOADED;
 
         string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
         INFO("Loading user %d state from %s: ",id,fn.c_str());
         if (ptr->LoadState(fn,nullptr,nullptr)) INFO("success\n");
-        else ERROR("failure!\n");
-    }
+        else ERROR("failure! %s\n",ptr->getError().c_str());
+    } else
+        ERROR("Unable to unhold active user!\n");
     usermap[id].lk.unlock();
 
-    INFO("User %d session suspended\n",id);
+    INFO("User %d session resumed\n",id);
     return true;
 }
 
@@ -450,7 +452,7 @@ int main()
             quit = true;
             break;
 
-        } else if (c == "list") {
+        } else if (c == "list" || c == "ls") {
             puts("=======================================");
             for (auto & i : usermap)
                 printf("Client %d (0x%08X): state %d, IP %s, %d requests\n",

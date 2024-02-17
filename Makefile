@@ -31,25 +31,10 @@ MK_CPPFLAGS = -I. -Icommon
 MK_CFLAGS   = -std=c11   -fPIC
 MK_CXXFLAGS = -std=c++11 -fPIC
 
-ifdef LLAMA_DEBUG
-	MK_CFLAGS   += -O0 -g
-	MK_CXXFLAGS += -O0 -g
-	MK_LDFLAGS  += -g
-
-	ifeq ($(UNAME_S),Linux)
-		MK_CXXFLAGS += -Wp,-D_GLIBCXX_ASSERTIONS
-	endif
-else
-	# -Ofast tends to produce faster code, but may not be available for some compilers.
-	MK_CFLAGS     += -Ofast -DNDEBUG
-	HOST_CXXFLAGS += -Ofast -DNDEBUG
-	MK_CPPFLAGS   += -Ofast -DNDEBUG
-	MK_NVCCFLAGS  += -O3
-endif
-
-# Use mmap on *nix
-MK_CPPFLAGS += -DANNA_USE_MMAP
-MK_CFLAGS += -DANNA_USE_MMAP
+# -Ofast tends to produce faster code, but may not be available for some compilers.
+MK_CFLAGS     += -Ofast
+HOST_CXXFLAGS += -Ofast
+MK_NVCCFLAGS  += -O3
 
 # clock_gettime came in POSIX.1b (1993)
 # CLOCK_MONOTONIC came in POSIX.1-2001 / SUSv3 as optional
@@ -68,6 +53,8 @@ endif
 # some memory allocation are available on Linux through GNU extensions in libc
 ifeq ($(UNAME_S),Linux)
 	MK_CPPFLAGS += -D_GNU_SOURCE
+	# Use mmap on *nix
+	MK_CPPFLAGS += -DANNA_USE_MMAP
 endif
 
 # RLIMIT_MEMLOCK came in BSD, is not specified in POSIX.1,
@@ -91,6 +78,18 @@ ifeq ($(UNAME_S),NetBSD)
 endif
 ifeq ($(UNAME_S),OpenBSD)
 	MK_CPPFLAGS += -D_BSD_SOURCE
+endif
+
+ifdef LLAMA_DEBUG
+	MK_CFLAGS   += -O0 -g
+	MK_CXXFLAGS += -O0 -g
+	MK_LDFLAGS  += -g
+
+	ifeq ($(UNAME_S),Linux)
+		MK_CXXFLAGS += -Wp,-D_GLIBCXX_ASSERTIONS
+	endif
+else
+	MK_CPPFLAGS += -DNDEBUG
 endif
 
 ifdef LLAMA_SANITIZE_THREAD

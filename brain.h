@@ -47,7 +47,7 @@ struct __attribute__((packed)) AnnaSave
 class AnnaBrain
 {
 public:
-    AnnaBrain(AnnaConfig* cfg);
+    AnnaBrain(AnnaConfig* cfg = nullptr);
     virtual ~AnnaBrain();
 
     virtual AnnaState getState()                    { return state; }

@@ -102,7 +102,8 @@ bool hold_user(int id)
         delete ptr;
         usermap[id].brain = nullptr;
         usermap[id].state = ANNASERV_CLIENT_UNLOADED;
-    }
+    } else
+        ERROR("Unable to hold inactive user!\n");
     usermap[id].lk.unlock();
 
     INFO("User %d session suspended\n",id);

@@ -756,7 +756,7 @@ bool MainWnd::LoadLLMState(const QString& fn)
 
     // shortcut for loading model + state in an easier way
     if (!brain) {
-        AnnaBrain br(nullptr); // an "empty" brain (no model loaded)
+        AnnaBrain br; // an "empty" brain (no model loaded)
         if (br.LoadState(fn.toStdString(),nullptr,nullptr)) {
             // now we can construct the real brain with the config extracted
             block = true;

@@ -97,7 +97,7 @@ linux {
     cublas = $$(USE_CUBLAS)
     #message($$cublas)
 
-    DEFINES += _GNU_SOURCE #ANNA_USE_MMAP
+    DEFINES += _GNU_SOURCE ANNA_USE_MMAP
     QMAKE_CFLAGS += -march=native -mtune=native
     QMAKE_CXXFLAGS += -march=native -mtune=native
     LIBS += -L.. -lanna

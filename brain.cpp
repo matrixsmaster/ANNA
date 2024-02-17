@@ -423,7 +423,8 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     ptr += hdr.data_size;
 
     // 4. user data
-    memcpy(ptr,user_data,user_size);
+    if (user_data && user_size)
+        memcpy(ptr,user_data,user_size);
 
     // done
     munmap(data,total);
@@ -446,7 +447,7 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     size_t nh = fwrite(&hdr,sizeof(hdr),1,f); // 1. header
     size_t nc = fwrite(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
     size_t nd = fwrite(sbuf,hdr.data_size,1,f); // 3. state data
-    size_t nu = fwrite(user_data,user_size,1,f); // 4. user data
+    size_t nu = (user_data && user_size)? fwrite(user_data,user_size,1,f) : 1; // 4. user data
 
     free(sbuf);
     fclose(f);
@@ -529,7 +530,8 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
     ptr += hdr.data_size;
 
     // 4. user data
-    memcpy(user_data,ptr,hdr.user_size);
+    if (user_data && hdr.user_size)
+        memcpy(user_data,ptr,hdr.user_size);
 
     // done
     munmap(data,total);
@@ -546,7 +548,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
 
     size_t nc = fread(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
     size_t nd = fread(sbuf,dsize,1,f); // 3. state data
-    size_t nu = fread(user_data,hdr.user_size,1,f); // 4. user data
+    size_t nu = (user_data && hdr.user_size)? fread(user_data,hdr.user_size,1,f) : 1; // 4. user data
 
     fclose(f);
 

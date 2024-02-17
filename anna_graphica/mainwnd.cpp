@@ -60,8 +60,8 @@ MainWnd::MainWnd(QWidget *parent)
     ui->statusbar->installEventFilter(this);
     ui->menubar->installEventFilter(this);
     ui->AttachmentsList->setIconSize(QSize(GUI_ICON_W,GUI_ICON_H));
-    ui->AINameBox->completer()->setCaseSensitivity(Qt::CaseInsensitive);
-    ui->UserNameBox->completer()->setCaseSensitivity(Qt::CaseInsensitive);
+    ui->AINameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
+    ui->UserNameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
 
     block = false;
     on_actionSimple_view_triggered();
@@ -739,7 +739,8 @@ void MainWnd::on_actionSave_state_triggered()
     if (!brain) return;
     QString fn = GetSaveFileName(ANNA_FILE_MODEL_STATE);
     if (fn.isEmpty()) return;
-    if (brain->SaveState(fn.toStdString()))
+    std::string dlg = cur_chat.toStdString();
+    if (brain->SaveState(fn.toStdString(),(void*)dlg.data(),dlg.size()))
         ui->statusbar->showMessage("Model state has been saved to "+fn);
     else
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
@@ -760,10 +761,13 @@ void MainWnd::on_actionLoad_state_triggered()
     QString fn = GetOpenFileName(ANNA_FILE_MODEL_STATE);
     if (fn.isEmpty()) return;
 
-    if (brain->LoadState(fn.toStdString())) {
+    std::string dlg(GUI_MAXTEXT,'\0');
+    size_t usrlen = GUI_MAXTEXT;
+    if (brain->LoadState(fn.toStdString(),(void*)dlg.data(),usrlen)) {
         ui->statusbar->showMessage("Model state has been loaded from "+fn);
         // state contains context memory, so the chat could be reconstructed (more or less)
-        cur_chat = QString::fromStdString(brain->PrintContext()) + "\n";
+        dlg.resize(usrlen);
+        cur_chat = QString::fromStdString(dlg);
         if (guiconfig.md_fix) FixMarkdown(cur_chat);
         on_actionRefresh_chat_box_triggered();
         UpdateRQPs();
@@ -858,9 +862,9 @@ void MainWnd::on_actionShow_context_tokens_triggered()
 void MainWnd::on_actionQuick_save_triggered()
 {
     if (!brain) return;
-    QString fns = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
-    QString fnt = qApp->applicationDirPath() + "/" + ANNA_QUICK_TEXT;
-    if (brain->SaveState(fns.toStdString()) && SaveFile(fnt,cur_chat))
+    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    std::string dlg = cur_chat.toStdString();
+    if (brain->SaveState(fn.toStdString(),dlg.data(),dlg.size()))
         ui->statusbar->showMessage("Quicksave point saved");
     else
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
@@ -869,11 +873,14 @@ void MainWnd::on_actionQuick_save_triggered()
 void MainWnd::on_actionQuick_load_triggered()
 {
     if (!brain) return;
-    QString fns = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
-    QString fnt = qApp->applicationDirPath() + "/" + ANNA_QUICK_TEXT;
-    if (brain->LoadState(fns.toStdString()) && LoadFile(fnt,cur_chat)) {
+    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    std::string dlg(GUI_MAXTEXT,'\0');
+    size_t usrlen = GUI_MAXTEXT;
+    if (brain->LoadState(fn.toStdString(),dlg.data(),usrlen)) {
         ui->statusbar->showMessage("Quickload complete");
-        if (guiconfig.md_fix) FixMarkdown(cur_chat);
+        dlg.resize(usrlen);
+        cur_chat = QString::fromStdString(dlg);
+        //if (guiconfig.md_fix) FixMarkdown(cur_chat);
         ui->ChatLog->setMarkdown(cur_chat);
         raw_output.clear();
         UpdateRQPs();

@@ -8,9 +8,11 @@
 #include "common.h"
 #include "sampling.h"
 
-#define ANNA_VERSION "0.7.4"
+#define ANNA_VERSION "0.8.0"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
+#define ANNA_STATE_VERSION 2
+#define ANNA_STATE_MAGIC "ANNA"
 
 enum AnnaState
 {
@@ -29,6 +31,17 @@ struct __attribute__((packed)) AnnaConfig
     bool nl_to_turnover;
     gpt_params params;
     void* user;
+};
+
+struct __attribute__((packed)) AnnaSave
+{
+    char magic[4];
+    uint32_t version;
+    int n_past;
+    int n_ctx;
+    int ga_i;
+    size_t data_size;
+    size_t user_size;
 };
 
 class AnnaBrain
@@ -51,8 +64,8 @@ public:
     virtual const char* TokenToStr(llama_token token);
     virtual std::string PrintContext();
 
-    virtual bool SaveState(std::string fname);
-    virtual bool LoadState(std::string fname);
+    virtual bool SaveState(std::string fname, const void* user_data, size_t user_size);
+    virtual bool LoadState(std::string fname, void* user_data, size_t& user_size);
 
     virtual void setClipModelFile(std::string fn);
     virtual bool EmbedImage(std::string imgfile);

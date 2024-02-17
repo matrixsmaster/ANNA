@@ -372,13 +372,21 @@ string AnnaBrain::PrintContext()
     return out;
 }
 
-bool AnnaBrain::SaveState(std::string fname)
+bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_size)
 {
     if (state == ANNA_NOT_INITIALIZED) return false;
 
-    uint32_t dsize = llama_get_state_size(ctx);
-    uint32_t csize = llama_n_ctx(ctx) * sizeof(llama_token);
-    uint32_t total = sizeof(int) + csize + 4 + dsize;
+    AnnaSave hdr;
+    memcpy(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic));
+    hdr.version = ANNA_STATE_VERSION;
+    hdr.n_past = n_past;
+    hdr.ga_i = ga_i;
+    hdr.n_ctx = llama_n_ctx(ctx);
+    hdr.data_size = llama_get_state_size(ctx);
+    hdr.user_size = user_size;
+    size_t csize = hdr.n_ctx * sizeof(llama_token);
+    size_t total = sizeof(hdr) + csize + hdr.data_size + user_size;
+    ctx_sp->prev.resize(hdr.n_ctx);
 
 #ifdef ANNA_USE_MMAP
     int fd = open(fname.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
@@ -388,34 +396,34 @@ bool AnnaBrain::SaveState(std::string fname)
     }
 
     if (ftruncate(fd,total)) {
-        internal_error = myformat("Unable to truncate to %u\n",total);
+        internal_error = myformat("Unable to truncate to %lu bytes\n",total);
         return false;
     }
     uint8_t* data = (uint8_t*)mmap(NULL,total,PROT_WRITE,MAP_SHARED,fd,0);
-
     close(fd);
+
     if (data == MAP_FAILED) {
         internal_error = myformat("Unable to map WR memory for cache buffer (%u bytes)",total);
         return false;
     }
 
+    // 1. header
     uint8_t* ptr = data;
-
-    // 1. n of used tokens
-    memcpy(ptr,&n_past,sizeof(int));
-    ptr += sizeof(int);
+    memcpy(ptr,&hdr,sizeof(hdr));
+    ptr += sizeof(hdr);
 
     // 2. context tokens
-    ctx_sp->prev.resize(llama_n_ctx(ctx));
     memcpy(ptr,ctx_sp->prev.data(),csize);
     ptr += csize;
 
-    // 3. state data size
-    memcpy(ptr,&dsize,4);
-    ptr += 4;
-
-    // 4. state data
+    // 3. state data
     llama_copy_state_data(ctx,ptr);
+    ptr += hdr.data_size;
+
+    // 4. user data
+    memcpy(ptr,user_data,user_size);
+
+    // done
     munmap(data,total);
 
 #else
@@ -447,70 +455,85 @@ bool AnnaBrain::SaveState(std::string fname)
     fclose(f);
 #endif
 
-    DBG("Cache (%u bytes) saved to %s\n",total,fname.c_str());
+    DBG("Cache (%lu bytes) saved to %s\n",total,fname.c_str());
     return true;
 }
 
-bool AnnaBrain::LoadState(std::string fname)
+bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
 {
     if (state == ANNA_NOT_INITIALIZED) return false;
 
-    uint32_t dsize = llama_get_state_size(ctx);
-    uint32_t csize = llama_n_ctx(ctx) * sizeof(llama_token);
-    uint32_t total = sizeof(int) + csize + 4 + dsize;
+    FILE* f = fopen(fname.c_str(),"rb");
+    if (!f) {
+        internal_error = myformat("Couldn't open cache file %s",fname.c_str());
+        return false;
+    }
+
+    AnnaSave hdr;
+    internal_error.clear();
+    size_t dsize = llama_get_state_size(ctx);
+
+    if (!fread(&hdr,sizeof(hdr),1,f))
+        internal_error = "Couldn't read the header from the cache file";
+    if (!internal_error.empty() && strncmp(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic)))
+        internal_error = myformat("Wrong cache file magic ID: expected " ANNA_STATE_MAGIC ", got %4s",hdr.magic);
+    if (!internal_error.empty() && hdr.data_size != dsize)
+        internal_error = myformat("Wrong state data size: expected %lu, got %lu bytes",dsize,hdr.data_size);
+    if (!internal_error.empty() && hdr.user_size > user_size)
+        internal_error = myformat("Unable to load user data: %lu bytes in the file, but can read only %lu bytes",hdr.user_size,user_size);
+
+    size_t csize = hdr.n_ctx * sizeof(llama_token);
+    size_t total = sizeof(hdr) + csize + hdr.data_size + hdr.user_size;
+    fseek(f,0,SEEK_END);
+    size_t fsize = ftell(f);
+    if (!internal_error.empty() && fsize != total)
+        internal_error = myformat("Wrong file size: expected %lu, got %lu bytes",total,fsize);
+
+    if (!internal_error.empty()) {
+        fclose(f);
+        return false;
+    }
+
+    user_size = hdr.user_size;
+    n_past = hdr.n_past;
+    ga_i = hdr.ga_i;
+    ctx_sp->prev.resize(hdr.n_ctx);
 
 #ifdef ANNA_USE_MMAP
+    fclose(f);
     int fd = open(fname.c_str(),O_RDONLY|O_DIRECT);
     if (fd < 0) {
-        internal_error = myformat("Cache file doesn't exist.");
-        return false;
-    }
-
-    struct stat sb;
-    if (fstat(fd,&sb)) {
-        internal_error = myformat("Unable to stat() cache buffer (err %d)",errno);
-        close(fd);
-        return false;
-    }
-    if (sb.st_size != total) {
-        internal_error = myformat("Unexpected cache file size! (expected %u, got %lu)",total,sb.st_size);
-        close(fd);
+        internal_error = myformat("Unable to re-open() the file!");
         return false;
     }
 
     uint8_t* data = (uint8_t*)mmap(NULL,total,PROT_READ,MAP_PRIVATE,fd,0);
-
     close(fd);
+
     if (data == MAP_FAILED) {
         internal_error = myformat("Unable to map RD memory for cache buffer (%u bytes)",total);
         return false;
     }
 
-    uint8_t* ptr = data;
-
-    // 1. n of used tokens
-    memcpy(&n_past,ptr,sizeof(int));
-    ptr += sizeof(int);
+    // 1. skip header
+    uint8_t* ptr = data + sizeof(hdr);
 
     // 2. context tokens
-    ctx_sp->prev.resize(llama_n_ctx(ctx));
     memcpy(ctx_sp->prev.data(),ptr,csize);
     ptr += csize;
 
-    // 3. state data size
-    memcpy(&dsize,ptr,4);
-    ptr += 4;
-
-    // 4. load state data
+    // 3. load state data
     llama_set_state_data(ctx,ptr);
+    ptr += hdr.data_size;
+
+    // 4. user data
+    memcpy(user_data,ptr,hdr.user_size);
+
+    // done
     munmap(data,total);
 
 #else
-    FILE* f = fopen(fname.c_str(),"rb");
-    if (!f) {
-        internal_error = myformat("Cache file doesn't exist.");
-        return false;
-    }
+    fseek(f,sizeof(hdr),SEEK_SET);
 
     uint8_t* sbuf = (uint8_t*)malloc(dsize);
     if (!sbuf) {
@@ -536,7 +559,7 @@ bool AnnaBrain::LoadState(std::string fname)
     }
 #endif
 
-    DBG("Cache (%u bytes) loaded from %s\n",dsize,fname.c_str());
+    DBG("Cache (%lu bytes) loaded from %s\n",dsize,fname.c_str());
     return true;
 }
 

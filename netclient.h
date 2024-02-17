@@ -30,8 +30,8 @@ public:
     //const char* TokenToStr(llama_token token) override;
     std::string PrintContext() override;
 
-    bool SaveState(std::string fname) override;
-    bool LoadState(std::string fname) override;
+    bool SaveState(std::string fname, const void* user_data, size_t user_size) override;
+    bool LoadState(std::string fname, void* user_data, size_t& user_size) override;
 
     void setClipModelFile(std::string fn) override;
     bool EmbedImage(std::string imgfile) override;

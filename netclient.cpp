@@ -131,13 +131,13 @@ string AnnaClient::PrintContext()
     return request("/printContext");
 }
 
-bool AnnaClient::SaveState(string fname)
+bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size)
 {
     string r = request("/saveState",fname);
     return (r == "success");
 }
 
-bool AnnaClient::LoadState(string fname)
+bool AnnaClient::LoadState(string fname, void* user_data, size_t& user_size)
 {
     string r = request("/loadState",fname);
     return (r == "success");

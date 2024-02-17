@@ -377,8 +377,10 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     if (state == ANNA_NOT_INITIALIZED) return false;
 
     AnnaSave hdr;
+    memset(&hdr,0,sizeof(hdr));
     memcpy(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic));
     hdr.version = ANNA_STATE_VERSION;
+    strncpy(hdr.model,config.params.model,sizeof(hdr.model));
     hdr.n_past = n_past;
     hdr.ga_i = ga_i;
     hdr.n_ctx = llama_n_ctx(ctx);
@@ -433,26 +435,26 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
         return false;
     }
 
-    uint8_t* sbuf = (uint8_t*)malloc(dsize);
+    uint8_t* sbuf = (uint8_t*)malloc(hdr.data_size);
     if (!sbuf) {
-        internal_error = myformat("Unable to allocate temporary buffer for the state data (%u bytes)",dsize);
+        internal_error = myformat("Unable to allocate temporary buffer for the state data (%lu bytes)",hdr.data_size);
         fclose(f);
         return false;
     }
     llama_copy_state_data(ctx,sbuf);
-    ctx_sp->prev.resize(llama_n_ctx(ctx)); // make context buffer size constant
 
-    ssize_t np = fwrite(&n_past,sizeof(int),1,f); // 1. n of used tokens
-    ssize_t nc = fwrite(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
-    ssize_t ns = fwrite(&dsize,4,1,f); // 3. state data size
-    ssize_t nd = fwrite(sbuf,dsize,1,f); // 4. state data
-    if (np+nc+ns+nd != 4) {
-        internal_error = myformat("Data write failed: %lu,%lu,%lu,%lu -> %d\n",np,nc,ns,nd,errno);
-        return false;
-    }
+    size_t nh = fwrite(&hdr,sizeof(hdr),1,f); // 1. header
+    size_t nc = fwrite(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
+    size_t nd = fwrite(sbuf,hdr.data_size,1,f); // 3. state data
+    size_t nu = fwrite(user_data,user_size,1,f); // 4. user data
 
     free(sbuf);
     fclose(f);
+
+    if (nh+nc+nd+nu != 4) {
+        internal_error = myformat("Data write failed: %lu,%lu,%lu,%lu -> %d\n",nh,nc,nd,nu,errno);
+        return false;
+    }
 #endif
 
     DBG("Cache (%lu bytes) saved to %s\n",total,fname.c_str());
@@ -537,24 +539,22 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
 
     uint8_t* sbuf = (uint8_t*)malloc(dsize);
     if (!sbuf) {
-        internal_error = myformat("Unable to allocate temporary buffer for the state data (%u bytes)",dsize);
+        internal_error = myformat("Unable to allocate temporary buffer for the state data (%lu bytes)",dsize);
         fclose(f);
         return false;
     }
-    ctx_sp->prev.resize(llama_n_ctx(ctx)); // make context buffer size constant
 
-    ssize_t np = fread(&n_past,sizeof(int),1,f); // 1. n of used tokens
-    ssize_t nc = fread(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
-    ssize_t ns = fread(&dsize,4,1,f); // 3. state data size
-    ssize_t nd = fread(sbuf,dsize,1,f); // 4. state data
+    size_t nc = fread(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
+    size_t nd = fread(sbuf,dsize,1,f); // 3. state data
+    size_t nu = fread(user_data,hdr.user_size,1,f); // 4. user data
 
-    if (np+nc+ns+nd == 4) llama_set_state_data(ctx,sbuf);
-
-    free(sbuf);
     fclose(f);
 
-    if (np+nc+ns+nd != 4) {
-        internal_error = myformat("Data read failed: %lu,%lu,%lu,%lu -> %d\n",np,nc,ns,nd,errno);
+    if (nc+nd+nu == 3) llama_set_state_data(ctx,sbuf);
+    free(sbuf);
+
+    if (nc+nd+nu != 3) {
+        internal_error = myformat("Data read failed: %lu,%lu,%lu -> %d\n",nc,nd,nu,errno);
         return false;
     }
 #endif

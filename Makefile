@@ -48,8 +48,8 @@ else
 endif
 
 # Use mmap on *nix
-MK_CPPFLAGS += -DANNA_USE_MMAP
-MK_CFLAGS += -DANNA_USE_MMAP
+#MK_CPPFLAGS += -DANNA_USE_MMAP
+#MK_CFLAGS += -DANNA_USE_MMAP
 
 # clock_gettime came in POSIX.1b (1993)
 # CLOCK_MONOTONIC came in POSIX.1-2001 / SUSv3 as optional

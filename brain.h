@@ -37,6 +37,7 @@ struct __attribute__((packed)) AnnaSave
 {
     char magic[4];
     uint32_t version;
+    char model[LLAMA_MAX_FILENAME_LEN];
     int n_past;
     int n_ctx;
     int ga_i;

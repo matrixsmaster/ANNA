@@ -137,7 +137,7 @@ bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size
     return (r == "success");
 }
 
-bool AnnaClient::LoadState(string fname, void* user_data, size_t& user_size)
+bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
 {
     string r = request("/loadState",fname);
     return (r == "success");

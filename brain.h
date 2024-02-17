@@ -37,9 +37,8 @@ struct __attribute__((packed)) AnnaSave
 {
     char magic[4];
     uint32_t version;
-    char model[LLAMA_MAX_FILENAME_LEN];
+    AnnaConfig cfg;
     int n_past;
-    int n_ctx;
     int ga_i;
     size_t data_size;
     size_t user_size;
@@ -66,7 +65,7 @@ public:
     virtual std::string PrintContext();
 
     virtual bool SaveState(std::string fname, const void* user_data, size_t user_size);
-    virtual bool LoadState(std::string fname, void* user_data, size_t& user_size);
+    virtual bool LoadState(std::string fname, void* user_data, size_t* user_size);
 
     virtual void setClipModelFile(std::string fn);
     virtual bool EmbedImage(std::string imgfile);

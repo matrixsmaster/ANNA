@@ -377,18 +377,17 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     if (state == ANNA_NOT_INITIALIZED) return false;
 
     AnnaSave hdr;
-    memset(&hdr,0,sizeof(hdr));
+    memset((void*)&hdr,0,sizeof(hdr));
     memcpy(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic));
     hdr.version = ANNA_STATE_VERSION;
-    strncpy(hdr.model,config.params.model,sizeof(hdr.model));
+    hdr.cfg = config;
     hdr.n_past = n_past;
     hdr.ga_i = ga_i;
-    hdr.n_ctx = llama_n_ctx(ctx);
     hdr.data_size = llama_get_state_size(ctx);
     hdr.user_size = user_size;
-    size_t csize = hdr.n_ctx * sizeof(llama_token);
+    size_t csize = config.params.n_ctx * sizeof(llama_token);
     size_t total = sizeof(hdr) + csize + hdr.data_size + user_size;
-    ctx_sp->prev.resize(hdr.n_ctx);
+    ctx_sp->prev.resize(config.params.n_ctx);
 
 #ifdef ANNA_USE_MMAP
     int fd = open(fname.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
@@ -462,10 +461,8 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     return true;
 }
 
-bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
+bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
 {
-    if (state == ANNA_NOT_INITIALIZED) return false;
-
     FILE* f = fopen(fname.c_str(),"rb");
     if (!f) {
         internal_error = myformat("Couldn't open cache file %s",fname.c_str());
@@ -474,18 +471,25 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
 
     AnnaSave hdr;
     internal_error.clear();
-    size_t dsize = llama_get_state_size(ctx);
 
     if (!fread(&hdr,sizeof(hdr),1,f))
         internal_error = "Couldn't read the header from the cache file";
+
+    if (state == ANNA_NOT_INITIALIZED || !ctx) {
+        config = hdr.cfg;
+        fclose(f);
+        return internal_error.empty(); // we have no context, so this means loading is complete (config acquired)
+    }
+
+    size_t dsize = llama_get_state_size(ctx);
     if (!internal_error.empty() && strncmp(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic)))
         internal_error = myformat("Wrong cache file magic ID: expected " ANNA_STATE_MAGIC ", got %4s",hdr.magic);
     if (!internal_error.empty() && hdr.data_size != dsize)
         internal_error = myformat("Wrong state data size: expected %lu, got %lu bytes",dsize,hdr.data_size);
-    if (!internal_error.empty() && hdr.user_size > user_size)
+    if (!internal_error.empty() && hdr.user_size > (user_size? (*user_size):0))
         internal_error = myformat("Unable to load user data: %lu bytes in the file, but can read only %lu bytes",hdr.user_size,user_size);
 
-    size_t csize = hdr.n_ctx * sizeof(llama_token);
+    size_t csize = hdr.cfg.params.n_ctx * sizeof(llama_token);
     size_t total = sizeof(hdr) + csize + hdr.data_size + hdr.user_size;
     fseek(f,0,SEEK_END);
     size_t fsize = ftell(f);
@@ -497,10 +501,8 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
         return false;
     }
 
-    user_size = hdr.user_size;
-    n_past = hdr.n_past;
-    ga_i = hdr.ga_i;
-    ctx_sp->prev.resize(hdr.n_ctx);
+    if (user_size) *user_size = hdr.user_size;
+    ctx_sp->prev.resize(hdr.cfg.params.n_ctx);
 
 #ifdef ANNA_USE_MMAP
     fclose(f);
@@ -561,6 +563,9 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t& user_size)
     }
 #endif
 
+    config = hdr.cfg;
+    n_past = hdr.n_past;
+    ga_i = hdr.ga_i;
     DBG("Cache (%lu bytes) loaded from %s\n",dsize,fname.c_str());
     return true;
 }

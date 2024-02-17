@@ -209,6 +209,18 @@ bool MainWnd::SaveFile(const QString& fn, const QString& str)
     return true;
 }
 
+bool MainWnd::NewBrain()
+{
+    brain = guiconfig.use_server? new AnnaClient(&config,guiconfig.server.toStdString()) : new AnnaBrain(&config);
+    if (brain->getState() == ANNA_READY) return true;
+
+    ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
+    delete brain;
+    brain = nullptr;
+    block = false; // nothing to block anymore
+    return false;
+}
+
 void MainWnd::LoadLLM(const QString &fn)
 {
     if (block) return;
@@ -226,15 +238,7 @@ void MainWnd::LoadLLM(const QString &fn)
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
     strncpy(config.params.model,fn.toStdString().c_str(),sizeof(config.params.model)-1);
-
-    brain = guiconfig.use_server? new AnnaClient(&config,guiconfig.server.toStdString()) : new AnnaBrain(&config);
-    if (brain->getState() != ANNA_READY) {
-        ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
-        delete brain;
-        brain = nullptr;
-        block = false;
-        return;
-    }
+    if (!NewBrain()) return;
     ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
     qApp->processEvents();
     block = false;
@@ -746,33 +750,55 @@ void MainWnd::on_actionSave_state_triggered()
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
 
-void MainWnd::on_actionLoad_state_triggered()
+bool MainWnd::LoadLLMState(const QString& fn)
 {
+    if (block) return false;
+
     // shortcut for loading model + state in an easier way
     if (!brain) {
-        if (!ui->ModelPath->text().isEmpty()) {
-            config.params.prompt[0] = 0; // no need for that
-            LoadLLM(ui->ModelPath->text());
+        AnnaBrain br(nullptr); // an "empty" brain (no model loaded)
+        if (br.LoadState(fn.toStdString(),nullptr,nullptr)) {
+            // now we can construct the real brain with the config extracted
+            block = true;
+            ui->statusbar->showMessage("Loading LLM file... Please wait!");
+            qApp->processEvents();
+
+            config = br.getConfig();
+            if (!NewBrain()) return false;
+
+            ui->statusbar->showMessage("LLM file loaded. Loading state...");
+            qApp->processEvents();
+            block = false;
+
+        } else {
+            ui->statusbar->showMessage("Error: "+QString::fromStdString(br.getError()));
+            return false;
         }
-        if (!brain) return;
     }
 
-    // normal stuff now - request file name and attempt to load the state
-    QString fn = GetOpenFileName(ANNA_FILE_MODEL_STATE);
-    if (fn.isEmpty()) return;
-
+    // normal stuff now - load the state using existing model
     std::string dlg(GUI_MAXTEXT,'\0');
     size_t usrlen = GUI_MAXTEXT;
-    if (brain->LoadState(fn.toStdString(),(void*)dlg.data(),usrlen)) {
-        ui->statusbar->showMessage("Model state has been loaded from "+fn);
-        // state contains context memory, so the chat could be reconstructed (more or less)
-        dlg.resize(usrlen);
-        cur_chat = QString::fromStdString(dlg);
-        if (guiconfig.md_fix) FixMarkdown(cur_chat);
-        on_actionRefresh_chat_box_triggered();
-        UpdateRQPs();
-    } else
+    if (!brain->LoadState(fn.toStdString(),(void*)dlg.data(),&usrlen)) {
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
+        return false;
+    }
+
+    dlg.resize(usrlen);
+    cur_chat = QString::fromStdString(dlg);
+    on_actionRefresh_chat_box_triggered();
+    raw_output.clear();
+    UpdateRQPs();
+
+    return true;
+}
+
+void MainWnd::on_actionLoad_state_triggered()
+{
+    QString fn = GetOpenFileName(ANNA_FILE_MODEL_STATE);
+    if (fn.isEmpty()) return;
+    if (LoadLLMState(fn))
+        ui->statusbar->showMessage("Model state has been loaded from "+fn);
 }
 
 void MainWnd::on_actionShow_prompt_triggered()
@@ -872,20 +898,9 @@ void MainWnd::on_actionQuick_save_triggered()
 
 void MainWnd::on_actionQuick_load_triggered()
 {
-    if (!brain) return;
     QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
-    std::string dlg(GUI_MAXTEXT,'\0');
-    size_t usrlen = GUI_MAXTEXT;
-    if (brain->LoadState(fn.toStdString(),dlg.data(),usrlen)) {
+    if (LoadLLMState(fn))
         ui->statusbar->showMessage("Quickload complete");
-        dlg.resize(usrlen);
-        cur_chat = QString::fromStdString(dlg);
-        //if (guiconfig.md_fix) FixMarkdown(cur_chat);
-        ui->ChatLog->setMarkdown(cur_chat);
-        raw_output.clear();
-        UpdateRQPs();
-    } else
-        ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 }
 
 void MainWnd::SaveComboBox(QSettings* sets, QString prefix, QComboBox* box)

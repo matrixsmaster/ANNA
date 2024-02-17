@@ -153,7 +153,9 @@ private:
     void SaveSettings();
     bool LoadFile(const QString& fn, QString& str);
     bool SaveFile(const QString& fn, const QString& str);
+    bool NewBrain();
     void LoadLLM(const QString& fn);
+    bool LoadLLMState(const QString& fn);
     void FixMarkdown(QString& s);
     void UpdateRQPs();
     void CheckRQPs(const QString& inp);

@@ -11,7 +11,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.4"
+#define SERVER_VERSION "0.0.5"
 #define SERVER_SAVE_DIR "saves"
 
 #define PORT 8080
@@ -97,7 +97,7 @@ bool hold_user(int id)
     if (ptr) {
         string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
         INFO("Saving user %d state into %s: ",id,fn.c_str());
-        if (ptr->SaveState(fn)) INFO("success\n");
+        if (ptr->SaveState(fn,nullptr,0)) INFO("success\n");
         else ERROR("failure!\n");
         delete ptr;
         usermap[id].state = ANNASERV_CLIENT_UNLOADED;
@@ -126,7 +126,7 @@ bool unhold_user(int id)
 
         string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
         INFO("Loading user %d state from %s: ",id,fn.c_str());
-        if (ptr->LoadState(fn)) INFO("success\n");
+        if (ptr->LoadState(fn,nullptr,nullptr)) INFO("success\n");
         else ERROR("failure!\n");
     }
     usermap[id].lk.unlock();
@@ -446,7 +446,7 @@ int main()
     while (!quit) {
         string c = get_input("ANNA> ");
 
-        if (c == "quit") {
+        if (c == "quit" || c == "q") {
             quit = true;
             break;
 

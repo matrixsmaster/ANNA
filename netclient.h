@@ -27,7 +27,6 @@ public:
     void setInput(std::string inp) override;
     void setPrefix(std::string str) override;
 
-    //const char* TokenToStr(llama_token token) override;
     std::string PrintContext() override;
 
     bool SaveState(std::string fname, const void* user_data, size_t user_size) override;

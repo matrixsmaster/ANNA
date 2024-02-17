@@ -122,10 +122,6 @@ void AnnaClient::setPrefix(string str)
     command("/setPrefix",asBase64(str));
 }
 
-//const char *AnnaClient::TokenToStr(llama_token token)
-//{
-//}
-
 string AnnaClient::PrintContext()
 {
     return request("/printContext");
@@ -133,6 +129,7 @@ string AnnaClient::PrintContext()
 
 bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size)
 {
+    // TODO: send user_data
     string r = request("/saveState",fname);
     return (r == "success");
 }
@@ -140,6 +137,7 @@ bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size
 bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
 {
     string r = request("/loadState",fname);
+    // TODO: reinterpret string as user data (base64m)
     return (r == "success");
 }
 
@@ -150,7 +148,9 @@ void AnnaClient::setClipModelFile(string fn)
 
 bool AnnaClient::EmbedImage(string imgfile)
 {
-    // TODO: not supported atm
+    // TODO: load and encode the file, then send embeddings (makes it easy on the server to not hold clip files)
+    // OR
+    // send filename (we can use a single facility to send model and clip files), then send the image file itself
     return false;
 }
 

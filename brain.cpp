@@ -482,18 +482,18 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     }
 
     size_t dsize = llama_get_state_size(ctx);
-    if (!internal_error.empty() && strncmp(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic)))
+    if (internal_error.empty() && strncmp(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic)))
         internal_error = myformat("Wrong cache file magic ID: expected " ANNA_STATE_MAGIC ", got %4s",hdr.magic);
-    if (!internal_error.empty() && hdr.data_size != dsize)
+    if (internal_error.empty() && hdr.data_size != dsize)
         internal_error = myformat("Wrong state data size: expected %lu, got %lu bytes",dsize,hdr.data_size);
-    if (!internal_error.empty() && hdr.user_size > (user_size? (*user_size):0))
+    if (internal_error.empty() && hdr.user_size > (user_size? (*user_size):0))
         internal_error = myformat("Unable to load user data: %lu bytes in the file, but can read only %lu bytes",hdr.user_size,user_size);
 
     size_t csize = hdr.cfg.params.n_ctx * sizeof(llama_token);
     size_t total = sizeof(hdr) + csize + hdr.data_size + hdr.user_size;
     fseek(f,0,SEEK_END);
     size_t fsize = ftell(f);
-    if (!internal_error.empty() && fsize != total)
+    if (internal_error.empty() && fsize != total)
         internal_error = myformat("Wrong file size: expected %lu, got %lu bytes",total,fsize);
 
     if (!internal_error.empty()) {

@@ -12,10 +12,11 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.8"
+#define SERVER_VERSION "0.0.9"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
+#define SERVER_CLIENT_TIMEOUT 10
 
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
 #define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -44,9 +45,16 @@ struct session {
 
 map<int,session> usermap;
 deque<int> userqueue;
-volatile int active_user = -1;
+int active_user = -1;
 mutex usermap_mtx, q_lock;
 bool quit = false;
+
+void add_queue(int id)
+{
+    q_lock.lock();
+    if (userqueue.empty() || userqueue.back() != id) userqueue.push_back(id);
+    q_lock.unlock();
+}
 
 bool mod_user(int id, AnnaConfig& cfg)
 {
@@ -81,9 +89,7 @@ bool mod_user(int id, AnnaConfig& cfg)
 
     } else {
         // no capacity, add it to the queue
-        q_lock.lock();
-        if (userqueue.back() != id) userqueue.push_back(id);
-        q_lock.unlock();
+        add_queue(id);
         INFO("Can't create or modify brain config for user %d - postponed\n",id);
     }
 
@@ -142,6 +148,7 @@ bool unhold_user(int id)
     }
 
     usermap[id].lk.lock();
+
     AnnaBrain* ptr = usermap.at(id).brain;
     if (!ptr) {
         INFO("Re-creating a brain for user %d\n",id);
@@ -154,7 +161,9 @@ bool unhold_user(int id)
         if (ptr->LoadState(fn,nullptr,nullptr)) INFO("success\n");
         else ERROR("failure! %s\n",ptr->getError().c_str());
     } else
-        ERROR("Unable to unhold active user!\n");
+        ERROR("Unable to unhold active user %d!\n",id);
+
+    usermap[id].last_req = chrono::steady_clock::now();
     usermap[id].lk.unlock();
 
     INFO("User %d session resumed\n",id);
@@ -202,8 +211,11 @@ int check_request(const Request& req, Response& res, const string funame)
         res.status = Forbidden_403;
         return 0;
     }
+
+    usermap[id].lk.lock();
     usermap[id].reqs++;
     usermap[id].last_req = chrono::steady_clock::now();
+    usermap[id].lk.unlock();
 
     INFO("%s() for user %d...\n",funame.c_str(),id);
     return id;
@@ -222,9 +234,7 @@ bool check_brain(int id, const string funame, Response& res)
         // valid request, just need to wait for client unhold
         INFO("Putting request %s from user %d into queue\n",funame.c_str(),id);
         res.status = ServiceUnavailable_503;
-        q_lock.lock();
-        if (userqueue.back() != id) userqueue.push_back(id);
-        q_lock.unlock();
+        add_queue(id);
 
     } else {
         WARN("Invalid request %s from user %d - brain does not exist and state is not on hold\n",funame.c_str(),id);
@@ -470,6 +480,42 @@ void sched_thread()
     INFO("Scheduler started\n");
 
     while (!quit) {
+        usermap_mtx.lock();
+        q_lock.lock();
+
+        // check for active user's validity
+        if (active_user > 0) {
+            if (usermap.count(active_user) < 1) {
+                WARN("Invalid active user %d (not existing), removing",active_user);
+                active_user = -1;
+            }
+        }
+
+        // check for active user's timeout
+        if (active_user > 0) {
+            float age = (float)((chrono::steady_clock::now() - usermap.at(active_user).last_req) / 1ms) / 1000.f;
+            if (age > SERVER_CLIENT_TIMEOUT) {
+                // put the client on hold and reset active user
+                hold_user(active_user);
+                active_user = -1;
+            }
+        }
+
+        // check for the queue
+        if (active_user < 0) {
+            if (userqueue.size() > 0) {
+                active_user = userqueue.front();
+                userqueue.pop_front();
+                // check if it still valid
+                if (usermap.count(active_user))
+                    unhold_user(active_user); // and resume it
+                else
+                    active_user = -1;
+            }
+        }
+
+        q_lock.unlock();
+        usermap_mtx.unlock();
         usleep(SERVER_SCHED_WAIT);
     }
 
@@ -515,13 +561,24 @@ int main()
 
         } else if (c == "list" || c == "ls") {
             puts("=======================================");
+            usermap_mtx.lock();
             const auto now = chrono::steady_clock::now();
             for (auto & i : usermap) {
                 float age = (float)((now - i.second.last_req) / 1ms) / 1000.f;
                 printf("Client %d (0x%08X): state %d, IP %s, %d requests, last one %.2f seconds ago\n",
                         i.first,i.first,i.second.state,i.second.addr.c_str(),i.second.reqs,age);
             }
+            usermap_mtx.unlock();
             puts("=======================================");
+            printf("Current active user: %d\n",active_user);
+
+        } else if (c == "queue") {
+            q_lock.lock();
+            puts("=======================================");
+            for (auto i : userqueue) printf("%d (0x%08X)\n",i,i);
+            puts("=======================================");
+            printf("%lu requests in the queue\n",userqueue.size());
+            q_lock.unlock();
 
         } else if (c == "kick" || c == "sus" || c == "res") {
             string a = get_input("Client ID> ");

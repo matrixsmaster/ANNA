@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <string>
+#include <functional>
 #include "brain.h"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
@@ -39,17 +40,20 @@ public:
     void Reset() override;
     void Undo() override;
 
+    void setWaitCallback(std::function<void(void)> fun)         { wait_callback = fun; }
+
 private:
-    httplib::Client* client;
-    uint32_t clid;
+    httplib::Client* client = nullptr;
+    uint32_t clid = 0;
+    std::function<void(void)> wait_callback = nullptr;
 
     std::string asBase64(const void* data, size_t len);
     std::string asBase64(const std::string& in);
     std::string fromBase64(const std::string& in);
     size_t fromBase64(void *data, size_t len, std::string in);
 
-    std::string request(std::string cmd);
-    std::string request(std::string cmd, std::string arg);
-    bool command(std::string cmd, bool force = false);
-    bool command(std::string cmd, std::string arg, bool force = false);
+    std::string request(const std::string cmd);
+    std::string request(const std::string cmd, const std::string arg);
+    bool command(const std::string cmd, bool force = false);
+    bool command(const std::string cmd, const std::string arg, bool force = false);
 };

@@ -11,7 +11,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.5b"
+#define SERVER_VERSION "0.0.6"
 #define SERVER_SAVE_DIR "saves"
 
 #define PORT 8080
@@ -167,22 +167,46 @@ string rlog(const Request &req) {
     return s;
 }
 
-int check_request(const Request& req, Response& res, const string fname)
+int check_request(const Request& req, Response& res, const string funame)
 {
     //cout << rlog(req) << endl;
     int id = atoi(req.path_params.at("id").c_str());
     if (!usermap.count(id)) {
-        WARN("%s() requested for non-existing user %d\n",fname.c_str(),id);
+        WARN("%s() requested for non-existing user %d\n",funame.c_str(),id);
         res.status = BadRequest_400;
         return 0;
     }
     if (usermap.at(id).addr != req.remote_addr) {
-        ERROR("Request %s() for user %d came from wrong IP (%s expected, got %s)!\n",fname.c_str(),id,usermap.at(id).addr.c_str(),req.remote_addr.c_str());
+        ERROR("Request %s() for user %d came from wrong IP (%s expected, got %s)!\n",funame.c_str(),id,usermap.at(id).addr.c_str(),req.remote_addr.c_str());
         res.status = Forbidden_403;
         return 0;
     }
     usermap[id].reqs++;
+
+    INFO("%s() for user %d...\n",funame.c_str(),id);
     return id;
+}
+
+bool check_brain(int id, const string funame, Response& res)
+{
+    usermap[id].lk.lock();
+    AnnaBrain* ptr = usermap.at(id).brain;
+    client_state s = usermap.at(id).state;
+    usermap[id].lk.unlock();
+
+    if (ptr) return true;
+
+    if (s == ANNASERV_CLIENT_UNLOADED) {
+        // valid request, just need to wait for client unhold
+        INFO("Putting request %s from user %d into queue\n",funame.c_str(),id);
+        res.status = ServiceUnavailable_503;
+        // TODO: add to queue
+
+    } else {
+        WARN("Invalid request %s from user %d - brain does not exist and state is not on hold\n",funame.c_str(),id);
+        res.status = BadRequest_400;
+    }
+    return false;
 }
 
 string to_base64(uint32_t clid, const void* in, size_t inlen)
@@ -228,18 +252,21 @@ void install_services(Server* srv)
     srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
         cout << rlog(req) << endl;
         int id = atoi(req.path_params.at("id").c_str());
+
         INFO("Starting session for user %d\n",id);
         if (usermap.count(id) > 0) {
             ERROR("User %d already exists, rejecting.\n",id);
             res.status = Forbidden_403;
             return;
         }
+
         usermap_mtx.lock();
         usermap[id].state = ANNASERV_CLIENT_CREATED;
         usermap[id].addr = req.remote_addr;
         usermap[id].brain = nullptr;
         usermap[id].reqs = 0;
         usermap_mtx.unlock();
+
         INFO("User %d session created\n",id);
         return;
     });
@@ -253,21 +280,22 @@ void install_services(Server* srv)
     srv->Get("/getState/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"getState");
         if (!id) return;
+        if (!check_brain(id,"getState",res)) return;
+
         usermap[id].lk.lock();
-        AnnaBrain* ptr = usermap.at(id).brain;
-        AnnaState s = ANNA_NOT_INITIALIZED;
-        if (ptr) s = ptr->getState();
+        AnnaState s = usermap.at(id).brain->getState();
         usermap[id].lk.unlock();
+
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
         INFO("getState() for user %d: %s\n",id,str.c_str());
     });
 
     srv->Post("/setConfig/:id", [](const Request& req, Response& res) {
+        //INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
         int id = check_request(req,res,"setConfig");
         if (!id) return;
-        INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
-        INFO("setConfig() for user %d...\n",id);
+
         AnnaConfig cfg;
         size_t r = from_base64(id,&cfg,sizeof(cfg),req.body.c_str());
         if (r != sizeof(cfg)) {
@@ -277,6 +305,15 @@ void install_services(Server* srv)
         }
         INFO("%lu bytes decoded\n",r);
         cfg.user = nullptr; // not needed on the server
+
+        if (!check_brain(id,"setConfig",res)) {
+            if (res.status == BadRequest_400) {
+                // still a valid request - we just need to initialize the brain
+                mod_user(id,cfg);
+                res.status = OK_200;
+            } else return;
+        }
+
         mod_user(id,cfg);
         INFO("setConfig() complete\n");
         return;
@@ -285,17 +322,13 @@ void install_services(Server* srv)
     srv->Get("/getConfig/:id", [](const Request& req, Response& res) {
         int id = check_request(req,res,"getConfig");
         if (!id) return;
-        INFO("getConfig() for user %d...\n",id);
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (!ptr) {
-            ERROR("getConfig() for user %d requested before brain is created\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        if (!check_brain(id,"getConfig",res)) return;
+
         usermap[id].lk.lock();
-        AnnaConfig cfg = ptr->getConfig();
+        AnnaConfig cfg = usermap.at(id).brain->getConfig();
         usermap[id].cfg = cfg;
         usermap[id].lk.unlock();
+
         codec_infill_str(cfg.params.model,sizeof(cfg.params.model));
         codec_infill_str(cfg.params.prompt,sizeof(cfg.params.prompt));
         res.set_content(to_base64(id,&cfg,sizeof(cfg)),"text/plain");
@@ -311,16 +344,14 @@ void install_services(Server* srv)
             res.status = BadRequest_400;
             return;
         }
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (!ptr) {
-            ERROR("processing() for user %d requested before brain is created\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        if (!check_brain(id,"processing",res)) return;
+
         string arg = req.get_param_value("arg");
+
         usermap[id].lk.lock();
-        AnnaState s = ptr->Processing(arg == "skip");
+        AnnaState s = usermap.at(id).brain->Processing(arg == "skip");
         usermap[id].lk.unlock();
+
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
         INFO("processing(%s) for user %d: %s\n",arg.c_str(),id,str.c_str());
@@ -329,15 +360,13 @@ void install_services(Server* srv)
     srv->Get("/getOutput/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"getOutput");
         if (!id) return;
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (!ptr) {
-            ERROR("getOutput() for user %d requested before brain is created\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        if (!check_brain(id,"processing",res)) return;
+
         usermap[id].lk.lock();
+        AnnaBrain* ptr = usermap.at(id).brain;
         string str = ptr->getOutput();
         usermap[id].lk.unlock();
+
         res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getOutput() for user %d: %s\n",id,str.c_str());
     });
@@ -345,17 +374,15 @@ void install_services(Server* srv)
     srv->Post("/setInput/:id", [](const Request& req, Response& res) {
         int id = check_request(req,res,"setInput");
         if (!id) return;
+        if (!check_brain(id,"setInput",res)) return;
+
         string str = from_base64_str(id,req.body);
         INFO("setInput() for user %d: '%s'\n",id,str.c_str());
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (!ptr) {
-            ERROR("setInput() for user %d requested before brain is created\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+
         usermap[id].lk.lock();
-        ptr->setInput(str);
+        usermap.at(id).brain->setInput(str);
         usermap[id].lk.unlock();
+
         INFO("Brain input set\n");
         return;
     });
@@ -363,16 +390,13 @@ void install_services(Server* srv)
     srv->Post("/setPrefix/:id", [](const Request& req, Response& res) {
         int id = check_request(req,res,"setPrefix");
         if (!id) return;
+        if (!check_brain(id,"setPrefix",res)) return;
+
         string str = from_base64_str(id,req.body);
         INFO("setPrefix() for user %d: '%s'\n",id,str.c_str());
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (!ptr) {
-            ERROR("setPrefix() for user %d requested before brain is created\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+
         usermap[id].lk.lock();
-        ptr->setPrefix(str);
+        usermap.at(id).brain->setPrefix(str);
         usermap[id].lk.unlock();
         INFO("Prefix is set\n");
         return;
@@ -381,15 +405,12 @@ void install_services(Server* srv)
     srv->Get("/getError/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"getError");
         if (!id) return;
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (!ptr) {
-            ERROR("getError() for user %d requested before brain is created\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        if (!check_brain(id,"getError",res)) return;
+
         usermap[id].lk.lock();
-        string str = ptr->getError();
+        string str = usermap.at(id).brain->getError();
         usermap[id].lk.unlock();
+
         res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getError() for user %d: %s\n",id,str.c_str());
     });
@@ -397,15 +418,12 @@ void install_services(Server* srv)
     srv->Get("/getTokensUsed/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"getTokensUsed");
         if (!id) return;
-        AnnaBrain* ptr = usermap.at(id).brain;
-        if (!ptr) {
-            ERROR("getTokensUsed() for user %d requested before brain is created\n",id);
-            res.status = BadRequest_400;
-            return;
-        }
+        if (!check_brain(id,"getError",res)) return;
+
         usermap[id].lk.lock();
-        string str = AnnaBrain::myformat("%d",ptr->getTokensUsed());
+        string str = AnnaBrain::myformat("%d",usermap.at(id).brain->getTokensUsed());
         usermap[id].lk.unlock();
+
         res.set_content(str,"text/plain");
         INFO("getTokensUsed() for user %d: %s\n",id,str.c_str());
     });

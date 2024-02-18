@@ -130,6 +130,8 @@ string AnnaClient::PrintContext()
 bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size)
 {
     // TODO: send user_data
+    // OR
+    // request data dump without user data and then simply append it to the end of file (also updating the header)
     string r = request("/saveState",fname);
     return (r == "success");
 }
@@ -212,72 +214,92 @@ size_t AnnaClient::fromBase64(void *data, size_t len, string in)
     return n;
 }
 
-string AnnaClient::request(string cmd)
+string AnnaClient::request(const string cmd)
 {
     if (state != ANNA_READY) return "";
-    cmd += myformat("/%d",clid);
-    DBG("request/1: '%s'\n",cmd.c_str());
-    auto r = client->Get(cmd);
-    if (r) {
-        DBG("status = %d\n",r->status);
-        if (r->status != OK_200) {
-            state = ANNA_ERROR;
-            internal_error = myformat("Remote rejected request %s: %d",cmd.c_str(),r->status);
-            return "";
-        }
-        //DBG("body = '%s'\n",r->body.c_str());
-        return r->body;
+    string fcmd = cmd + myformat("/%d",clid);
+    DBG("request/1: '%s'\n",fcmd.c_str());
+    auto r = client->Get(fcmd);
+    if (!r) {
+        state = ANNA_ERROR;
+        internal_error = myformat("Remote request failed: %s",fcmd.c_str());
+        return "";
     }
 
-    state = ANNA_ERROR;
-    internal_error = myformat("Remote request failed: %s",cmd.c_str());
-    return "";
+    DBG("status = %d\n",r->status);
+    switch (r->status) {
+    case OK_200:
+        return r->body;
+    case ServiceUnavailable_503:
+        DBG("Temporarily unavailable, retrying...\n");
+        if (wait_callback) wait_callback();
+        else sleep(1);
+        return request(cmd); // tail recursion
+    default:
+        state = ANNA_ERROR;
+        internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
+        return "";
+    }
 }
 
-string AnnaClient::request(string cmd, string arg)
+string AnnaClient::request(const string cmd, const string arg)
 {
     if (state != ANNA_READY) return "";
-    cmd += myformat("/%d",clid);
-    DBG("request/2: '%s' '%s'\n",cmd.c_str(),arg.c_str());
+    string fcmd = cmd + myformat("/%d",clid);
+    DBG("request/2: '%s' '%s'\n",fcmd.c_str(),arg.c_str());
     Params params { { "arg", arg } };
-    auto r = client->Get(cmd,params,Headers(),Progress());
-    if (r) {
-        DBG("status = %d\n",r->status);
-        if (r->status != OK_200) {
-            state = ANNA_ERROR;
-            internal_error = myformat("Remote rejected request %s: %d",cmd.c_str(),r->status);
-            return "";
-        }
-        //DBG("body = '%s'\n",r->body.c_str());
-        return r->body;
+    auto r = client->Get(fcmd,params,Headers(),Progress());
+    if (!r) {
+        state = ANNA_ERROR;
+        internal_error = myformat("Remote request failed: %s",fcmd.c_str());
+        return "";
     }
 
-    state = ANNA_ERROR;
-    internal_error = myformat("Remote request failed: %s",cmd.c_str());
-    return "";
+    DBG("status = %d\n",r->status);
+    switch (r->status) {
+    case OK_200:
+        return r->body;
+    case ServiceUnavailable_503:
+        DBG("Temporarily unavailable, retrying...\n");
+        if (wait_callback) wait_callback();
+        else sleep(1);
+        return request(cmd,arg); // tail recursion
+    default:
+        state = ANNA_ERROR;
+        internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
+        return "";
+    }
 }
 
-bool AnnaClient::command(string cmd, bool force)
+bool AnnaClient::command(const string cmd, bool force)
 {
     return command(cmd,"<empty>",force);
 }
 
-bool AnnaClient::command(string cmd, string arg, bool force)
+bool AnnaClient::command(const string cmd, const string arg, bool force)
 {
     if (!force && state != ANNA_READY) return false;
-    cmd += myformat("/%d",clid);
-    DBG("command: '%s'\n",cmd.c_str());
-    auto r = client->Post(cmd,arg,"text/plain");
-    if (r) {
-        DBG("status = %d\n",r->status);
-        if (r->status != OK_200) {
-            state = ANNA_ERROR;
-            internal_error = myformat("Remote rejected command %s: %d",cmd.c_str(),r->status);
-        }
-        //DBG("body = '%s'\n",r->body.c_str());
-    } else {
+    string fcmd = cmd + myformat("/%d",clid);
+    DBG("command: '%s'\n",fcmd.c_str());
+    auto r = client->Post(fcmd,arg,"text/plain");
+    if (!r) {
         state = ANNA_ERROR;
-        internal_error = myformat("Remote command failed: %s",cmd.c_str());
+        internal_error = myformat("Remote command failed: %s",fcmd.c_str());
+        return true;
     }
-    return true;
+
+    DBG("status = %d\n",r->status);
+    switch (r->status) {
+    case OK_200:
+        return true;
+    case ServiceUnavailable_503:
+        DBG("Temporarily unavailable, retrying...\n");
+        if (wait_callback) wait_callback();
+        else sleep(1);
+        return command(cmd,arg,force); // tail recursion
+    default:
+        state = ANNA_ERROR;
+        internal_error = myformat("Remote rejected command %s: %d",fcmd.c_str(),r->status);
+        return false;
+    }
 }

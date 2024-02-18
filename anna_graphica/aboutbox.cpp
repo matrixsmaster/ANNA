@@ -10,7 +10,7 @@ AboutBox::AboutBox(QWidget *parent) :
     ui->setupUi(this);
     ui->verBrain->setText(ANNA_VERSION);
     ui->verGUI->setText(AG_VERSION);
-    ui->portrait_2->setPixmap(QPixmap::fromImage(ui->portrait_2->pixmap()->toImage().mirrored(true,false)));
+    ui->portrait_2->setPixmap(QPixmap::fromImage(ui->portrait_2->pixmap(Qt::ReturnByValue).toImage().mirrored(true,false)));
 }
 
 AboutBox::~AboutBox()

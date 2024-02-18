@@ -15,18 +15,20 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define ANNA_DEFAULT_CONTEXT 4096
-#define ANNA_DEFAULT_BATCH 512
-#define ANNA_DEFAULT_TEMP 0.3
-#define ANNA_DEFAULT_PROMPT "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"
-#define ANNA_CONFIG_FILE "anna.cfg"
-#define ANNA_QUICK_FILE "quicksave.anna"
-#define ANNA_MDFIX_FAILSAFE 100000
-#define ANNA_DEFAULT_SERVER "127.0.0.1:8080"
+#define AG_VERSION "0.8.0c"
 
-#define GUI_MAXTEXT 10*1024*1024
-#define GUI_ICON_W 48
-#define GUI_ICON_H 48
+#define AG_MAXTEXT 10*1024*1024
+#define AG_ICON_W 48
+#define AG_ICON_H 48
+#define AG_DEFAULT_CONTEXT 4096
+#define AG_DEFAULT_BATCH 512
+#define AG_DEFAULT_TEMP 0.3
+#define AG_DEFAULT_PROMPT "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"
+#define AG_CONFIG_FILE "anna.cfg"
+#define AG_QUICK_FILE "quicksave.anna"
+#define AG_MDFIX_FAILSAFE 100000
+#define AG_DEFAULT_SERVER "127.0.0.1:8080"
+
 
 struct AnnaAttachment {
     QString fn;
@@ -60,6 +62,7 @@ enum AnnaFileDialogType {
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWnd; }
 QT_END_NAMESPACE
+
 
 class MainWnd : public QMainWindow
 {
@@ -168,4 +171,5 @@ private:
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 };
+
 #endif // MAINWND_H

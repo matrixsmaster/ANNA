@@ -138,7 +138,7 @@ void RQPEditor::rescan()
     s.s = sets;
 
     int pstate = 0;
-    for (int i = 0; i < ANNA_ARGPARSE_FAILSAFE; i++) {
+    for (int i = 0; i < AG_ARGPARSE_FAILSAFE; i++) {
         QStringList lst = DetectRQP(ui->testEdit->toPlainText(),s);
         if (!lst.isEmpty()) ui->testResult->setText(lst.join(" "));
         if (s.fsm == pstate) break;
@@ -193,7 +193,7 @@ QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_even
 
     // collect process' output and hand it over to the brain
     QString out;
-    char buf[ANNA_PROCESS_IO_BUFLEN] = {0};
+    char buf[AG_PROCESS_IO_BUFLEN] = {0};
     while (p.state() == QProcess::Running) {
         auto ri = p.read(buf,sizeof(buf)-1);
         if (ri < 0) {
@@ -215,7 +215,7 @@ void RQPEditor::on_pushButton_2_clicked()
     s.lpos = 0;
     s.s = sets;
 
-    for (int i = 0; i < ANNA_ARGPARSE_FAILSAFE; i++) {
+    for (int i = 0; i < AG_ARGPARSE_FAILSAFE; i++) {
         QString out = DoRequest(s,ui->testEdit->toPlainText(),true,nullptr);
         if (!out.isEmpty()) {
             ui->testOut->setPlainText(out);

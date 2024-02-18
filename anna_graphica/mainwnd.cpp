@@ -59,7 +59,7 @@ MainWnd::MainWnd(QWidget *parent)
     ui->UserInput->installEventFilter(this);
     ui->statusbar->installEventFilter(this);
     ui->menubar->installEventFilter(this);
-    ui->AttachmentsList->setIconSize(QSize(GUI_ICON_W,GUI_ICON_H));
+    ui->AttachmentsList->setIconSize(QSize(AG_ICON_W,AG_ICON_H));
     ui->AINameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
     ui->UserNameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
 
@@ -71,7 +71,7 @@ MainWnd::MainWnd(QWidget *parent)
     next_attach = nullptr;
     last_username = false;
 
-    ui->statusbar->showMessage("ANNA version " ANNA_VERSION);
+    ui->statusbar->showMessage("ANNA ver. " ANNA_VERSION " GUI ver. " AG_VERSION);
 }
 
 MainWnd::~MainWnd()
@@ -95,19 +95,19 @@ void MainWnd::DefaultConfig()
     p->n_threads = std::thread::hardware_concurrency();
     if (p->n_threads < 1) p->n_threads = 1;
     p->n_predict = -1;
-    p->n_ctx = ANNA_DEFAULT_CONTEXT;
-    p->n_batch = ANNA_DEFAULT_BATCH;
+    p->n_ctx = AG_DEFAULT_CONTEXT;
+    p->n_batch = AG_DEFAULT_BATCH;
     p->n_gpu_layers = 0;
     p->model[0] = 0;
     p->prompt[0] = 0;
-    p->sparams.temp = ANNA_DEFAULT_TEMP;
+    p->sparams.temp = AG_DEFAULT_TEMP;
 
     config.user = &guiconfig;
     guiconfig.enter_key = 0;
     guiconfig.md_fix = true;
     guiconfig.save_prompt = false;
     guiconfig.clear_log = true;
-    guiconfig.server = ANNA_DEFAULT_SERVER;
+    guiconfig.server = AG_DEFAULT_SERVER;
     guiconfig.use_server = false;
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
@@ -115,7 +115,7 @@ void MainWnd::DefaultConfig()
 
 void MainWnd::LoadSettings()
 {
-    QString ini = qApp->applicationDirPath() + "/" + ANNA_CONFIG_FILE;
+    QString ini = qApp->applicationDirPath() + "/" + AG_CONFIG_FILE;
     if (!QFileInfo::exists(ini)) {
         qDebug("Settings file was not found at '%s'\n",ini.toStdString().c_str());
         return;
@@ -162,7 +162,7 @@ void MainWnd::LoadSettings()
 
 void MainWnd::SaveSettings()
 {
-    QString ini = qApp->applicationDirPath() + "/" + ANNA_CONFIG_FILE;
+    QString ini = qApp->applicationDirPath() + "/" + AG_CONFIG_FILE;
     QSettings s(ini,QSettings::IniFormat);
 
     // save main settings
@@ -419,7 +419,7 @@ void MainWnd::on_ModelFindButton_clicked()
     if (!config.params.prompt[0]) {
         auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
                                         QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
-        strcpy(config.params.prompt,ANNA_DEFAULT_PROMPT);
+        strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
         if (uq == QMessageBox::Yes)
             on_actionLoad_initial_prompt_triggered();
         else if (uq == QMessageBox::Cancel) {
@@ -581,7 +581,7 @@ void MainWnd::on_AttachButton_clicked()
 
     if (a.pic.load(a.fn)) {
         // if we can load it as Pixmap, then it's an image
-        ico.addPixmap(a.pic.scaled(GUI_ICON_W,GUI_ICON_H,Qt::KeepAspectRatio),QIcon::Normal,QIcon::On);
+        ico.addPixmap(a.pic.scaled(AG_ICON_W,AG_ICON_H,Qt::KeepAspectRatio),QIcon::Normal,QIcon::On);
 
     } else {
         // treat it as a text file
@@ -669,11 +669,12 @@ void MainWnd::on_actionSettings_triggered()
     SettingsDialog sdlg;
     sdlg.pconfig = &config;
 
-    if (sdlg.exec() == QDialog::Accepted && brain) {
+    if (sdlg.exec() == QDialog::Accepted) {
         // update things which don't require any LLM
         ui->ChatLog->setFont(guiconfig.log_fnt);
         ui->UserInput->setFont(guiconfig.usr_fnt);
         UpdateRQPs();
+        SaveSettings(); // make sure the file is updated as well
 
         if (brain) {
             // update things which can be updated on the fly
@@ -781,8 +782,8 @@ bool MainWnd::LoadLLMState(const QString& fn)
     }
 
     // normal stuff now - load the state using existing model
-    std::string dlg(GUI_MAXTEXT,'\0');
-    size_t usrlen = GUI_MAXTEXT;
+    std::string dlg(AG_MAXTEXT,'\0');
+    size_t usrlen = AG_MAXTEXT;
     if (!brain->LoadState(fn.toStdString(),(void*)dlg.data(),&usrlen)) {
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
         return false;
@@ -820,10 +821,10 @@ void MainWnd::FixMarkdown(QString& s)
     for (int i = 0; md_fix_tab[i]; i+=2) {
         //qDebug("Filter %d before: '%s'\n",i,s.toStdString().c_str());
         QRegExp ex(md_fix_tab[i]);
-        for (int n = 0; n < ANNA_MDFIX_FAILSAFE && ex.indexIn(s) != -1; n++) {
+        for (int n = 0; n < AG_MDFIX_FAILSAFE && ex.indexIn(s) != -1; n++) {
             //qDebug("%d %d %d\n",i,ex.indexIn(s),ex.matchedLength());
             s.replace(ex,md_fix_tab[i+1]);
-            if (s.length() > GUI_MAXTEXT) break;
+            if (s.length() > AG_MAXTEXT) break;
         }
         //qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
     }
@@ -892,7 +893,7 @@ void MainWnd::on_actionShow_context_tokens_triggered()
 void MainWnd::on_actionQuick_save_triggered()
 {
     if (!brain) return;
-    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    QString fn = qApp->applicationDirPath() + "/" + AG_QUICK_FILE;
     std::string dlg = cur_chat.toStdString();
     if (brain->SaveState(fn.toStdString(),dlg.data(),dlg.size()))
         ui->statusbar->showMessage("Quicksave point saved");
@@ -902,7 +903,7 @@ void MainWnd::on_actionQuick_save_triggered()
 
 void MainWnd::on_actionQuick_load_triggered()
 {
-    QString fn = qApp->applicationDirPath() + "/" + ANNA_QUICK_FILE;
+    QString fn = qApp->applicationDirPath() + "/" + AG_QUICK_FILE;
     if (LoadLLMState(fn))
         ui->statusbar->showMessage("Quickload complete");
 }

@@ -3,10 +3,6 @@
 
 #include <QDialog>
 
-#define COPYRIGHT   "Copyright (c) Georgi Gerganov, 2023\n" \
-                    "Copyright (c) llama.cpp contributors, 2023\n" \
-                    "Copyright (c) Dmitry 'sciloaf' Solovyev, 2023-2024\n"
-
 namespace Ui {
 class AboutBox;
 }

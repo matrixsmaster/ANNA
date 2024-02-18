@@ -7,8 +7,8 @@
 #include <QSettings>
 #include <QProcess>
 
-#define ANNA_PROCESS_IO_BUFLEN 1024
-#define ANNA_ARGPARSE_FAILSAFE 100
+#define AG_PROCESS_IO_BUFLEN 1024
+#define AG_ARGPARSE_FAILSAFE 100
 
 namespace Ui {
 class RQPEditor;

@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <deque>
 #include <iostream>
 #include <thread>
 #include <utility>
@@ -11,10 +12,11 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.7"
+#define SERVER_VERSION "0.0.8"
 #define SERVER_SAVE_DIR "saves"
+#define SERVER_PORT 8080
+#define SERVER_SCHED_WAIT 100000
 
-#define PORT 8080
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
 #define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
 #define ERROR(...) do { fprintf(stderr,"[ERROR] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -36,11 +38,14 @@ struct session {
     AnnaConfig cfg;
     AnnaBrain* brain;
     int reqs;
+    chrono::time_point<chrono::steady_clock> last_req;
     mutex lk;
 };
 
 map<int,session> usermap;
-mutex usermap_mtx;
+deque<int> userqueue;
+volatile int active_user = -1;
+mutex usermap_mtx, q_lock;
 bool quit = false;
 
 bool mod_user(int id, AnnaConfig& cfg)
@@ -52,18 +57,34 @@ bool mod_user(int id, AnnaConfig& cfg)
 
     usermap[id].lk.lock();
     usermap[id].cfg = cfg;
+    client_state oldstate = usermap[id].state;
     usermap[id].state = ANNASERV_CLIENT_CONFIGURED;
 
     AnnaBrain* bp = usermap.at(id).brain;
     if (bp) {
         bp->setConfig(cfg);
+        if (oldstate > ANNASERV_CLIENT_CONFIGURED) usermap[id].state = oldstate;
         INFO("Brain config updated\n");
-    } else {
+
+    } else if (active_user < 0) {
+        // have capacity to create a new brain
+        q_lock.lock();
         INFO("Creating new brain...\n");
+
         bp = new AnnaBrain(&cfg);
         usermap[id].brain = bp;
         usermap[id].state = ANNASERV_CLIENT_LOADED;
-        INFO("New brain created and config is set\n");
+
+        active_user = id;
+        q_lock.unlock();
+        INFO("New brain created, config set and active user is now %d\n",id);
+
+    } else {
+        // no capacity, add it to the queue
+        q_lock.lock();
+        if (userqueue.back() != id) userqueue.push_back(id);
+        q_lock.unlock();
+        INFO("Can't create or modify brain config for user %d - postponed\n",id);
     }
 
     usermap[id].lk.unlock();
@@ -182,6 +203,7 @@ int check_request(const Request& req, Response& res, const string funame)
         return 0;
     }
     usermap[id].reqs++;
+    usermap[id].last_req = chrono::steady_clock::now();
 
     INFO("%s() for user %d...\n",funame.c_str(),id);
     return id;
@@ -200,7 +222,9 @@ bool check_brain(int id, const string funame, Response& res)
         // valid request, just need to wait for client unhold
         INFO("Putting request %s from user %d into queue\n",funame.c_str(),id);
         res.status = ServiceUnavailable_503;
-        // TODO: add to queue
+        q_lock.lock();
+        if (userqueue.back() != id) userqueue.push_back(id);
+        q_lock.unlock();
 
     } else {
         WARN("Invalid request %s from user %d - brain does not exist and state is not on hold\n",funame.c_str(),id);
@@ -265,6 +289,7 @@ void install_services(Server* srv)
         usermap[id].addr = req.remote_addr;
         usermap[id].brain = nullptr;
         usermap[id].reqs = 0;
+        usermap[id].last_req = chrono::steady_clock::now();
         usermap_mtx.unlock();
 
         INFO("User %d session created\n",id);
@@ -430,11 +455,25 @@ void install_services(Server* srv)
 
 void server_thread(Server* srv)
 {
+    INFO("Installing services...\n");
     install_services(srv);
+    INFO("Services installed\n");
 
-    INFO("Starting to listen at %d\n",PORT);
-    srv->listen("0.0.0.0",PORT);
+    INFO("Starting to listen at %d\n",SERVER_PORT);
+    srv->listen("0.0.0.0",SERVER_PORT);
+
     INFO("Stopped listening\n");
+}
+
+void sched_thread()
+{
+    INFO("Scheduler started\n");
+
+    while (!quit) {
+        usleep(SERVER_SCHED_WAIT);
+    }
+
+    INFO("Scheduler stopped\n");
 }
 
 string get_input(string prompt)
@@ -462,9 +501,11 @@ int main()
 
     Server srv;
     thread srv_thr(server_thread,&srv);
-    puts("Server started.");
+    thread sched_thr(sched_thread);
+    INFO("Server started\n");
 
     // main CLI loop
+    sleep(1); // give time to other threads
     while (!quit) {
         string c = get_input("ANNA> ");
 
@@ -474,9 +515,12 @@ int main()
 
         } else if (c == "list" || c == "ls") {
             puts("=======================================");
-            for (auto & i : usermap)
-                printf("Client %d (0x%08X): state %d, IP %s, %d requests\n",
-                        i.first,i.first,i.second.state,i.second.addr.c_str(),i.second.reqs);
+            const auto now = chrono::steady_clock::now();
+            for (auto & i : usermap) {
+                float age = (float)((now - i.second.last_req) / 1ms) / 1000.f;
+                printf("Client %d (0x%08X): state %d, IP %s, %d requests, last one %.2f seconds ago\n",
+                        i.first,i.first,i.second.state,i.second.addr.c_str(),i.second.reqs,age);
+            }
             puts("=======================================");
 
         } else if (c == "kick" || c == "sus" || c == "res") {
@@ -490,9 +534,10 @@ int main()
         }
     }
 
-    puts("Stopping the server...");
+    INFO("Stopping the server...\n");
     srv.stop();
     srv_thr.join();
+    sched_thr.join();
 
     puts("Server exits normally.");
 }

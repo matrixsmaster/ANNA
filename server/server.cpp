@@ -11,7 +11,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.5"
+#define SERVER_VERSION "0.0.5b"
 #define SERVER_SAVE_DIR "saves"
 
 #define PORT 8080
@@ -79,9 +79,11 @@ bool del_user(int id)
 
     AnnaBrain* ptr = usermap.at(id).brain;
     if (ptr) delete ptr;
+    string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
 
     usermap.erase(id);
     reclaim_clid(id);
+    remove(fn.c_str());
     usermap_mtx.unlock();
 
     INFO("User %d session ended\n",id);

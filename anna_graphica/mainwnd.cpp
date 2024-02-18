@@ -310,11 +310,15 @@ void MainWnd::Generate()
                 qDebug("convo = %s\n",convo.toStdString().c_str());
             }
             break;
+        case ANNA_PROCESSING:
+            // nothing to do, waiting
+            break;
         case ANNA_ERROR:
             ui->statusbar->showMessage("Error: " + QString::fromStdString(brain->getError()));
             return;
         default:
-            break;
+            ui->statusbar->showMessage("Wrong brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
+            return;
         }
 
         ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));

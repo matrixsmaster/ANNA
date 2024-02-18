@@ -95,7 +95,7 @@ void AnnaClient::setConfig(const AnnaConfig &cfg)
     memset(config.params.model,0,sizeof(config.params.model));
     auto ps = fn.rfind('/');
     if (ps != string::npos) fn.erase(0,ps+1);
-    strncpy(config.params.model,fn.c_str(),sizeof(config.params.model));
+    strncpy(config.params.model,fn.c_str(),sizeof(config.params.model)-1);
 
     // infill large strings
     codec_infill_str(config.params.model,sizeof(config.params.model));

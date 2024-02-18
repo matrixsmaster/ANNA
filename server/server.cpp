@@ -11,7 +11,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.6"
+#define SERVER_VERSION "0.0.7"
 #define SERVER_SAVE_DIR "saves"
 
 #define PORT 8080
@@ -307,11 +307,10 @@ void install_services(Server* srv)
         cfg.user = nullptr; // not needed on the server
 
         if (!check_brain(id,"setConfig",res)) {
-            if (res.status == BadRequest_400) {
-                // still a valid request - we just need to initialize the brain
-                mod_user(id,cfg);
+            if (res.status == BadRequest_400) // still a valid request - we just need to initialize the brain
                 res.status = OK_200;
-            } else return;
+            else
+                return;
         }
 
         mod_user(id,cfg);

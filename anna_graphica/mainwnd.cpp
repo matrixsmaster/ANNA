@@ -1,4 +1,5 @@
 #include <string.h>
+#include <unistd.h>
 #include "mainwnd.h"
 #include "ui_mainwnd.h"
 #include "settingsdialog.h"
@@ -211,7 +212,23 @@ bool MainWnd::SaveFile(const QString& fn, const QString& str)
 
 bool MainWnd::NewBrain()
 {
-    brain = guiconfig.use_server? new AnnaClient(&config,guiconfig.server.toStdString()) : new AnnaBrain(&config);
+    if (!guiconfig.use_server) {
+        // create normal brain
+        brain = new AnnaBrain(&config);
+    } else {
+        // create network client instance
+        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString());
+        brain = dynamic_cast<AnnaBrain*>(ptr);
+        ptr->setWaitCallback([&]() {
+            bool prev_block = block;
+            block = true;
+            usleep(1000UL * AG_SERVER_WAIT_MS);
+            ui->statusbar->showMessage("Server is busy. Waiting in the queue...");
+            qApp->processEvents();
+            block = prev_block;
+        });
+    }
+
     if (brain->getState() == ANNA_READY) return true;
 
     ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
@@ -245,7 +262,12 @@ void MainWnd::LoadLLM(const QString &fn)
 
     // Process initial prompt
     ProcessInput(config.params.prompt);
-    seed_label->setText(QString("Seed: %1").arg((int)brain->getConfig().params.seed));
+
+    // Display the seed value
+    uint32_t seed = brain->getConfig().params.seed;
+    qDebug("Seed = %u\n",seed);
+    seed_label->setText(QString("Seed: %1").arg((int)seed));
+
     if (brain->getState() != ANNA_ERROR) ui->statusbar->showMessage("Brain is ready");
 }
 

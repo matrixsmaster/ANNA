@@ -15,7 +15,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.0c"
+#define AG_VERSION "0.8.1"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -28,6 +28,7 @@
 #define AG_QUICK_FILE "quicksave.anna"
 #define AG_MDFIX_FAILSAFE 100000
 #define AG_DEFAULT_SERVER "127.0.0.1:8080"
+#define AG_SERVER_WAIT_MS 1000
 
 
 struct AnnaAttachment {

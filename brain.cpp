@@ -39,7 +39,10 @@ AnnaBrain::AnnaBrain(AnnaConfig* cfg)
     config = *cfg;
 
     // prepare config
-    if (!config.params.seed) config.params.seed = time(NULL);
+    if (!config.params.seed) {
+        config.params.seed = time(NULL);
+        DBG("Setting seed to %u\n",config.params.seed);
+    }
     config.params.n_threads_batch = config.params.n_threads;
 
     // set logging if info is requested

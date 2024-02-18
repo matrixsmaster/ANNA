@@ -12,7 +12,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.1.0"
+#define SERVER_VERSION "0.1.1"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
@@ -499,8 +499,10 @@ void sched_thread()
         // check for active user's timeout
         if (active_user > 0) {
             float age = (float)((chrono::steady_clock::now() - usermap.at(active_user).last_req) / 1ms) / 1000.f;
+            if (userqueue.empty()) age = 0; // no need to switch, as there's no more requests atm
             if (usermap[active_user].lk.try_lock()) usermap[active_user].lk.unlock(); // just test the lock
-            else age = 0; // if locked, something's happening, so we can't release this client yet
+            else age = 0; // if locked - something's happening, so we can't release this client yet
+
             if (age > SERVER_CLIENT_TIMEOUT) {
                 // put the client on hold and reset active user
                 hold_user(active_user);
@@ -509,16 +511,15 @@ void sched_thread()
         }
 
         // check for the queue
-        if (active_user < 0) {
-            if (userqueue.size() > 0) {
-                active_user = userqueue.front();
-                userqueue.pop_front();
-                // check if it still valid
-                if (usermap.count(active_user))
-                    unhold_user(active_user); // and resume it
-                else
-                    active_user = -1;
-            }
+        if (active_user < 0 && !userqueue.empty()) {
+            active_user = userqueue.front();
+            userqueue.pop_front();
+
+            // check if it's still valid
+            if (usermap.count(active_user))
+                unhold_user(active_user); // and resume it
+            else
+                active_user = -1;
         }
 
         q_lock.unlock();

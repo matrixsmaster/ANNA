@@ -12,7 +12,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.0.9"
+#define SERVER_VERSION "0.1.0"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
@@ -52,7 +52,8 @@ bool quit = false;
 void add_queue(int id)
 {
     q_lock.lock();
-    if (userqueue.empty() || userqueue.back() != id) userqueue.push_back(id);
+    if (userqueue.empty() || find(userqueue.begin(),userqueue.end(),id) == userqueue.end())
+        userqueue.push_back(id);
     q_lock.unlock();
 }
 
@@ -110,7 +111,7 @@ bool del_user(int id)
 
     usermap.erase(id);
     reclaim_clid(id);
-    remove(fn.c_str());
+    if (!remove(fn.c_str())) INFO("Save file %s removed\n",fn.c_str());
     usermap_mtx.unlock();
 
     INFO("User %d session ended\n",id);
@@ -230,16 +231,20 @@ bool check_brain(int id, const string funame, Response& res)
 
     if (ptr) return true;
 
-    if (s == ANNASERV_CLIENT_UNLOADED) {
+    switch (s) {
+    case ANNASERV_CLIENT_CONFIGURED:
+    case ANNASERV_CLIENT_UNLOADED:
         // valid request, just need to wait for client unhold
         INFO("Putting request %s from user %d into queue\n",funame.c_str(),id);
         res.status = ServiceUnavailable_503;
         add_queue(id);
+        break;
 
-    } else {
+    default:
         WARN("Invalid request %s from user %d - brain does not exist and state is not on hold\n",funame.c_str(),id);
         res.status = BadRequest_400;
     }
+
     return false;
 }
 
@@ -494,6 +499,8 @@ void sched_thread()
         // check for active user's timeout
         if (active_user > 0) {
             float age = (float)((chrono::steady_clock::now() - usermap.at(active_user).last_req) / 1ms) / 1000.f;
+            if (usermap[active_user].lk.try_lock()) usermap[active_user].lk.unlock(); // just test the lock
+            else age = 0; // if locked, something's happening, so we can't release this client yet
             if (age > SERVER_CLIENT_TIMEOUT) {
                 // put the client on hold and reset active user
                 hold_user(active_user);

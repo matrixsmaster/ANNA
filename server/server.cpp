@@ -13,7 +13,7 @@
 #include "../brain.h"
 #include "../common.h"
 
-#define SERVER_VERSION "0.1.2b"
+#define SERVER_VERSION "0.1.3b"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
@@ -22,7 +22,7 @@
 //#define SERVER_CLIENT_DEAD_TO 24
 #define SERVER_DEF_CPU_THREADS 12
 #define SERVER_DEF_GPU_VRAM (14ULL * 1024ULL * 1024ULL * 1024ULL)
-#define SERVER_DEF_GPU_MARGIN 0.88
+#define SERVER_DEF_GPU_MARGIN 0.86
 
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
 #define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -91,7 +91,7 @@ int get_max_gpu_layers(AnnaConfig* cfg)
     INFO("File size = %lu bytes; model size = %lu bytes\n",fsz,msz);
 
     INFO("Model size: %lu\nLayers: %d\nState size: %lu\n",msz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
-    double totsz = llama_get_state_size(ctx) + msz;
+    double totsz = llama_get_state_size(ctx) + fsz;
     double fulloff = (double)SERVER_DEF_GPU_VRAM * (double)llama_model_n_layers(mdl) / totsz;
     int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
     if (off < 0) off = 0;
@@ -198,8 +198,8 @@ bool unhold_user(int id)
 
         ptr = new AnnaBrain(&(usermap[id].cfg));
         usermap[id].brain = ptr;
-        if (ptr->getState() == ANNA_ERROR) {
-            res = false;
+        res = (ptr->getState() != ANNA_ERROR);
+        if (!res) {
             ERROR("Unable to load model file %s: %s\n",usermap[id].cfg.params.model,ptr->getError().c_str());
             usermap[id].state = ANNASERV_CLIENT_ERROR;
             usermap[id].last_error = ptr->getError();
@@ -208,13 +208,16 @@ bool unhold_user(int id)
         if (res && usermap[id].state == ANNASERV_CLIENT_UNLOADED) {
             string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
             INFO("Loading user %d state from %s: ",id,fn.c_str());
-            if (ptr->LoadState(fn,nullptr,nullptr)) {
+            if (ptr->LoadState(fn,nullptr,nullptr))
                 INFO("success\n");
-                res = true;
-            } else {
+            else {
                 ERROR("failure! (%s)\n",ptr->getError().c_str());
                 usermap[id].state = ANNASERV_CLIENT_ERROR;
                 usermap[id].last_error = ptr->getError();
+                delete ptr;
+                usermap[id].brain = nullptr;
+                WARN("Brain deleted\n");
+                res = false;
             }
         }
 
@@ -280,13 +283,16 @@ int check_request(const Request& req, Response& res, const string funame)
         return 0;
     }
 
+    INFO("%s() for user %d...\n",funame.c_str(),id);
+    return id;
+}
+
+void fin_request(int id)
+{
     usermap[id].lk.lock();
     usermap[id].reqs++;
     usermap[id].last_req = chrono::steady_clock::now();
     usermap[id].lk.unlock();
-
-    INFO("%s() for user %d...\n",funame.c_str(),id);
-    return id;
 }
 
 bool check_brain(int id, const string funame, Response& res)
@@ -390,13 +396,11 @@ void install_services(Server* srv)
         usermap_mtx.unlock();
 
         INFO("User %d session created\n",id);
-        return;
     });
 
     srv->Post("/sessionEnd/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"sessionEnd");
-        if (!id) return;
-        del_user(id);
+        if (id) del_user(id);
     });
 
     srv->Get("/getState/:id", [](const Request &req, Response &res) {
@@ -411,6 +415,7 @@ void install_services(Server* srv)
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
         INFO("getState() for user %d: %s\n",id,str.c_str());
+        fin_request(id);
     });
 
     srv->Post("/setConfig/:id", [](const Request& req, Response& res) {
@@ -437,7 +442,7 @@ void install_services(Server* srv)
 
         mod_user(id,cfg);
         INFO("setConfig() complete\n");
-        return;
+        fin_request(id);
     });
 
     srv->Get("/getConfig/:id", [](const Request& req, Response& res) {
@@ -454,7 +459,7 @@ void install_services(Server* srv)
         codec_infill_str(cfg.params.prompt,sizeof(cfg.params.prompt));
         res.set_content(to_base64(id,&cfg,sizeof(cfg)),"text/plain");
         INFO("getConfig() complete\n");
-        return;
+        fin_request(id);
     });
 
     srv->Get("/processing/:id", [](const Request &req, Response &res) {
@@ -476,6 +481,7 @@ void install_services(Server* srv)
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
         INFO("processing(%s) for user %d: %s\n",arg.c_str(),id,str.c_str());
+        fin_request(id);
     });
 
     srv->Get("/getOutput/:id", [](const Request &req, Response &res) {
@@ -490,6 +496,7 @@ void install_services(Server* srv)
 
         res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getOutput() for user %d: %s\n",id,str.c_str());
+        fin_request(id);
     });
 
     srv->Post("/setInput/:id", [](const Request& req, Response& res) {
@@ -505,7 +512,7 @@ void install_services(Server* srv)
         usermap[id].lk.unlock();
 
         INFO("Brain input set\n");
-        return;
+        fin_request(id);
     });
 
     srv->Post("/setPrefix/:id", [](const Request& req, Response& res) {
@@ -520,7 +527,7 @@ void install_services(Server* srv)
         usermap.at(id).brain->setPrefix(str);
         usermap[id].lk.unlock();
         INFO("Prefix is set\n");
-        return;
+        fin_request(id);
     });
 
     srv->Get("/getError/:id", [](const Request &req, Response &res) {
@@ -534,6 +541,7 @@ void install_services(Server* srv)
 
         res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
         INFO("getError() for user %d: %s\n",id,str.c_str());
+        fin_request(id);
     });
 
     srv->Get("/getTokensUsed/:id", [](const Request &req, Response &res) {
@@ -547,6 +555,7 @@ void install_services(Server* srv)
 
         res.set_content(str,"text/plain");
         INFO("getTokensUsed() for user %d: %s\n",id,str.c_str());
+        fin_request(id);
     });
 
     srv->Post("/reset/:id", [](const Request& req, Response& res) {
@@ -558,7 +567,7 @@ void install_services(Server* srv)
         usermap.at(id).brain->Reset();
         usermap[id].lk.unlock();
         INFO("Brain is reset\n");
-        return;
+        fin_request(id);
     });
 }
 
@@ -579,6 +588,8 @@ void sched_thread()
     INFO("Scheduler started\n");
 
     while (!quit) {
+        int hold = -1, unhold = -1;
+
         usermap_mtx.lock();
         q_lock.lock();
 
@@ -598,7 +609,7 @@ void sched_thread()
                 ++qi;
         }
 
-        // check for active user's timeout
+        // check for active user's inactivity timeout
         if (active_user > 0) {
             float age = (float)((chrono::steady_clock::now() - usermap.at(active_user).last_req) / 1ms) / 1000.f;
             if (userqueue.empty()) age = 0; // no need to switch, as there's no more requests atm
@@ -606,29 +617,56 @@ void sched_thread()
             else age = 0; // if locked - something's happening, so we can't release this client yet
 
             if (age > SERVER_CLIENT_TIMEOUT) {
-                // put the client on hold and reset active user
-                hold_user(active_user);
-                active_user = -1;
+                INFO("User %d inactivity timeout\n",active_user);
+                hold = active_user;
+            }
+        }
+
+        // check for queue waiting time
+        if (active_user > 0 && !userqueue.empty()) {
+            int next = userqueue.front(); // oldest request will be the first
+            if (usermap.count(next)) {
+                int age = (chrono::steady_clock::now() - usermap.at(next).last_req) / 1s;
+                // if another client waited too long, then remove the current client
+                if (age > SERVER_CLIENT_MAXTIME) {
+                    INFO("User %d waited too long, forcing suspend of user %d\n",next,active_user);
+                    hold = active_user;
+                }
             }
         }
 
         // check for the queue
         if (active_user < 0 && !userqueue.empty()) {
-            active_user = userqueue.front();
+            unhold = userqueue.front();
             userqueue.pop_front();
-
             // check if it's still valid
-            if (usermap.count(active_user)) {
-                if (!unhold_user(active_user)) { // and resume it
-                    ERROR("Unable to resume session for user %d\n",active_user);
-                    active_user = -1;
-                }
-            } else
-                active_user = -1;
+            if (usermap.count(unhold) < 1)
+                unhold = -1;
         }
 
         q_lock.unlock();
         usermap_mtx.unlock();
+
+        // hold a user
+        if (hold > 0) {
+            // put the client on hold and reset active user
+            hold_user(hold);
+            q_lock.lock();
+            active_user = -1;
+            q_lock.unlock();
+        }
+
+        // unhold a user
+        if (unhold > 0) {
+            if (!unhold_user(unhold)) { // and resume it
+                ERROR("Unable to resume session for user %d\n",unhold);
+                unhold = -1;
+            }
+            q_lock.lock();
+            active_user = unhold;
+            q_lock.unlock();
+        }
+
         usleep(SERVER_SCHED_WAIT);
     }
 

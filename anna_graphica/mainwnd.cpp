@@ -315,7 +315,7 @@ void MainWnd::Generate()
 
     while (brain && !stop) {
         AnnaState s = brain->Processing(ui->SamplingCheck->isChecked());
-        qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
+        //qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
 
         switch (s) {
         case ANNA_READY:
@@ -323,7 +323,7 @@ void MainWnd::Generate()
             // fall-thru
         case ANNA_TURNOVER:
             str = brain->getOutput();
-            qDebug("str = %s\n",str.c_str());
+            //qDebug("str = %s\n",str.c_str());
             convo += QString::fromStdString(str);
             if (!ui->UserNameBox->currentText().isEmpty() && convo.endsWith(ui->UserNameBox->currentText())) {
                 last_username = true;

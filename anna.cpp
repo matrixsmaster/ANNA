@@ -19,16 +19,16 @@
 #include "common.h"
 #include "sampling.h"
 
-#define ANNA_VERSION "0.5.7"
+#define ANNA_VERSION "0.5.7b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
-//#else
-//#define DBG(...)
-//#endif
+#else
+#define DBG(...)
+#endif
 
 #define MAX_INPUT_LEN 2048
 #define MAX_INPUT_WAIT_MS 250

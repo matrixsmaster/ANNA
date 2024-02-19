@@ -11,12 +11,18 @@
 #include "codec.h"
 #include "../dtypes.h"
 #include "../brain.h"
+#include "../common.h"
 
-#define SERVER_VERSION "0.1.1c"
+#define SERVER_VERSION "0.1.2"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
-#define SERVER_CLIENT_TIMEOUT 10
+#define SERVER_CLIENT_TIMEOUT 5
+#define SERVER_CLIENT_MAXTIME 30
+//#define SERVER_CLIENT_DEAD_TO 24
+#define SERVER_DEF_CPU_THREADS 12
+#define SERVER_DEF_GPU_VRAM 15
+#define SERVER_DEF_GPU_MARGIN 0.9
 
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
 #define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -38,6 +44,7 @@ struct session {
     string addr;
     AnnaConfig cfg;
     AnnaBrain* brain;
+    int gpu_layers;
     int reqs;
     chrono::time_point<chrono::steady_clock> last_req;
     mutex lk;
@@ -57,7 +64,43 @@ void add_queue(int id)
     q_lock.unlock();
 }
 
-bool mod_user(int id, AnnaConfig& cfg)
+int get_max_gpu_layers(AnnaConfig* cfg)
+{
+    // first of all, let's determine the overall size of the model file
+    FILE* f = fopen(cfg->params.model,"rb");
+    if (!f) {
+        WARN("Unable to open file '%s'!\n",cfg->params.model);
+        return 0;
+    }
+    fseek(f,0,SEEK_END);
+    size_t fsz = ftell(f);
+    fclose(f);
+
+    // we need to know number of layers and the state size, so (pre-)load the model
+    llama_model* mdl;
+    llama_context* ctx;
+    tie(mdl,ctx) = llama_init_from_gpt_params(cfg->params);
+    if (!mdl) {
+        WARN("Unable to test-load model '%s'. Using no GPU offload for it!\n",cfg->params.model);
+        return 0;
+    }
+
+    size_t msz = llama_model_size(mdl);
+    INFO("File size = %lu bytes; model size = %lu bytes\n",fsz,msz);
+
+    double totsz = llama_get_state_size(ctx) + msz;
+    double fulloff = (float)SERVER_DEF_GPU_VRAM * (float)llama_model_n_layers(mdl) / totsz;
+    int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
+    if (off < 0) off = 0;
+    INFO("GPU offload for '%s' calculated as %.2f (%d) layers\n",cfg->params.model,fulloff,off);
+
+    llama_free(ctx);
+    llama_free_model(mdl);
+
+    return off;
+}
+
+bool mod_user(int id, const AnnaConfig& cfg)
 {
     if (!usermap.count(id)) return false;
     INFO("Updating user %d\n",id);
@@ -66,32 +109,15 @@ bool mod_user(int id, AnnaConfig& cfg)
 
     usermap[id].lk.lock();
     usermap[id].cfg = cfg;
-    client_state oldstate = usermap[id].state;
-    usermap[id].state = ANNASERV_CLIENT_CONFIGURED;
+
+    if (usermap[id].state < ANNASERV_CLIENT_CONFIGURED)
+        usermap[id].state = ANNASERV_CLIENT_CONFIGURED;
 
     AnnaBrain* bp = usermap.at(id).brain;
     if (bp) {
+        // change immediately if we have such opportunity
         bp->setConfig(cfg);
-        if (oldstate > ANNASERV_CLIENT_CONFIGURED) usermap[id].state = oldstate;
         INFO("Brain config updated\n");
-
-    } else if (active_user < 0) {
-        // have capacity to create a new brain
-        q_lock.lock();
-        INFO("Creating new brain...\n");
-
-        bp = new AnnaBrain(&cfg);
-        usermap[id].brain = bp;
-        usermap[id].state = ANNASERV_CLIENT_LOADED;
-
-        active_user = id;
-        q_lock.unlock();
-        INFO("New brain created, config set and active user is now %d\n",id);
-
-    } else {
-        // no capacity, add it to the queue
-        add_queue(id);
-        INFO("Can't create or modify brain config for user %d - postponed\n",id);
     }
 
     usermap[id].lk.unlock();
@@ -155,6 +181,11 @@ bool unhold_user(int id)
     AnnaBrain* ptr = usermap.at(id).brain;
     if (!ptr) {
         INFO("Re-creating a brain for user %d\n",id);
+
+        if (usermap[id].gpu_layers < 0)
+            usermap[id].gpu_layers = get_max_gpu_layers(&(usermap[id].cfg));
+        usermap[id].cfg.params.n_gpu_layers = usermap[id].gpu_layers;
+
         ptr = new AnnaBrain(&(usermap[id].cfg));
         usermap[id].brain = ptr;
         res = (ptr->getState() != ANNA_ERROR);
@@ -296,6 +327,13 @@ string from_base64_str(uint32_t clid, string in)
     return s;
 }
 
+void fix_config(AnnaConfig& cfg)
+{
+    cfg.user = nullptr; // not needed on the server
+    cfg.params.n_threads = SERVER_DEF_CPU_THREADS; // hardcoded value for all clients
+    cfg.params.n_gpu_layers = 0; // reset GPU offload for now
+}
+
 void install_services(Server* srv)
 {
     srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
@@ -313,6 +351,7 @@ void install_services(Server* srv)
         usermap[id].state = ANNASERV_CLIENT_CREATED;
         usermap[id].addr = req.remote_addr;
         usermap[id].brain = nullptr;
+        usermap[id].gpu_layers = -1;
         usermap[id].reqs = 0;
         usermap[id].last_req = chrono::steady_clock::now();
         usermap_mtx.unlock();
@@ -354,7 +393,7 @@ void install_services(Server* srv)
             return;
         }
         INFO("%lu bytes decoded\n",r);
-        cfg.user = nullptr; // not needed on the server
+        fix_config(cfg);
 
         if (!check_brain(id,"setConfig",res)) {
             if (res.status == BadRequest_400) // still a valid request - we just need to initialize the brain
@@ -475,6 +514,18 @@ void install_services(Server* srv)
 
         res.set_content(str,"text/plain");
         INFO("getTokensUsed() for user %d: %s\n",id,str.c_str());
+    });
+
+    srv->Post("/reset/:id", [](const Request& req, Response& res) {
+        int id = check_request(req,res,"reset");
+        if (!id) return;
+        if (!check_brain(id,"reset",res)) return;
+
+        usermap[id].lk.lock();
+        usermap.at(id).brain->Reset();
+        usermap[id].lk.unlock();
+        INFO("Brain is reset\n");
+        return;
     });
 }
 

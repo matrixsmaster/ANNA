@@ -10762,6 +10762,11 @@ uint64_t llama_model_n_params(const struct llama_model * model) {
     return nparams;
 }
 
+uint32_t llama_model_n_layers(const struct llama_model * model)
+{
+    return model->hparams.n_layer;
+}
+
 struct ggml_tensor * llama_get_model_tensor(struct llama_model * model, const char * name) {
     auto it = std::find_if(model->tensors_by_name.begin(), model->tensors_by_name.end(),
             [name](const std::pair<std::string, struct ggml_tensor *> & it) {

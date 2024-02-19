@@ -21,8 +21,8 @@
 #define SERVER_CLIENT_MAXTIME 30
 //#define SERVER_CLIENT_DEAD_TO 24
 #define SERVER_DEF_CPU_THREADS 12
-#define SERVER_DEF_GPU_VRAM (15ULL * 1024ULL * 1024ULL * 1024ULL)
-#define SERVER_DEF_GPU_MARGIN 0.9
+#define SERVER_DEF_GPU_VRAM (14ULL * 1024ULL * 1024ULL * 1024ULL)
+#define SERVER_DEF_GPU_MARGIN 0.88
 
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
 #define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -92,7 +92,7 @@ int get_max_gpu_layers(AnnaConfig* cfg)
 
     INFO("Model size: %lu\nLayers: %d\nState size: %lu\n",msz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
     double totsz = llama_get_state_size(ctx) + msz;
-    double fulloff = (float)SERVER_DEF_GPU_VRAM * (float)llama_model_n_layers(mdl) / totsz;
+    double fulloff = (double)SERVER_DEF_GPU_VRAM * (double)llama_model_n_layers(mdl) / totsz;
     int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
     if (off < 0) off = 0;
     INFO("GPU offload for '%s' calculated as %.2f (%d) layers\n",cfg->params.model,fulloff,off);

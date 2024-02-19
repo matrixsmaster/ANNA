@@ -32,9 +32,11 @@ MK_CFLAGS   = -std=c11   -fPIC
 MK_CXXFLAGS = -std=c++11 -fPIC
 
 # -Ofast tends to produce faster code, but may not be available for some compilers.
-MK_CFLAGS     += -Ofast
-HOST_CXXFLAGS += -Ofast
-MK_NVCCFLAGS  += -O3
+ifndef LLAMA_DEBUG
+	MK_CFLAGS     += -Ofast
+	HOST_CXXFLAGS += -Ofast
+	MK_NVCCFLAGS  += -O3
+endif
 
 # clock_gettime came in POSIX.1b (1993)
 # CLOCK_MONOTONIC came in POSIX.1-2001 / SUSv3 as optional

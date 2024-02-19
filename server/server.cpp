@@ -13,7 +13,7 @@
 #include "../brain.h"
 #include "../common.h"
 
-#define SERVER_VERSION "0.1.2"
+#define SERVER_VERSION "0.1.2b"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
@@ -21,7 +21,7 @@
 #define SERVER_CLIENT_MAXTIME 30
 //#define SERVER_CLIENT_DEAD_TO 24
 #define SERVER_DEF_CPU_THREADS 12
-#define SERVER_DEF_GPU_VRAM 15
+#define SERVER_DEF_GPU_VRAM (15ULL * 1024ULL * 1024ULL * 1024ULL)
 #define SERVER_DEF_GPU_MARGIN 0.9
 
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -33,6 +33,7 @@ using namespace httplib;
 
 enum client_state {
     ANNASERV_CLIENT_CREATED = 0,
+    ANNASERV_CLIENT_ERROR,
     ANNASERV_CLIENT_CONFIGURED,
     ANNASERV_CLIENT_LOADED,
     ANNASERV_CLIENT_UNLOADED,
@@ -48,6 +49,7 @@ struct session {
     int reqs;
     chrono::time_point<chrono::steady_clock> last_req;
     mutex lk;
+    string last_error;
 };
 
 map<int,session> usermap;
@@ -88,6 +90,7 @@ int get_max_gpu_layers(AnnaConfig* cfg)
     size_t msz = llama_model_size(mdl);
     INFO("File size = %lu bytes; model size = %lu bytes\n",fsz,msz);
 
+    INFO("Model size: %lu\nLayers: %d\nState size: %lu\n",msz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
     double totsz = llama_get_state_size(ctx) + msz;
     double fulloff = (float)SERVER_DEF_GPU_VRAM * (float)llama_model_n_layers(mdl) / totsz;
     int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
@@ -133,11 +136,13 @@ bool del_user(int id)
 
     AnnaBrain* ptr = usermap.at(id).brain;
     if (ptr) delete ptr;
+
     string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
+    if (!remove(fn.c_str())) INFO("Save file %s removed\n",fn.c_str());
 
     usermap.erase(id);
     reclaim_clid(id);
-    if (!remove(fn.c_str())) INFO("Save file %s removed\n",fn.c_str());
+
     usermap_mtx.unlock();
 
     INFO("User %d session ended\n",id);
@@ -154,8 +159,13 @@ bool hold_user(int id)
     if (ptr) {
         string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
         INFO("Saving user %d state into %s: ",id,fn.c_str());
-        if (ptr->SaveState(fn,nullptr,0)) INFO("success\n");
-        else ERROR("failure! %s\n",ptr->getError().c_str());
+        if (ptr->SaveState(fn,nullptr,0))
+            INFO("success\n");
+        else {
+            ERROR("failure! (%s)\n",ptr->getError().c_str());
+            usermap[id].state = ANNASERV_CLIENT_ERROR;
+            usermap[id].last_error = ptr->getError();
+        }
         delete ptr;
         usermap[id].brain = nullptr;
         usermap[id].state = ANNASERV_CLIENT_UNLOADED;
@@ -178,7 +188,7 @@ bool unhold_user(int id)
 
     usermap[id].lk.lock();
     bool res = false;
-    AnnaBrain* ptr = usermap.at(id).brain;
+    AnnaBrain* ptr = usermap[id].brain;
     if (!ptr) {
         INFO("Re-creating a brain for user %d\n",id);
 
@@ -188,7 +198,12 @@ bool unhold_user(int id)
 
         ptr = new AnnaBrain(&(usermap[id].cfg));
         usermap[id].brain = ptr;
-        res = (ptr->getState() != ANNA_ERROR);
+        if (ptr->getState() == ANNA_ERROR) {
+            res = false;
+            ERROR("Unable to load model file %s: %s\n",usermap[id].cfg.params.model,ptr->getError().c_str());
+            usermap[id].state = ANNASERV_CLIENT_ERROR;
+            usermap[id].last_error = ptr->getError();
+        }
 
         if (res && usermap[id].state == ANNASERV_CLIENT_UNLOADED) {
             string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
@@ -196,8 +211,11 @@ bool unhold_user(int id)
             if (ptr->LoadState(fn,nullptr,nullptr)) {
                 INFO("success\n");
                 res = true;
-            } else
-                ERROR("failure! %s\n",ptr->getError().c_str());
+            } else {
+                ERROR("failure! (%s)\n",ptr->getError().c_str());
+                usermap[id].state = ANNASERV_CLIENT_ERROR;
+                usermap[id].last_error = ptr->getError();
+            }
         }
 
         if (res) usermap[id].state = ANNASERV_CLIENT_LOADED;
@@ -209,6 +227,8 @@ bool unhold_user(int id)
     usermap[id].lk.unlock();
 
     if (res) INFO("User %d session resumed\n",id);
+    else WARN("User %d session is NOT resumed\n",id);
+
     return res;
 }
 
@@ -243,13 +263,19 @@ int check_request(const Request& req, Response& res, const string funame)
 {
     //cout << rlog(req) << endl;
     int id = atoi(req.path_params.at("id").c_str());
-    if (!usermap.count(id)) {
+
+    usermap_mtx.lock();
+    int cnt = usermap.count(id);
+    string id_addr = usermap.at(id).addr;
+    usermap_mtx.unlock();
+
+    if (!cnt) {
         WARN("%s() requested for non-existing user %d\n",funame.c_str(),id);
         res.status = BadRequest_400;
         return 0;
     }
-    if (usermap.at(id).addr != req.remote_addr) {
-        ERROR("Request %s() for user %d came from wrong IP (%s expected, got %s)!\n",funame.c_str(),id,usermap.at(id).addr.c_str(),req.remote_addr.c_str());
+    if (id_addr != req.remote_addr) {
+        ERROR("Request %s() for user %d came from wrong IP (%s expected, got %s)!\n",funame.c_str(),id,id_addr.c_str(),req.remote_addr.c_str());
         res.status = Forbidden_403;
         return 0;
     }
@@ -268,6 +294,7 @@ bool check_brain(int id, const string funame, Response& res)
     usermap[id].lk.lock();
     AnnaBrain* ptr = usermap.at(id).brain;
     client_state s = usermap.at(id).state;
+    string err = usermap.at(id).last_error;
     usermap[id].lk.unlock();
 
     if (ptr) return true;
@@ -279,6 +306,12 @@ bool check_brain(int id, const string funame, Response& res)
         INFO("Putting request %s from user %d into queue\n",funame.c_str(),id);
         res.status = ServiceUnavailable_503;
         add_queue(id);
+        break;
+
+    case ANNASERV_CLIENT_ERROR:
+        WARN("Rejecting request from errored-out user %d (reason: %s)\n",id,err.c_str());
+        res.status = MethodNotAllowed_405;
+        res.body = err;
         break;
 
     default:
@@ -587,9 +620,7 @@ void sched_thread()
             // check if it's still valid
             if (usermap.count(active_user)) {
                 if (!unhold_user(active_user)) { // and resume it
-                    // can't resume - delete
-                    del_user(active_user);
-                    ERROR("Unable to resume session for user %d - deleting session now\n",active_user);
+                    ERROR("Unable to resume session for user %d\n",active_user);
                     active_user = -1;
                 }
             } else

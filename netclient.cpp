@@ -1,3 +1,4 @@
+#include "unistd.h"
 #include "netclient.h"
 #include "../server/httplib.h"
 #include "../server/base64m.h"

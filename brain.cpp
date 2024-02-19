@@ -395,7 +395,7 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
 #ifdef ANNA_USE_MMAP
     int fd = open(fname.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
     if (fd < 0) {
-        internal_error = myformat("Unable to open file '%s' for writing",fname.c_str());
+        internal_error = myformat("Unable to open file '%s' for writing: %s",fname.c_str(),strerror(errno));
         return false;
     }
 
@@ -509,9 +509,9 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
 
 #ifdef ANNA_USE_MMAP
     fclose(f);
-    int fd = open(fname.c_str(),O_RDONLY|O_DIRECT);
+    int fd = open(fname.c_str(),O_RDONLY);
     if (fd < 0) {
-        internal_error = myformat("Unable to re-open() the file!");
+        internal_error = myformat("Unable to re-open() the file: %s",strerror(errno));
         return false;
     }
 

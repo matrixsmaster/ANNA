@@ -12,7 +12,7 @@
 #include "../dtypes.h"
 #include "../brain.h"
 
-#define SERVER_VERSION "0.1.1"
+#define SERVER_VERSION "0.1.1c"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
@@ -123,6 +123,7 @@ bool hold_user(int id)
     if (!usermap.count(id)) return false;
 
     usermap[id].lk.lock();
+    bool res = false;
     AnnaBrain* ptr = usermap.at(id).brain;
     if (ptr) {
         string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
@@ -132,12 +133,13 @@ bool hold_user(int id)
         delete ptr;
         usermap[id].brain = nullptr;
         usermap[id].state = ANNASERV_CLIENT_UNLOADED;
+        res = true;
     } else
         ERROR("Unable to hold inactive user!\n");
     usermap[id].lk.unlock();
 
-    INFO("User %d session suspended\n",id);
-    return true;
+    if (res) INFO("User %d session suspended\n",id);
+    return res;
 }
 
 bool unhold_user(int id)
@@ -149,26 +151,34 @@ bool unhold_user(int id)
     }
 
     usermap[id].lk.lock();
-
+    bool res = false;
     AnnaBrain* ptr = usermap.at(id).brain;
     if (!ptr) {
         INFO("Re-creating a brain for user %d\n",id);
         ptr = new AnnaBrain(&(usermap[id].cfg));
         usermap[id].brain = ptr;
-        usermap[id].state = ANNASERV_CLIENT_LOADED;
+        res = (ptr->getState() != ANNA_ERROR);
 
-        string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
-        INFO("Loading user %d state from %s: ",id,fn.c_str());
-        if (ptr->LoadState(fn,nullptr,nullptr)) INFO("success\n");
-        else ERROR("failure! %s\n",ptr->getError().c_str());
+        if (res && usermap[id].state == ANNASERV_CLIENT_UNLOADED) {
+            string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
+            INFO("Loading user %d state from %s: ",id,fn.c_str());
+            if (ptr->LoadState(fn,nullptr,nullptr)) {
+                INFO("success\n");
+                res = true;
+            } else
+                ERROR("failure! %s\n",ptr->getError().c_str());
+        }
+
+        if (res) usermap[id].state = ANNASERV_CLIENT_LOADED;
+
     } else
         ERROR("Unable to unhold active user %d!\n",id);
 
     usermap[id].last_req = chrono::steady_clock::now();
     usermap[id].lk.unlock();
 
-    INFO("User %d session resumed\n",id);
-    return true;
+    if (res) INFO("User %d session resumed\n",id);
+    return res;
 }
 
 string rlog(const Request &req) {
@@ -496,6 +506,14 @@ void sched_thread()
             }
         }
 
+        // sanitize the queue
+        for (auto qi = userqueue.begin(); qi != userqueue.end();) {
+            if (*qi == active_user || usermap.count(*qi) < 1)
+                qi = userqueue.erase(qi);
+            else
+                ++qi;
+        }
+
         // check for active user's timeout
         if (active_user > 0) {
             float age = (float)((chrono::steady_clock::now() - usermap.at(active_user).last_req) / 1ms) / 1000.f;
@@ -516,9 +534,14 @@ void sched_thread()
             userqueue.pop_front();
 
             // check if it's still valid
-            if (usermap.count(active_user))
-                unhold_user(active_user); // and resume it
-            else
+            if (usermap.count(active_user)) {
+                if (!unhold_user(active_user)) { // and resume it
+                    // can't resume - delete
+                    del_user(active_user);
+                    ERROR("Unable to resume session for user %d - deleting session now\n",active_user);
+                    active_user = -1;
+                }
+            } else
                 active_user = -1;
         }
 

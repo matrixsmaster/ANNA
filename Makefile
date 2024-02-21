@@ -507,7 +507,7 @@ grammar-parser.o: grammar-parser.cpp grammar-parser.h
 clip.o: clip.cpp clip.h stb_image.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
-brain.o: brain.cpp brain.h
+brain.o: brain.cpp brain.h vecstore.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
 anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o brain.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)

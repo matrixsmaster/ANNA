@@ -370,12 +370,19 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     hdr.version = ANNA_STATE_VERSION;
     hdr.cfg = config;
     hdr.n_past = n_past;
+    hdr.n_remain = n_remain;
+    hdr.n_consumed = n_consumed;
     hdr.ga_i = ga_i;
     hdr.data_size = llama_get_state_size(ctx);
+    hdr.vector_size += vector_storage<llama_token>::size(queue);
+    hdr.vector_size += vector_storage<llama_token>::size(prompt);
+    hdr.vector_size += vector_storage<llama_token>::size(inp_emb);
+    hdr.vector_size += vector_storage<float>::size(ext_emb);
+    hdr.vector_size += vector_storage<llama_token>::size(forced_start);
+    hdr.vector_size += vector_storage<char>::size(accumulator);
+    hdr.vector_size += vector_storage<llama_token>::size(ctx_sp->prev);
     hdr.user_size = user_size;
-    size_t csize = config.params.n_ctx * sizeof(llama_token);
-    size_t total = sizeof(hdr) + csize + hdr.data_size + user_size;
-    ctx_sp->prev.resize(config.params.n_ctx);
+    size_t total = sizeof(hdr) + hdr.data_size + hdr.vector_size + user_size;
 
 #ifdef ANNA_USE_MMAP
     int fd = open(fname.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
@@ -410,6 +417,9 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     ptr = (uint8_t*)vector_storage<llama_token>::store(prompt,ptr);
     ptr = (uint8_t*)vector_storage<llama_token>::store(inp_emb,ptr);
     ptr = (uint8_t*)vector_storage<float>::store(ext_emb,ptr);
+    ptr = (uint8_t*)vector_storage<llama_token>::store(vector_storage<llama_token>::from_deque(forced_start),ptr);
+    ptr = (uint8_t*)vector_storage<char>::store(vector_storage<char>::from_string(accumulator),ptr);
+    ptr = (uint8_t*)vector_storage<llama_token>::store(ctx_sp->prev,ptr);
 
     // 4. user data
     if (user_data && user_size)
@@ -479,8 +489,8 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     if (internal_error.empty() && hdr.user_size > (user_size? (*user_size):0))
         internal_error = myformat("Unable to load user data: %lu bytes in the file, but can read only %lu bytes",hdr.user_size,user_size);
 
-    size_t csize = hdr.cfg.params.n_ctx * sizeof(llama_token);
-    size_t total = sizeof(hdr) + csize + hdr.data_size + hdr.user_size;
+    size_t total = sizeof(hdr) + hdr.data_size + hdr.vector_size + hdr.user_size;
+
     fseek(f,0,SEEK_END);
     size_t fsize = ftell(f);
     if (internal_error.empty() && fsize != total)
@@ -492,7 +502,6 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     }
 
     if (user_size) *user_size = hdr.user_size;
-    ctx_sp->prev.resize(hdr.cfg.params.n_ctx);
 
 #ifdef ANNA_USE_MMAP
     fclose(f);
@@ -513,13 +522,18 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     // 1. skip header
     uint8_t* ptr = data + sizeof(hdr);
 
-    // 2. context tokens
-    memcpy(ctx_sp->prev.data(),ptr,csize);
-    ptr += csize;
-
-    // 3. load state data
+    // 2. load state data
     llama_set_state_data(ctx,ptr);
     ptr += hdr.data_size;
+
+    // 3. vectors
+    queue = vector_storage<llama_token>::load((void**)&ptr);
+    prompt = vector_storage<llama_token>::load((void**)&ptr);
+    inp_emb = vector_storage<llama_token>::load((void**)&ptr);
+    ext_emb = vector_storage<float>::load((void**)&ptr);
+    forced_start = vector_storage<llama_token>::to_deque(vector_storage<llama_token>::load((void**)&ptr));
+    accumulator = vector_storage<char>::to_string(vector_storage<char>::load((void**)&ptr));
+    ctx_sp->prev = vector_storage<llama_token>::load((void**)&ptr);
 
     // 4. user data
     if (user_data && hdr.user_size)
@@ -555,7 +569,10 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
 
     config = hdr.cfg;
     n_past = hdr.n_past;
+    n_remain = hdr.n_remain;
+    n_consumed = hdr.n_consumed;
     ga_i = hdr.ga_i;
+
     DBG("Cache (%lu bytes) loaded from %s\n",dsize,fname.c_str());
     return true;
 }

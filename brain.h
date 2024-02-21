@@ -7,6 +7,7 @@
 #include "dtypes.h"
 #include "common.h"
 #include "sampling.h"
+#include "vecstore.h"
 
 #define ANNA_VERSION "0.9.0-pre"
 
@@ -38,65 +39,8 @@ struct __attribute__((packed)) AnnaSave
     char magic[4];
     uint32_t version;
     AnnaConfig cfg;
-    int n_past;
-    int ga_i;
-    size_t data_size;
-    size_t user_size;
-};
-
-template <class T> class vector_storage {
-public:
-    static size_t store(const std::vector<T> & vec, FILE* f) {
-        uint64_t sz = vec.size();
-        size_t r = fwrite(&sz,sizeof(sz),1,f);
-        r += fwrite(vec.data(),sizeof(T),sz,f);
-        return r;
-    }
-
-#if 0
-    static size_t store(const std::vector<T> & vec, void* mem, size_t maxlen) {
-        if (!mem) return 0;
-        size_t wr = 0;
-        uint64_t* sptr = static_cast<uint64_t*> (mem);
-        *sptr = vec.size();
-        T* ptr = static_cast<T*> (sptr+1);
-        for (auto & i: vec) {
-            if (wr >= maxlen) break;
-            *ptr++ = i;
-            wr += sizeof(T);
-        }
-        return wr;
-    }
-#else
-    static void* store(const std::vector<T> & vec, void* mem) {
-        if (!mem) return nullptr;
-        uint64_t* sptr = static_cast<uint64_t*> (mem);
-        *sptr = vec.size();
-        T* ptr = reinterpret_cast<T*> (sptr+1);
-        for (auto & i: vec) *ptr++ = i;
-        return ptr;
-    }
-#endif
-
-    static size_t load(std::vector<T> & vec, FILE* f) {
-        uint64_t sz;
-        size_t r = fread(&sz,sizeof(sz),1,f);
-        vec.resize(sz);
-        r += fread(vec.data(),sizeof(T),sz,f);
-        return r;
-    }
-
-    static size_t load(std::vector<T> & vec, const void* mem, size_t maxlen) {
-        if (!mem || !maxlen) return 0;
-        size_t rd = 0;
-        const uint64_t* sptr = static_cast<const uint64_t*> (mem);
-        const T* ptr = reinterpret_cast<const T*> (sptr+1);
-        for (uint64_t i = 0; i < *sptr && rd < maxlen; i++) {
-            vec.push_back(*ptr++);
-            rd += sizeof(T);
-        }
-        return rd;
-    }
+    int n_past, n_remain, n_consumed, ga_i;
+    size_t data_size, vector_size, user_size;
 };
 
 class AnnaBrain

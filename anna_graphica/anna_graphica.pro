@@ -17,6 +17,7 @@ HEADERS += \
     ../netclient.h \
     ../server/base64m.h \
     ../server/codec.h \
+    ../vecstore.h \
     aboutbox.h \
     helpbox.h \
     mainwnd.h \

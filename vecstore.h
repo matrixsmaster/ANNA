@@ -11,8 +11,8 @@ template <class T> class vector_storage {
 public:
     static size_t store(const std::vector<T> & vec, FILE* f) {
         uint64_t sz = vec.size();
-        size_t r = fwrite(&sz,sizeof(sz),1,f);
-        r += fwrite(vec.data(),sizeof(T),sz,f);
+        size_t r = fwrite(&sz,sizeof(sz),1,f) * sizeof(uint64_t);
+        r += fwrite(vec.data(),sizeof(T),sz,f) * sizeof(T);
         return r;
     }
 

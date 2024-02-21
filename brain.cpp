@@ -444,15 +444,21 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     llama_copy_state_data(ctx,sbuf);
 
     size_t nh = fwrite(&hdr,sizeof(hdr),1,f); // 1. header
-    size_t nc = fwrite(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
-    size_t nd = fwrite(sbuf,hdr.data_size,1,f); // 3. state data
+    size_t nd = fwrite(sbuf,hdr.data_size,1,f); // 2. state data
+    size_t nv = vector_storage<llama_token>::store(queue,f); // 3. vectors
+    nv += vector_storage<llama_token>::store(prompt,f);
+    nv += vector_storage<llama_token>::store(inp_emb,f);
+    nv += vector_storage<float>::store(ext_emb,f);
+    nv += vector_storage<llama_token>::store(vector_storage<llama_token>::from_deque(forced_start),f);
+    nv += vector_storage<char>::store(vector_storage<char>::from_string(accumulator),f);
+    nv += vector_storage<llama_token>::store(ctx_sp->prev,f);
     size_t nu = (user_data && user_size)? fwrite(user_data,user_size,1,f) : 1; // 4. user data
 
     free(sbuf);
     fclose(f);
 
-    if (nh+nc+nd+nu != 4) {
-        internal_error = myformat("Data write failed: %lu,%lu,%lu,%lu -> %d\n",nh,nc,nd,nu,errno);
+    if (nh+nd+nu != 3 || nv != hdr.vector_size) {
+        internal_error = myformat("Data write failed: %lu,%lu,%lu,%lu -> %s\n",nh,nd,nv,nu,strerror(errno));
         return false;
     }
 #endif
@@ -552,17 +558,22 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
         return false;
     }
 
-    size_t nc = fread(ctx_sp->prev.data(),csize,1,f); // 2. context tokens
-    size_t nd = fread(sbuf,dsize,1,f); // 3. state data
+    size_t nd = fread(sbuf,dsize,1,f); // 2. state data
+    queue = vector_storage<llama_token>::load(f); // 3. vectors
+    prompt = vector_storage<llama_token>::load(f);
+    inp_emb = vector_storage<llama_token>::load(f);
+    ext_emb= vector_storage<float>::load(f);
+    forced_start = vector_storage<llama_token>::to_deque(vector_storage<llama_token>::load(f));
+    accumulator = vector_storage<char>::to_string(vector_storage<char>::load(f));
+    ctx_sp->prev= vector_storage<llama_token>::load(f);
     size_t nu = (user_data && hdr.user_size)? fread(user_data,hdr.user_size,1,f) : 1; // 4. user data
 
     fclose(f);
-
-    if (nc+nd+nu == 3) llama_set_state_data(ctx,sbuf);
+    if (nd+nu == 2) llama_set_state_data(ctx,sbuf);
     free(sbuf);
 
-    if (nc+nd+nu != 3) {
-        internal_error = myformat("Data read failed: %lu,%lu,%lu -> %d\n",nc,nd,nu,errno);
+    if (nd+nu != 2) {
+        internal_error = myformat("Data read failed: %lu,%lu -> %s\n",nd,nu,strerror(errno));
         return false;
     }
 #endif

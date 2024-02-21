@@ -175,11 +175,6 @@ void AnnaBrain::Evaluate()
             int n_eval = (int)queue.size() - i;
             if (n_eval > config.params.n_batch) n_eval = config.params.n_batch;
 
-            //FIXME: DEBUG ONLY
-            //for (int i = n_past; i < n_past+n_eval; i++) {
-            //    DBG("%05d: %d (%s)\n",i,queue[i],llama_token_to_piece(ctx,queue[i]).c_str());
-            //}
-            ///
             int r = llama_decode(ctx,llama_batch_get_one(&queue[i],n_eval,n_past,0));
             if (r) {
                 string ts = llama_token_to_piece(ctx,queue[i]);
@@ -263,8 +258,6 @@ void AnnaBrain::Generate()
 
 AnnaState AnnaBrain::Processing(bool skip_sampling)
 {
-    //DBG("Main loop: n_remain = %d, queue size = %ld\n",n_remain,queue.size());
-
     Evaluate();
     if (!skip_sampling) Generate();
 
@@ -313,15 +306,9 @@ void AnnaBrain::setInput(string inp)
     }
 
     inp_emb.insert(inp_emb.end(),emb.begin(),emb.end());
-    //DBG("Input size: %d tokens, only %d tokens left for a free conversation\n",(int)inp_emb.size(),llama_n_ctx(ctx)-(int)inp_emb.size());
     DBG("Input size: %d tokens\n",(int)inp_emb.size());
     n_consumed = 0;
     n_remain = config.params.n_predict;
-
-    // save "undo point"
-    oldcontext = ctx_sp->prev;
-    oldqueue = queue;
-    old_past = n_past;
 
     if (prompt.empty()) {
         prompt = emb; // save the first sequence as prompt
@@ -331,9 +318,7 @@ void AnnaBrain::setInput(string inp)
 
 void AnnaBrain::Undo()
 {
-    ctx_sp->prev = oldcontext;
-    queue = oldqueue;
-    n_past = old_past;
+    // TODO: shift KV cache back
 }
 
 void AnnaBrain::setPrefix(string str)
@@ -416,13 +401,15 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     memcpy(ptr,&hdr,sizeof(hdr));
     ptr += sizeof(hdr);
 
-    // 2. context tokens
-    memcpy(ptr,ctx_sp->prev.data(),csize);
-    ptr += csize;
-
-    // 3. state data
+    // 2. state data
     llama_copy_state_data(ctx,ptr);
     ptr += hdr.data_size;
+
+    // 3. vectors
+    ptr = (uint8_t*)vector_storage<llama_token>::store(queue,ptr);
+    ptr = (uint8_t*)vector_storage<llama_token>::store(prompt,ptr);
+    ptr = (uint8_t*)vector_storage<llama_token>::store(inp_emb,ptr);
+    ptr = (uint8_t*)vector_storage<float>::store(ext_emb,ptr);
 
     // 4. user data
     if (user_data && user_size)

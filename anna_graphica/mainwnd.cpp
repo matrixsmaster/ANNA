@@ -25,7 +25,7 @@ static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
     "HTML files (*.html *.htm)",
     "ANNA save states (*.anna);;All files (*.*)",
     "GGUF files (*.gguf)",
-    "Text files (*.txt);;Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm)",
+    "Text files (*.txt);;Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm);;All files (*.*)",
 };
 
 static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
@@ -319,7 +319,10 @@ void MainWnd::Generate()
 
         switch (s) {
         case ANNA_READY:
-            if (ui->SamplingCheck->isChecked()) return;
+            if (ui->SamplingCheck->isChecked()) {
+                s = ANNA_TURNOVER;
+                break;
+            }
             // fall-thru
         case ANNA_TURNOVER:
             str = brain->getOutput();
@@ -337,10 +340,11 @@ void MainWnd::Generate()
             break;
         case ANNA_ERROR:
             ui->statusbar->showMessage("Error: " + QString::fromStdString(brain->getError()));
-            return;
+            stop = true;
+            break;
         default:
             ui->statusbar->showMessage("Wrong brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
-            return;
+            stop = true;
         }
 
         ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
@@ -482,6 +486,7 @@ void MainWnd::on_SendButton_clicked()
         line = ui->UserNameBox->currentText() + " ";
 
     line += ui->UserInput->toPlainText();
+    if (guiconfig.md_fix) FixMarkdown(line);
     usr += line;
     log += line;
 
@@ -569,7 +574,7 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
         }
 
         if (ke->key() == Qt::Key_Return && eat_ret) {
-            qDebug("Ate key press %d",ke->key());
+            //qDebug("Ate key press %d",ke->key());
             on_SendButton_clicked();
             return true;
         }
@@ -579,7 +584,7 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
     {
         QStatusTipEvent* se = static_cast<QStatusTipEvent*>(event);
         if (se->tip().isEmpty()) {
-            qDebug("Ate empty status tip event");
+            //qDebug("Ate empty status tip event");
             return true;
         }
         return false;
@@ -599,7 +604,7 @@ void MainWnd::on_AttachButton_clicked()
 
     QIcon ico;
     QFileInfo inf(a.fn);
-    a.shrt = inf.baseName();
+    a.shrt = inf.fileName();
 
     if (a.pic.load(a.fn)) {
         // if we can load it as Pixmap, then it's an image
@@ -885,8 +890,8 @@ void MainWnd::CheckRQPs(const QString& inp)
                 cur_chat += "\n\n### RQP output:\n\n" + out + "\n\n### End of RQP output\n\n";
                 on_actionRefresh_chat_box_triggered();
             }
-        } else
-            ui->statusbar->clearMessage();
+        } /*else
+            ui->statusbar->clearMessage();*/
     }
     block = pre_block;
 }
@@ -964,4 +969,11 @@ void MainWnd::on_actionClear_chat_log_triggered()
     cur_chat.clear();
     raw_output.clear();
     ui->ChatLog->clear();
+}
+
+void MainWnd::on_actionUse_current_input_as_prompt_triggered()
+{
+    QString in = ui->UserInput->toPlainText();
+    ui->UserInput->clear();
+    strncpy(config.params.prompt,in.toStdString().c_str(),sizeof(config.params.prompt)-1);
 }

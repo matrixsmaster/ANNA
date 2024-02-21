@@ -15,7 +15,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.1"
+#define AG_VERSION "0.8.2"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -133,6 +133,8 @@ private slots:
     void on_actionOffline_help_triggered();
 
     void on_actionClear_chat_log_triggered();
+
+    void on_actionUse_current_input_as_prompt_triggered();
 
 private:
     Ui::MainWnd *ui;

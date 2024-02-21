@@ -243,6 +243,9 @@
               <height>28</height>
              </size>
             </property>
+            <property name="toolTip">
+             <string>Set to zero to generate random seed</string>
+            </property>
            </widget>
           </item>
          </layout>
@@ -1048,6 +1051,62 @@
        <property name="text">
         <string>Automatically add prompt text on saving</string>
        </property>
+      </widget>
+     </widget>
+     <widget class="QWidget" name="tab_6">
+      <attribute name="title">
+       <string>Attachments</string>
+      </attribute>
+      <widget class="QGroupBox" name="groupBox_9">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>531</width>
+         <height>121</height>
+        </rect>
+       </property>
+       <property name="title">
+        <string>Text attachments</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_10">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_8">
+          <item>
+           <widget class="QLabel" name="label_9">
+            <property name="text">
+             <string>Prefix</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="taPrefix">
+            <property name="toolTip">
+             <string>Use &quot;\n&quot; to insert newline; &quot;%f&quot; to insert file name</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_9">
+          <item>
+           <widget class="QLabel" name="label_10">
+            <property name="text">
+             <string>Suffix</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="taSuffix">
+            <property name="toolTip">
+             <string>Use &quot;\n&quot; to insert newline; &quot;%f&quot; to insert file name</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
      </widget>
      <widget class="QWidget" name="tab_4">

@@ -409,6 +409,7 @@
     <addaction name="actionLoad_vision_encoder"/>
     <addaction name="actionLoad_initial_prompt"/>
     <addaction name="actionUse_current_input_as_prompt"/>
+    <addaction name="actionReset_prompt_to_default"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
    </widget>
@@ -615,6 +616,11 @@
    </property>
    <property name="text">
     <string>Show RQP output</string>
+   </property>
+  </action>
+  <action name="actionReset_prompt_to_default">
+   <property name="text">
+    <string>Reset prompt to default</string>
    </property>
   </action>
  </widget>

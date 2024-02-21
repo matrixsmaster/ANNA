@@ -798,6 +798,7 @@ bool MainWnd::LoadLLMState(const QString& fn)
             config = br.getConfig();
             if (!NewBrain()) return false;
 
+            ui->ModelPath->setText(config.params.model);
             ui->statusbar->showMessage("LLM file loaded. Loading state...");
             qApp->processEvents();
             block = false;
@@ -976,4 +977,9 @@ void MainWnd::on_actionUse_current_input_as_prompt_triggered()
     QString in = ui->UserInput->toPlainText();
     ui->UserInput->clear();
     strncpy(config.params.prompt,in.toStdString().c_str(),sizeof(config.params.prompt)-1);
+}
+
+void MainWnd::on_actionReset_prompt_to_default_triggered()
+{
+    strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }

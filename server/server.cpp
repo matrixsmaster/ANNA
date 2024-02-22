@@ -13,7 +13,7 @@
 #include "../brain.h"
 #include "../common.h"
 
-#define SERVER_VERSION "0.1.3b"
+#define SERVER_VERSION "0.1.3d"
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_PORT 8080
 #define SERVER_SCHED_WAIT 100000
@@ -269,7 +269,7 @@ int check_request(const Request& req, Response& res, const string funame)
 
     usermap_mtx.lock();
     int cnt = usermap.count(id);
-    string id_addr = usermap.at(id).addr;
+    string id_addr = (cnt > 0)? usermap.at(id).addr : "";
     usermap_mtx.unlock();
 
     if (!cnt) {

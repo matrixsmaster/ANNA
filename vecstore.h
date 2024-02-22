@@ -42,8 +42,8 @@ public:
         uint64_t* sptr = reinterpret_cast<uint64_t*> (*mem);
         vec.resize(*sptr);
         T* ptr = reinterpret_cast<T*> (sptr+1);
-        for (uint64_t i = 0; i < *sptr; i++) vec.push_back(*ptr++);
-        *mem = ptr;
+        memcpy(vec.data(),ptr,sizeof(T) * (*sptr));
+        *mem = ptr + (*sptr);
         return vec;
     }
 

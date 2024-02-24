@@ -421,6 +421,7 @@
     <addaction name="actionShow_context_tokens"/>
     <addaction name="actionClear_chat_log"/>
     <addaction name="actionShow_RQP_output"/>
+    <addaction name="actionTest_busy_box"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuModel"/>
@@ -621,6 +622,11 @@
   <action name="actionReset_prompt_to_default">
    <property name="text">
     <string>Reset prompt to default</string>
+   </property>
+  </action>
+  <action name="actionTest_busy_box">
+   <property name="text">
+    <string>Test busy box</string>
    </property>
   </action>
  </widget>

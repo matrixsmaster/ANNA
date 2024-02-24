@@ -5,6 +5,7 @@
 #include "settingsdialog.h"
 #include "aboutbox.h"
 #include "helpbox.h"
+#include "busybox.h"
 
 static const char* filetype_names[ANNA_NUM_FILETYPES] = {
     "LLM",
@@ -982,4 +983,10 @@ void MainWnd::on_actionUse_current_input_as_prompt_triggered()
 void MainWnd::on_actionReset_prompt_to_default_triggered()
 {
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
+}
+
+void MainWnd::on_actionTest_busy_box_triggered()
+{
+    BusyBox box(nullptr,geometry());
+    box.exec();
 }

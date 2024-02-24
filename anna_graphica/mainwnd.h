@@ -138,6 +138,8 @@ private slots:
 
     void on_actionReset_prompt_to_default_triggered();
 
+    void on_actionTest_busy_box_triggered();
+
 private:
     Ui::MainWnd *ui;
     QLabel* seed_label;

@@ -7,6 +7,7 @@ CONFIG += c++20
 SOURCES += \
     ../netclient.cpp \
     aboutbox.cpp \
+    busybox.cpp \
     helpbox.cpp \
     main.cpp \
     mainwnd.cpp \
@@ -19,6 +20,7 @@ HEADERS += \
     ../server/codec.h \
     ../vecstore.h \
     aboutbox.h \
+    busybox.h \
     helpbox.h \
     mainwnd.h \
     rqpeditor.h \
@@ -26,6 +28,7 @@ HEADERS += \
 
 FORMS += \
     aboutbox.ui \
+    busybox.ui \
     helpbox.ui \
     mainwnd.ui \
     rqpeditor.ui \

@@ -5,7 +5,6 @@
 #include "settingsdialog.h"
 #include "aboutbox.h"
 #include "helpbox.h"
-#include "busybox.h"
 
 static const char* filetype_names[ANNA_NUM_FILETYPES] = {
     "LLM",
@@ -66,6 +65,7 @@ MainWnd::MainWnd(QWidget *parent)
     ui->UserNameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
 
     block = false;
+    busy_box = nullptr;
     on_actionSimple_view_triggered();
     DefaultConfig();
     LoadSettings();
@@ -111,6 +111,7 @@ void MainWnd::DefaultConfig()
     guiconfig.clear_log = true;
     guiconfig.server = AG_DEFAULT_SERVER;
     guiconfig.use_server = false;
+    guiconfig.use_busybox = true;
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
 }
@@ -218,16 +219,26 @@ bool MainWnd::NewBrain()
         brain = new AnnaBrain(&config);
     } else {
         // create network client instance
-        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString());
-        brain = dynamic_cast<AnnaBrain*>(ptr);
-        ptr->setWaitCallback([&]() {
+        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),[&](bool wait) {
             bool prev_block = block;
             block = true;
-            usleep(1000UL * AG_SERVER_WAIT_MS);
-            ui->statusbar->showMessage("Server is busy. Waiting in the queue...");
-            qApp->processEvents();
+            if (wait) {
+                usleep(1000UL * AG_SERVER_WAIT_MS);
+                ui->statusbar->showMessage("Server is busy. Waiting in the queue...");
+                if (guiconfig.use_busybox && !busy_box) {
+                    busy_box = new BusyBox(nullptr,geometry());
+                    busy_box->show();
+                }
+            } else if (busy_box) {
+                //busy_box->close();
+                delete busy_box;
+                busy_box = nullptr;
+            }
+            //if (!guiconfig.use_busybox)
+                qApp->processEvents();
             block = prev_block;
         });
+        brain = dynamic_cast<AnnaBrain*>(ptr);
     }
 
     if (brain->getState() == ANNA_READY) return true;

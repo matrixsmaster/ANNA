@@ -13,7 +13,7 @@
 using namespace std;
 using namespace httplib;
 
-AnnaClient::AnnaClient(AnnaConfig* cfg, string server, std::function<void(void)> wait_cb) :
+AnnaClient::AnnaClient(AnnaConfig* cfg, string server, std::function<void(bool)> wait_cb) :
     AnnaBrain(nullptr),
     wait_callback(wait_cb)
 {
@@ -139,18 +139,12 @@ string AnnaClient::PrintContext()
 
 bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size)
 {
-    // TODO: send user_data
-    // OR
-    // request data dump without user data and then simply append it to the end of file (also updating the header)
-    string r = request("/saveState",fname);
-    return (r == "success");
+    return false;
 }
 
 bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
 {
-    string r = request("/loadState",fname);
-    // TODO: reinterpret string as user data (base64m)
-    return (r == "success");
+    return false;
 }
 
 AnnaState AnnaClient::Processing(bool skip_sampling)
@@ -226,14 +220,16 @@ string AnnaClient::request(const string cmd)
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:
+        if (wait_callback) wait_callback(false);
         return r->body;
     case ServiceUnavailable_503:
         DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback();
+        if (wait_callback) wait_callback(true);
         else sleep(1);
         return request(cmd); // tail recursion
     default:
         state = ANNA_ERROR;
+        if (wait_callback) wait_callback(false);
         internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
         return "";
     }
@@ -255,14 +251,16 @@ string AnnaClient::request(const string cmd, const string arg)
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:
+        if (wait_callback) wait_callback(false);
         return r->body;
     case ServiceUnavailable_503:
         DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback();
+        if (wait_callback) wait_callback(true);
         else sleep(1);
         return request(cmd,arg); // tail recursion
     default:
         state = ANNA_ERROR;
+        if (wait_callback) wait_callback(false);
         internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
         return "";
     }
@@ -288,14 +286,16 @@ bool AnnaClient::command(const string cmd, const string arg, bool force)
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:
+        if (wait_callback) wait_callback(false);
         return true;
     case ServiceUnavailable_503:
         DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback();
+        if (wait_callback) wait_callback(true);
         else sleep(1);
         return command(cmd,arg,force); // tail recursion
     default:
         state = ANNA_ERROR;
+        if (wait_callback) wait_callback(false);
         internal_error = myformat("Remote rejected command %s: %d",fcmd.c_str(),r->status);
         return false;
     }

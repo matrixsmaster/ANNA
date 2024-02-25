@@ -929,19 +929,6 @@
         <string>Enter button behavior</string>
        </property>
       </widget>
-      <widget class="QCheckBox" name="fixMD">
-       <property name="geometry">
-        <rect>
-         <x>10</x>
-         <y>250</y>
-         <width>531</width>
-         <height>25</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>Automatically fix markdown in chat log</string>
-       </property>
-      </widget>
       <widget class="QLabel" name="label_5">
        <property name="geometry">
         <rect>
@@ -1026,31 +1013,45 @@
         <string>Change</string>
        </property>
       </widget>
-      <widget class="QCheckBox" name="clearLog">
+      <widget class="QWidget" name="">
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>280</y>
+         <y>209</y>
          <width>531</width>
-         <height>25</height>
+         <height>161</height>
         </rect>
        </property>
-       <property name="text">
-        <string>Clear chat log on model change / new dialog</string>
-       </property>
-      </widget>
-      <widget class="QCheckBox" name="savePrompt">
-       <property name="geometry">
-        <rect>
-         <x>10</x>
-         <y>310</y>
-         <width>531</width>
-         <height>25</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>Automatically add prompt text on saving</string>
-       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_11">
+        <item>
+         <widget class="QCheckBox" name="fixMD">
+          <property name="text">
+           <string>Automatically fix markdown in chat log</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="clearLog">
+          <property name="text">
+           <string>Clear chat log on model change / new dialog</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="savePrompt">
+          <property name="text">
+           <string>Automatically add prompt text on saving</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="useBusyBox">
+          <property name="text">
+           <string>Use stand-by splash screen while waiting</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </widget>
      <widget class="QWidget" name="tab_6">

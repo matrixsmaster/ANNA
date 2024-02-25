@@ -12,10 +12,11 @@
 #include <QSettings>
 #include <QCompleter>
 #include "rqpeditor.h"
+#include "busybox.h"
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.2"
+#define AG_VERSION "0.8.3"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -43,7 +44,7 @@ struct AnnaGuiSettings {
     int enter_key;
     bool md_fix, save_prompt, clear_log;
     QString server;
-    bool use_server;
+    bool use_server, use_busybox;
     QFont log_fnt, usr_fnt;
     std::vector<AnnaRQPFile> rqps;
 };
@@ -143,6 +144,7 @@ private slots:
 private:
     Ui::MainWnd *ui;
     QLabel* seed_label;
+    BusyBox* busy_box;
 
     AnnaConfig config;
     AnnaGuiSettings guiconfig;

@@ -65,6 +65,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->clearLog->setChecked(gs->clear_log);
         ui->serverAddr->setText(gs->server);
         ui->useServer->setChecked(gs->use_server);
+        ui->useBusyBox->setChecked(gs->use_busybox);
         ui->chatLogExample->setFont(gs->log_fnt);
         ui->userInExample->setFont(gs->usr_fnt);
 
@@ -116,6 +117,7 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("clear_log",gs->clear_log);
     sets->setValue("server",gs->server);
     sets->setValue("use_server",gs->use_server);
+    sets->setValue("use_busybox",gs->use_busybox);
     sets->setValue("chat_font",gs->log_fnt.toString());
     sets->setValue("user_font",gs->usr_fnt.toString());
 
@@ -169,6 +171,7 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->clear_log = ui->clearLog->isChecked();
     gs->server = ui->serverAddr->text();
     gs->use_server = ui->useServer->isChecked();
+    gs->use_busybox = ui->useBusyBox->isChecked();
     gs->log_fnt = ui->chatLogExample->font();
     gs->usr_fnt = ui->userInExample->font();
 
@@ -221,6 +224,7 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->clear_log = sets->value("clear_log",gs->clear_log).toBool();
     gs->server = sets->value("server",gs->server).toString();
     gs->use_server = sets->value("use_server",gs->use_server).toBool();
+    gs->use_busybox = sets->value("use_busybox",gs->use_busybox).toBool();
     gs->log_fnt = LoadFont(sets,"chat_font",gs->log_fnt);
     gs->usr_fnt = LoadFont(sets,"user_font",gs->usr_fnt);
 

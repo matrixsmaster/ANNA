@@ -1,5 +1,3 @@
-#include <thread>
-#include <functional>
 #include <QPainter>
 #include <QStyle>
 #include <math.h>
@@ -15,19 +13,46 @@ BusyBox::BusyBox(QWidget *parent, QRect base) :
     setWindowFlags(Qt::FramelessWindowHint);
     setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter,size(),base));
     angle = 0;
+    thr = nullptr;
 }
 
 BusyBox::~BusyBox()
 {
+    if (thr) {
+        close = true;
+        thr->join();
+        delete thr;
+    }
     delete ui;
 }
 
 void BusyBox::showEvent(QShowEvent *event)
 {
+    close = false;
+    if (thr) return;
+    thr = new std::thread([&]() {
+        while (!close) {
+            //usleep(50000);
+            update();
+            //draw();
+            //qApp->sendPostedEvents(this);
+            //qApp->processEvents();
+            /*QMetaObject::invokeMethod(qApp,[this]() {
+                //qApp->processEvents();
+                this->update();
+            });*/
+        }
+    });
     QDialog::showEvent(event);
 }
 
-void BusyBox::paintEvent(QPaintEvent *event)
+void BusyBox::closeEvent(QCloseEvent *event)
+{
+    close = true;
+    QDialog::closeEvent(event);
+}
+
+void BusyBox::draw()
 {
     QPainter painter(this);
 
@@ -48,7 +73,11 @@ void BusyBox::paintEvent(QPaintEvent *event)
 
         painter.drawEllipse(floor(cx)-r,floor(cy)-r,r*2,r*2);
     }
+}
 
+void BusyBox::paintEvent(QPaintEvent *event)
+{
+    draw();
     QDialog::paintEvent(event);
     usleep(50000);
     update();
@@ -56,9 +85,10 @@ void BusyBox::paintEvent(QPaintEvent *event)
 
 void BusyBox::pos(float a)
 {
+    a *= M_PI / 180.f;
     float hw = (float)width() / 2.f;
     float hh = (float)height() / 2.f;
     float rm = std::min(hw,hh) * GUI_BUSYBX_MARGIN;
-    cx = cos(a * M_PI / 180.f) * rm + hw;
-    cy = sin(a * M_PI / 180.f) * rm + hh;
+    cx = cos(a) * rm + hw;
+    cy = sin(a) * rm + hh;
 }

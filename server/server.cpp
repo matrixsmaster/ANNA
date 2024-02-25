@@ -12,14 +12,21 @@
 #include "../dtypes.h"
 #include "../brain.h"
 #include "../common.h"
+#include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.3d"
+#define SERVER_VERSION "0.1.4"
+
 #define SERVER_SAVE_DIR "saves"
+#define SERVER_DBGLOG_DIR "debug_log"
+#define SERVER_MODEL_DIR "models"
+
 #define SERVER_PORT 8080
+
 #define SERVER_SCHED_WAIT 100000
 #define SERVER_CLIENT_TIMEOUT 5
 #define SERVER_CLIENT_MAXTIME 30
 //#define SERVER_CLIENT_DEAD_TO 24
+
 #define SERVER_DEF_CPU_THREADS 12
 #define SERVER_DEF_GPU_VRAM (14ULL * 1024ULL * 1024ULL * 1024ULL)
 #define SERVER_DEF_GPU_MARGIN 0.86
@@ -47,9 +54,11 @@ struct session {
     AnnaBrain* brain;
     int gpu_layers;
     int reqs;
+    time_t started;
     chrono::time_point<chrono::steady_clock> last_req;
     mutex lk;
     string last_error;
+    vector<llama_token> iolog[2];
 };
 
 map<int,session> usermap;
@@ -57,6 +66,57 @@ deque<int> userqueue;
 int active_user = -1;
 mutex usermap_mtx, q_lock;
 bool quit = false;
+
+string rlog(const Request &req) {
+    std::string s;
+    char buf[BUFSIZ];
+
+    s += "================================\n";
+    snprintf(buf, sizeof(buf), "%s:%d\t", req.remote_addr.c_str(),req.remote_port);
+    s += buf;
+
+    snprintf(buf, sizeof(buf), "%s %s %s", req.method.c_str(),
+                     req.version.c_str(), req.path.c_str());
+    s += buf;
+
+    std::string query;
+    for (auto it = req.params.begin(); it != req.params.end(); ++it) {
+        const auto &x = *it;
+        snprintf(buf, sizeof(buf), "%c%s=%s",
+                         (it == req.params.begin()) ? '?' : '&', x.first.c_str(),
+                         x.second.c_str());
+        query += buf;
+    }
+    snprintf(buf, sizeof(buf), "%s\n", query.c_str());
+    s += buf;
+
+    s += "--------------------------------\n";
+    return s;
+}
+
+void save_log(int id)
+{
+    usermap[id].lk.lock();
+
+    string fn = AnnaBrain::myformat("%s/%s-%d.log",SERVER_DBGLOG_DIR,usermap[id].addr,id);
+    time_t beg = usermap[id].started, end = time(NULL);
+    string period = AnnaBrain::myformat("Started: %s; Now: %s",ctime(&beg),ctime(&end));
+
+    FILE* f = fopen(fn.c_str(),"wb");
+    if (!f) {
+        ERROR("Unable to write log file '%s' for client %d\n",fn.c_str(),id);
+        goto log_end;
+    }
+
+    if (!fwrite(&(usermap[id].cfg),sizeof(AnnaConfig),1,f)) goto log_end;
+    if (!vector_storage<llama_token>::store(usermap[id].iolog[0],f)) goto log_end;
+    if (!vector_storage<llama_token>::store(usermap[id].iolog[1],f)) goto log_end;
+    if (!vector_storage<char>::store(vector_storage<char>::from_string(period),f)) goto log_end;
+
+log_end:
+    usermap[id].lk.unlock();
+    if (f) fclose(f);
+}
 
 void add_queue(int id)
 {
@@ -78,7 +138,7 @@ int get_max_gpu_layers(AnnaConfig* cfg)
     size_t fsz = ftell(f);
     fclose(f);
 
-    // we need to know number of layers and the state size, so (pre-)load the model
+    // we need to know the number of layers and the state size, so (pre-)load the model
     llama_model* mdl;
     llama_context* ctx;
     tie(mdl,ctx) = llama_init_from_gpt_params(cfg->params);
@@ -106,6 +166,8 @@ int get_max_gpu_layers(AnnaConfig* cfg)
 bool mod_user(int id, const AnnaConfig& cfg)
 {
     if (!usermap.count(id)) return false;
+    save_log(id);
+
     INFO("Updating user %d\n",id);
     INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
             cfg.params.model,cfg.params.n_ctx,cfg.params.prompt,cfg.params.seed);
@@ -130,6 +192,7 @@ bool mod_user(int id, const AnnaConfig& cfg)
 bool del_user(int id)
 {
     if (!usermap.count(id)) return false;
+    save_log(id);
 
     usermap_mtx.lock();
     usermap[id].lk.lock();
@@ -152,6 +215,7 @@ bool del_user(int id)
 bool hold_user(int id)
 {
     if (!usermap.count(id)) return false;
+    save_log(id);
 
     usermap[id].lk.lock();
     bool res = false;
@@ -233,33 +297,6 @@ bool unhold_user(int id)
     else WARN("User %d session is NOT resumed\n",id);
 
     return res;
-}
-
-string rlog(const Request &req) {
-    std::string s;
-    char buf[BUFSIZ];
-
-    s += "================================\n";
-    snprintf(buf, sizeof(buf), "%s:%d\t", req.remote_addr.c_str(),req.remote_port);
-    s += buf;
-
-    snprintf(buf, sizeof(buf), "%s %s %s", req.method.c_str(),
-                     req.version.c_str(), req.path.c_str());
-    s += buf;
-
-    std::string query;
-    for (auto it = req.params.begin(); it != req.params.end(); ++it) {
-        const auto &x = *it;
-        snprintf(buf, sizeof(buf), "%c%s=%s",
-                         (it == req.params.begin()) ? '?' : '&', x.first.c_str(),
-                         x.second.c_str());
-        query += buf;
-    }
-    snprintf(buf, sizeof(buf), "%s\n", query.c_str());
-    s += buf;
-
-    s += "--------------------------------\n";
-    return s;
 }
 
 int check_request(const Request& req, Response& res, const string funame)
@@ -392,6 +429,7 @@ void install_services(Server* srv)
         usermap[id].brain = nullptr;
         usermap[id].gpu_layers = -1;
         usermap[id].reqs = 0;
+        usermap[id].started = time(NULL);
         usermap[id].last_req = chrono::steady_clock::now();
         usermap_mtx.unlock();
 
@@ -547,7 +585,7 @@ void install_services(Server* srv)
     srv->Get("/getTokensUsed/:id", [](const Request &req, Response &res) {
         int id = check_request(req,res,"getTokensUsed");
         if (!id) return;
-        if (!check_brain(id,"getError",res)) return;
+        if (!check_brain(id,"getTokensUsed",res)) return;
 
         usermap[id].lk.lock();
         string str = AnnaBrain::myformat("%d",usermap.at(id).brain->getTokensUsed());
@@ -567,6 +605,32 @@ void install_services(Server* srv)
         usermap.at(id).brain->Reset();
         usermap[id].lk.unlock();
         INFO("Brain is reset\n");
+        fin_request(id);
+    });
+
+    srv->Post("/undo/:id", [](const Request& req, Response& res) {
+        int id = check_request(req,res,"undo");
+        if (!id) return;
+        if (!check_brain(id,"undo",res)) return;
+
+        usermap[id].lk.lock();
+        usermap.at(id).brain->Undo();
+        usermap[id].lk.unlock();
+        INFO("Undo done\n");
+        fin_request(id);
+    });
+
+    srv->Get("/printContext/:id", [](const Request &req, Response &res) {
+        int id = check_request(req,res,"printContext");
+        if (!id) return;
+        if (!check_brain(id,"printContext",res)) return;
+
+        usermap[id].lk.lock();
+        string str = usermap.at(id).brain->PrintContext();
+        usermap[id].lk.unlock();
+
+        res.set_content(str,"text/plain");
+        INFO("printContext() for user %d: %s\n",id,str.c_str());
         fin_request(id);
     });
 }

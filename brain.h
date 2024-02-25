@@ -9,7 +9,7 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.9.0b"
+#define ANNA_VERSION "0.9.1"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
@@ -54,10 +54,12 @@ public:
     virtual int getTokensUsed()                     { return n_past; }
     virtual AnnaConfig getConfig()                  { return config; }
     virtual void setConfig(const AnnaConfig& cfg)   { config = cfg; }
+    virtual void setClipModelFile(std::string fn)   { clip_file = fn; }
 
     virtual std::string getOutput();
     virtual void setInput(std::string inp);
     virtual void setPrefix(std::string str);
+    virtual void addEmbeddings(const std::vector<float>& emb);
 
     static std::string StateToStr(AnnaState s);
     virtual const char* TokenToStr(llama_token token);
@@ -66,7 +68,6 @@ public:
     virtual bool SaveState(std::string fname, const void* user_data, size_t user_size);
     virtual bool LoadState(std::string fname, void* user_data, size_t* user_size);
 
-    virtual void setClipModelFile(std::string fn);
     virtual bool EmbedImage(std::string imgfile);
 
     virtual AnnaState Processing(bool skip_sampling = false);

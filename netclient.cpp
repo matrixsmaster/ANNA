@@ -13,7 +13,9 @@
 using namespace std;
 using namespace httplib;
 
-AnnaClient::AnnaClient(AnnaConfig* cfg, string server) : AnnaBrain(nullptr)
+AnnaClient::AnnaClient(AnnaConfig* cfg, string server, std::function<void(void)> wait_cb) :
+    AnnaBrain(nullptr),
+    wait_callback(wait_cb)
 {
     DBG("client c'tor\n");
     clid = make_clid();
@@ -123,6 +125,13 @@ void AnnaClient::setPrefix(string str)
     command("/setPrefix",asBase64(str));
 }
 
+void AnnaClient::addEmbeddings(const std::vector<float>& emb)
+{
+    string enc = asBase64(emb.data(),emb.size()*sizeof(float));
+    DBG("encoded embedding len = %lu\n",enc.size());
+    command("/addEmbeddings",enc);
+}
+
 string AnnaClient::PrintContext()
 {
     return request("/printContext");
@@ -142,19 +151,6 @@ bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
     string r = request("/loadState",fname);
     // TODO: reinterpret string as user data (base64m)
     return (r == "success");
-}
-
-void AnnaClient::setClipModelFile(string fn)
-{
-    command("/setClipModelFile",fn);
-}
-
-bool AnnaClient::EmbedImage(string imgfile)
-{
-    // TODO: load and encode the file, then send embeddings (makes it easy on the server to not hold clip files)
-    // OR
-    // send filename (we can use a single facility to send model and clip files), then send the image file itself
-    return false;
 }
 
 AnnaState AnnaClient::Processing(bool skip_sampling)

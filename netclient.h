@@ -15,7 +15,7 @@ namespace httplib {
 class AnnaClient : public AnnaBrain
 {
 public:
-    AnnaClient(AnnaConfig* cfg, std::string server);
+    AnnaClient(AnnaConfig* cfg, std::string server, std::function<void(void)> wait_cb);
     virtual ~AnnaClient();
 
     AnnaState getState() override;
@@ -27,20 +27,16 @@ public:
     std::string getOutput() override;
     void setInput(std::string inp) override;
     void setPrefix(std::string str) override;
+    void addEmbeddings(const std::vector<float>& emb) override;
 
     std::string PrintContext() override;
 
     bool SaveState(std::string fname, const void* user_data, size_t user_size) override;
     bool LoadState(std::string fname, void* user_data, size_t* user_size) override;
 
-    void setClipModelFile(std::string fn) override;
-    bool EmbedImage(std::string imgfile) override;
-
     AnnaState Processing(bool skip_sampling = false) override;
     void Reset() override;
     void Undo() override;
-
-    void setWaitCallback(std::function<void(void)> fun)         { wait_callback = fun; }
 
 private:
     httplib::Client* client = nullptr;

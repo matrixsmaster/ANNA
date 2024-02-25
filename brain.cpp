@@ -340,6 +340,11 @@ void AnnaBrain::setPrefix(string str)
     DBG(" \n");
 }
 
+void AnnaBrain::addEmbeddings(const std::vector<float>& emb)
+{
+    ext_emb.insert(ext_emb.end(),emb.begin(),emb.end());
+}
+
 const char* AnnaBrain::TokenToStr(llama_token token)
 {
     piecebuf = llama_token_to_piece(ctx,token);
@@ -612,11 +617,6 @@ llama_batch AnnaBrain::batch_embeddings(int n_tokens, float* embeds, int n_past)
     return r;
 }
 
-void AnnaBrain::setClipModelFile(std::string fn)
-{
-    clip_file = fn;
-}
-
 bool AnnaBrain::EmbedImage(string imgfile)
 {
     if (clip_file.empty() || imgfile.empty()) {
@@ -654,7 +654,7 @@ bool AnnaBrain::EmbedImage(string imgfile)
 
         DBG("Image loaded and encoded\n");
         clip_free(ctx_clip);
-        ext_emb.insert(ext_emb.end(),emb.begin(),emb.end());
+        addEmbeddings(emb);
 
     } catch (const std::exception & err) {
         internal_error = myformat("Error creating image embeddings: %s\n",err.what());

@@ -16,7 +16,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.3"
+#define AG_VERSION "0.8.4"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -138,8 +138,6 @@ private slots:
     void on_actionUse_current_input_as_prompt_triggered();
 
     void on_actionReset_prompt_to_default_triggered();
-
-    void on_actionTest_busy_box_triggered();
 
 private:
     Ui::MainWnd *ui;

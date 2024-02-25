@@ -14,8 +14,8 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.4b"
-#define SERVER_DEBUG 1
+#define SERVER_VERSION "0.1.4c"
+//#define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_DBGLOG_DIR "debug_log"
@@ -131,7 +131,9 @@ log_end:
 
 #else
 
-void save_log(int) {} // nothing to do in release config
+// nothing to do in release config
+string rlog(const Request &) { return ""; }
+void save_log(int) {}
 
 #endif /* SERVER_DEBUG */
 
@@ -164,10 +166,7 @@ int get_max_gpu_layers(AnnaConfig* cfg)
         return 0;
     }
 
-    size_t msz = llama_model_size(mdl);
-    DBG("File size = %lu bytes; model size = %lu bytes\n",fsz,msz);
-
-    DBG("Model size: %lu\nLayers: %d\nState size: %lu\n",msz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
+    DBG("Model size: %lu\nLayers: %d\nState size: %lu\n",fsz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
     double totsz = llama_get_state_size(ctx) + fsz;
     double fulloff = (double)SERVER_DEF_GPU_VRAM * (double)llama_model_n_layers(mdl) / totsz;
     int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
@@ -422,6 +421,9 @@ string from_base64_str(uint32_t clid, string in)
 
 void fix_config(AnnaConfig& cfg)
 {
+#ifndef SERVER_DEBUG
+    cfg.verbose_level = 0;
+#endif
     cfg.user = nullptr; // not needed on the server
     cfg.params.n_threads = SERVER_DEF_CPU_THREADS; // hardcoded value for all clients
     cfg.params.n_gpu_layers = 0; // reset GPU offload for now
@@ -803,7 +805,8 @@ string get_input(string prompt)
 
 int main()
 {
-    printf("\nANNA Server version " SERVER_VERSION " starting up\n\n");
+    printf("\nANNA Server version " SERVER_VERSION " starting up\n");
+    printf("\nANNA Brain version " ANNA_VERSION "\n\n");
     srand(time(NULL));
 
     Server srv;

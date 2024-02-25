@@ -13,43 +13,11 @@ BusyBox::BusyBox(QWidget *parent, QRect base) :
     setWindowFlags(Qt::FramelessWindowHint);
     setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter,size(),base));
     angle = 0;
-    thr = nullptr;
 }
 
 BusyBox::~BusyBox()
 {
-    if (thr) {
-        close = true;
-        thr->join();
-        delete thr;
-    }
     delete ui;
-}
-
-void BusyBox::showEvent(QShowEvent *event)
-{
-    close = false;
-    if (thr) return;
-    thr = new std::thread([&]() {
-        while (!close) {
-            //usleep(50000);
-            update();
-            //draw();
-            //qApp->sendPostedEvents(this);
-            //qApp->processEvents();
-            /*QMetaObject::invokeMethod(qApp,[this]() {
-                //qApp->processEvents();
-                this->update();
-            });*/
-        }
-    });
-    QDialog::showEvent(event);
-}
-
-void BusyBox::closeEvent(QCloseEvent *event)
-{
-    close = true;
-    QDialog::closeEvent(event);
 }
 
 void BusyBox::draw()

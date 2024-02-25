@@ -29,8 +29,8 @@
 #define AG_QUICK_FILE "quicksave.anna"
 #define AG_MDFIX_FAILSAFE 100000
 #define AG_DEFAULT_SERVER "127.0.0.1:8080"
-#define AG_SERVER_WAIT_MS 1000
-
+#define AG_SERVER_WAIT_MS 50
+#define AG_SERVER_WAIT_CYCLES 20
 
 struct AnnaAttachment {
     QString fn;
@@ -179,6 +179,8 @@ private:
     QString GetOpenFileName(const AnnaFileDialogType tp);
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
+
+    void WaitingFun(bool wait);
 };
 
 #endif // MAINWND_H

@@ -22,16 +22,18 @@ public:
     explicit BusyBox(QWidget *parent, QRect base);
     ~BusyBox();
 
+    //void Update();
+
 protected:
-    virtual void showEvent(QShowEvent *event) override;
-    virtual void closeEvent(QCloseEvent *event) override;
+    //virtual void showEvent(QShowEvent *event) override;
+    //virtual void closeEvent(QCloseEvent *event) override;
     virtual void paintEvent(QPaintEvent *event) override;
 
 private:
     Ui::BusyBox *ui;
     float angle,cx,cy;
-    std::thread* thr;
-    volatile bool close;
+    //std::thread* thr;
+    //volatile bool close;
 
     void draw();
     void pos(float a);

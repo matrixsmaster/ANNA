@@ -48,8 +48,7 @@ private:
     std::string fromBase64(const std::string& in);
     size_t fromBase64(void *data, size_t len, std::string in);
 
-    std::string request(const std::string cmd);
-    std::string request(const std::string cmd, const std::string arg);
+    std::string request(const std::string cmd, const std::string arg = "");
     bool command(const std::string cmd, bool force = false);
     bool command(const std::string cmd, const std::string arg, bool force = false);
 

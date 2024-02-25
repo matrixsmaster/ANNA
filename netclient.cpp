@@ -205,43 +205,20 @@ size_t AnnaClient::fromBase64(void *data, size_t len, string in)
     return n;
 }
 
-string AnnaClient::request(const string cmd)
-{
-    if (state != ANNA_READY) return "";
-    string fcmd = cmd + myformat("/%d",clid);
-    DBG("request/1: '%s'\n",fcmd.c_str());
-    auto r = client->Get(fcmd);
-    if (!r) {
-        state = ANNA_ERROR;
-        internal_error = myformat("Remote request failed: %s",fcmd.c_str());
-        return "";
-    }
-
-    DBG("status = %d\n",r->status);
-    switch (r->status) {
-    case OK_200:
-        if (wait_callback) wait_callback(false);
-        return r->body;
-    case ServiceUnavailable_503:
-        DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback(true);
-        else sleep(1);
-        return request(cmd); // tail recursion
-    default:
-        state = ANNA_ERROR;
-        if (wait_callback) wait_callback(false);
-        internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
-        return "";
-    }
-}
-
 string AnnaClient::request(const string cmd, const string arg)
 {
     if (state != ANNA_READY) return "";
     string fcmd = cmd + myformat("/%d",clid);
-    DBG("request/2: '%s' '%s'\n",fcmd.c_str(),arg.c_str());
-    Params params { { "arg", arg } };
-    auto r = client->Get(fcmd,params,Headers(),Progress());
+
+    Result r;
+    if (arg.empty()) {
+        DBG("request/1: '%s'\n",fcmd.c_str());
+        r = client->Get(fcmd);
+    } else {
+        DBG("request/2: '%s' '%s'\n",fcmd.c_str(),arg.c_str());
+        Params params { { "arg", arg } };
+        r = client->Get(fcmd,params,Headers(),Progress());
+    }
     if (!r) {
         state = ANNA_ERROR;
         internal_error = myformat("Remote request failed: %s",fcmd.c_str());

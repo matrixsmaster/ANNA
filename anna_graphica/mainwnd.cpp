@@ -220,23 +220,7 @@ bool MainWnd::NewBrain()
     } else {
         // create network client instance
         AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),[&](bool wait) {
-            bool prev_block = block;
-            block = true;
-            if (wait) {
-                usleep(1000UL * AG_SERVER_WAIT_MS);
-                ui->statusbar->showMessage("Server is busy. Waiting in the queue...");
-                if (guiconfig.use_busybox && !busy_box) {
-                    busy_box = new BusyBox(nullptr,geometry());
-                    busy_box->show();
-                }
-            } else if (busy_box) {
-                //busy_box->close();
-                delete busy_box;
-                busy_box = nullptr;
-            }
-            //if (!guiconfig.use_busybox)
-                qApp->processEvents();
-            block = prev_block;
+            WaitingFun(wait);
         });
         brain = dynamic_cast<AnnaBrain*>(ptr);
     }
@@ -1000,4 +984,31 @@ void MainWnd::on_actionTest_busy_box_triggered()
 {
     BusyBox box(nullptr,geometry());
     box.exec();
+}
+
+void MainWnd::WaitingFun(bool wait)
+{
+    bool prev_block = block;
+    block = true;
+
+    if (wait) {
+        ui->statusbar->showMessage("Server is busy. Waiting in the queue...");
+        for (int i = 0; i < AG_SERVER_WAIT_CYCLES; i++) {
+            if (guiconfig.use_busybox) {
+                if (!busy_box) {
+                    busy_box = new BusyBox(nullptr,geometry());
+                    busy_box->show();
+                }
+                busy_box->update();
+            }
+            qApp->processEvents();
+            usleep(1000UL * AG_SERVER_WAIT_MS);
+        }
+
+    } else if (busy_box) {
+        delete busy_box;
+        busy_box = nullptr;
+    }
+
+    block = prev_block;
 }

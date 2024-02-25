@@ -270,6 +270,7 @@ string AnnaClient::request(const string cmd, const string arg, const string mod)
     }
     if (!r) {
         state = ANNA_ERROR;
+        if (wait_callback) wait_callback(-1,false);
         internal_error = myformat("Remote request failed: %s",fcmd.c_str());
         return "";
     }
@@ -301,6 +302,7 @@ bool AnnaClient::command(const string cmd, const string arg, const string mod, b
     auto r = client->Post(fcmd,arg,"text/plain");
     if (!r) {
         state = ANNA_ERROR;
+        if (wait_callback) wait_callback(-1,false);
         internal_error = myformat("Remote command failed: %s",fcmd.c_str());
         return true;
     }
@@ -339,7 +341,9 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
     size_t i = 0;
     while (!feof(f)) {
         size_t r = ANNA_CLIENT_CHUNK;
+        size_t p = ftell(f);
         if (!fread(buf,ANNA_CLIENT_CHUNK,1,f)) { // try bufferized read
+            fseek(f,p,SEEK_SET);
             r = fread(buf,1,ANNA_CLIENT_CHUNK,f); // try partial read
             if (!r) break;
         }

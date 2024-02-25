@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.5a"
+#define SERVER_VERSION "0.1.5b"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -430,9 +430,19 @@ void fix_config(AnnaConfig& cfg)
 #ifndef SERVER_DEBUG
     cfg.verbose_level = 0;
 #endif
+
+    // reset server-controlled fields
     cfg.user = nullptr; // not needed on the server
     cfg.params.n_threads = SERVER_DEF_CPU_THREADS; // hardcoded value for all clients
     cfg.params.n_gpu_layers = 0; // reset GPU offload for now
+
+    // fix model file path
+    string fn = cfg.params.model;
+    memset(cfg.params.model,0,sizeof(cfg.params.model));
+    auto ps = fn.rfind('/');
+    if (ps != string::npos) fn.erase(0,ps+1);
+    fn = SERVER_MODEL_DIR + string("/") + fn;
+    strncpy(cfg.params.model,fn.c_str(),sizeof(cfg.params.model)-1);
 }
 
 void install_services(Server* srv)

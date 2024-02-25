@@ -14,7 +14,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.4"
+#define SERVER_VERSION "0.1.4b"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -108,9 +108,10 @@ void save_log(int id)
 {
     usermap[id].lk.lock();
 
-    string fn = AnnaBrain::myformat("%s/%s-%d.log",SERVER_DBGLOG_DIR,usermap[id].addr,id);
-    time_t beg = usermap[id].started, end = time(NULL);
-    string period = AnnaBrain::myformat("Started: %s; Now: %s",ctime(&beg),ctime(&end));
+    string fn = AnnaBrain::myformat("%s/%s-%d.log",SERVER_DBGLOG_DIR,usermap[id].addr.c_str(),id);
+    time_t end = time(NULL);
+    string period = AnnaBrain::myformat("Started: %s; ",ctime(&(usermap[id].started)));
+    period += AnnaBrain::myformat("Now: %s",ctime(&end));
 
     FILE* f = fopen(fn.c_str(),"wb");
     if (!f) {

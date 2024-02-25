@@ -13,3 +13,6 @@ build-anna_graphica-*
 anna
 anna_server
 *.gguf
+saves/
+models/
+debug_log/

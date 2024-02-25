@@ -20,6 +20,13 @@ BusyBox::~BusyBox()
     delete ui;
 }
 
+void BusyBox::Use(int progress)
+{
+    ui->progressBar->setVisible(progress > 0);
+    ui->progressBar->setValue(progress);
+    update();
+}
+
 void BusyBox::draw()
 {
     QPainter painter(this);
@@ -47,7 +54,7 @@ void BusyBox::paintEvent(QPaintEvent *event)
 {
     draw();
     QDialog::paintEvent(event);
-    usleep(50000);
+    //usleep(50000);
     update();
 }
 

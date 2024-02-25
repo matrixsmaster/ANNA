@@ -13,7 +13,7 @@
 using namespace std;
 using namespace httplib;
 
-AnnaClient::AnnaClient(AnnaConfig* cfg, string server, std::function<void(bool)> wait_cb) :
+AnnaClient::AnnaClient(AnnaConfig* cfg, string server, waitfunction wait_cb) :
     AnnaBrain(nullptr),
     wait_callback(wait_cb)
 {
@@ -174,12 +174,12 @@ bool AnnaClient::UploadModel(string fpath, string mname)
 
     // do the actual transfer
     DBG("Upload started... ");
-    bool r = uploadFile(f);
+    bool r = uploadFile(f,sz);
     DBG("Finished uploading\n");
 
     // finalize transfer
     command("/endTransfer");
-    if (wait_callback) wait_callback(false);
+    if (wait_callback) wait_callback(-1,false);
 
     fclose(f);
     return r;
@@ -277,16 +277,16 @@ string AnnaClient::request(const string cmd, const string arg, const string mod)
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:
-        if (wait_callback) wait_callback(false);
+        if (wait_callback) wait_callback(-1,false);
         return r->body;
     case ServiceUnavailable_503:
         DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback(true);
+        if (wait_callback) wait_callback(0,true);
         else sleep(1);
         return request(cmd,arg,mod); // tail recursion
     default:
         state = ANNA_ERROR;
-        if (wait_callback) wait_callback(false);
+        if (wait_callback) wait_callback(-1,false);
         internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
         return "";
     }
@@ -308,22 +308,22 @@ bool AnnaClient::command(const string cmd, const string arg, const string mod, b
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:
-        if (wait_callback) wait_callback(false);
+        if (wait_callback) wait_callback(-1,false);
         return true;
     case ServiceUnavailable_503:
         DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback(true);
+        if (wait_callback) wait_callback(0,true);
         else sleep(1);
         return command(cmd,arg,mod,force); // tail recursion
     default:
         state = ANNA_ERROR;
-        if (wait_callback) wait_callback(false);
+        if (wait_callback) wait_callback(-1,false);
         internal_error = myformat("Remote rejected command %s: %d",fcmd.c_str(),r->status);
         return false;
     }
 }
 
-bool AnnaClient::uploadFile(FILE *f)
+bool AnnaClient::uploadFile(FILE* f, size_t sz)
 {
     uint8_t* buf = (uint8_t*)malloc(ANNA_CLIENT_CHUNK);
     if (!buf) {
@@ -331,6 +331,11 @@ bool AnnaClient::uploadFile(FILE *f)
         return false;
     }
 
+    // temporarily substitute the waiting function to prevent generating "end-of-progress" events from command()
+    waitfunction wcb = wait_callback;
+    wait_callback = nullptr;
+
+    // do the transfer chunk by chunk
     size_t i = 0;
     while (!feof(f)) {
         size_t r = ANNA_CLIENT_CHUNK;
@@ -342,13 +347,16 @@ bool AnnaClient::uploadFile(FILE *f)
         // encode and send
         if (!command("/setChunk",asBase64(buf,r),myformat("%lu",i++))) {
             free(buf);
+            wait_callback = wcb;
             return false;
         }
 
-        // make it responsive
-        if (wait_callback) wait_callback(true);
+        // make it appear responsive
+        float prg = (float)i / (float)(sz / ANNA_CLIENT_CHUNK) * 100.f;
+        if (wcb) wcb(ceil(prg),false);
     }
 
     free(buf);
+    wait_callback = wcb;
     return true;
 }

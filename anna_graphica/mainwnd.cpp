@@ -220,8 +220,8 @@ bool MainWnd::NewBrain()
         brain = new AnnaBrain(&config);
     } else {
         // create network client instance
-        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),[&](bool wait) {
-            WaitingFun(wait);
+        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),[&](int prog, bool wait) {
+            WaitingFun(prog,wait);
         });
         brain = dynamic_cast<AnnaBrain*>(ptr);
     }
@@ -993,12 +993,12 @@ void MainWnd::on_actionReset_prompt_to_default_triggered()
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }
 
-void MainWnd::WaitingFun(bool wait)
+void MainWnd::WaitingFun(int prog, bool wait)
 {
     bool prev_block = block;
     block = true;
 
-    if (wait) {
+    if (prog >= 0) {
         ui->statusbar->showMessage("Server is busy. Waiting in the queue...");
         for (int i = 0; i < AG_SERVER_WAIT_CYCLES; i++) {
             if (guiconfig.use_busybox) {
@@ -1006,10 +1006,11 @@ void MainWnd::WaitingFun(bool wait)
                     busy_box = new BusyBox(nullptr,geometry());
                     busy_box->show();
                 }
-                busy_box->update();
+                busy_box->Use(prog);
             }
             qApp->processEvents();
-            usleep(1000UL * AG_SERVER_WAIT_MS);
+            if (wait) usleep(1000UL * AG_SERVER_WAIT_MS);
+            else break; // no need to do many cycles, as we're not waiting
         }
 
     } else if (busy_box) {

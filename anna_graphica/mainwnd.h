@@ -16,7 +16,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.4"
+#define AG_VERSION "0.8.5"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -178,7 +178,7 @@ private:
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 
-    void WaitingFun(bool wait);
+    void WaitingFun(int prog, bool wait);
 };
 
 #endif // MAINWND_H

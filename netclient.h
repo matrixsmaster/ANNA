@@ -13,10 +13,12 @@ namespace httplib {
     class Client;
 }
 
+typedef std::function<void (int,bool)> waitfunction;
+
 class AnnaClient : public AnnaBrain
 {
 public:
-    AnnaClient(AnnaConfig* cfg, std::string server, std::function<void(bool)> wait_cb);
+    AnnaClient(AnnaConfig* cfg, std::string server, waitfunction wait_cb);
     virtual ~AnnaClient();
 
     AnnaState getState() override;
@@ -43,7 +45,7 @@ public:
 private:
     httplib::Client* client = nullptr;
     uint32_t clid = 0;
-    std::function<void(bool)> wait_callback = nullptr;
+    waitfunction wait_callback = nullptr;
 
     void fixConfig();
 
@@ -55,6 +57,6 @@ private:
     std::string request(const std::string cmd, const std::string arg = "", const std::string mod = "");
     bool command(const std::string cmd, const std::string arg = " ", const std::string mod = "", bool force = false);
 
-    bool uploadFile(FILE* f);
+    bool uploadFile(FILE* f, size_t sz);
     bool downloadFile(FILE* f, size_t sz);
 };

@@ -340,7 +340,7 @@ bool AnnaClient::uploadFile(FILE *f)
         }
 
         // encode and send
-        if (!command("setChunk",asBase64(buf,r),myformat("%lu",i))) {
+        if (!command("/setChunk",asBase64(buf,r),myformat("%lu",i++))) {
             free(buf);
             return false;
         }

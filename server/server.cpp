@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.5"
+#define SERVER_VERSION "0.1.5a"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -28,6 +28,8 @@
 #define SERVER_CLIENT_TIMEOUT 5
 #define SERVER_CLIENT_MAXTIME 30
 //#define SERVER_CLIENT_DEAD_TO 24
+
+#define SERVER_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
 
 #define SERVER_DEF_CPU_THREADS 12
 #define SERVER_DEF_GPU_VRAM (14ULL * 1024ULL * 1024ULL * 1024ULL)
@@ -69,6 +71,7 @@ struct session {
     string last_error;
     list<string> iolog;
     FILE* fhandle;
+    size_t transize;
 };
 
 map<int,session> usermap;
@@ -736,11 +739,75 @@ void install_services(Server* srv)
         usermap[id].old_state = usermap[id].state;
         usermap[id].state = ANNASERV_CLIENT_TRANSFER;
         usermap[id].fhandle = f;
+        usermap[id].transize = sz;
         usermap[id].lk.unlock();
         q_lock.unlock();
 
         res.set_content("OK","text/plain");
         DBG("uploadModel() started for user %d\n",id);
+        fin_request(id);
+    });
+
+    srv->Post("/setChunk/:id/:ci", [](const Request& req, Response& res) {
+        int id = check_request(req,res,"setChunk");
+        if (!id) return;
+
+        usermap[id].lk.lock();
+        client_state s = usermap[id].state;
+        FILE* f = usermap[id].fhandle;
+        size_t sz = usermap[id].transize;
+        usermap[id].lk.unlock();
+
+        if (s != ANNASERV_CLIENT_TRANSFER || !f) {
+            ERROR("setChunk() for client %d: Wrong state or file is not open\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+
+        string sidx = req.path_params.at("ci");
+        size_t idx = atoll(sidx.c_str());
+        if (idx > sz / SERVER_CLIENT_CHUNK) {
+            ERROR("setChunk() for client %d: Chunk index beyond limit (#%lu in %lu bytes file)\n",id,idx,sz);
+            res.status = BadRequest_400;
+            return;
+        }
+        if (idx != ftell(f) / SERVER_CLIENT_CHUNK) {
+            ERROR("setChunk() for client %d: Chunk is out of order (expected #%lu, got #%lu)\n",id,size_t(ftell(f) / SERVER_CLIENT_CHUNK),idx);
+            res.status = BadRequest_400;
+            return;
+        }
+
+        string buf(SERVER_CLIENT_CHUNK,0);
+        size_t r = from_base64(id,(void*)buf.data(),SERVER_CLIENT_CHUNK,req.body.c_str());
+        DBG("%lu bytes decoded as chunk data\n",r);
+
+        if (!fwrite(buf.data(),r,1,f)) {
+            ERROR("setChunk() for client %d: unable to write chunk #%lu\n",id,idx);
+            res.status = InternalServerError_500;
+            return;
+        }
+
+        DBG("setChunk() complete\n");
+        fin_request(id);
+    });
+
+    srv->Post("/endTransfer/:id", [](const Request& req, Response& res) {
+        int id = check_request(req,res,"endTransfer");
+        if (!id) return;
+
+        usermap[id].lk.lock();
+        if (usermap[id].fhandle) fclose(usermap[id].fhandle);
+        usermap[id].fhandle = NULL;
+        usermap[id].lk.unlock();
+
+        q_lock.lock();
+        usermap[id].lk.lock();
+        client_state s = usermap[id].state;
+        if (s == ANNASERV_CLIENT_TRANSFER) usermap[id].state = usermap[id].old_state;
+        usermap[id].lk.unlock();
+        q_lock.unlock();
+
+        DBG("File transfer complete for client %d\n",id);
         fin_request(id);
     });
 }

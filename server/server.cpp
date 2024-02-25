@@ -15,6 +15,7 @@
 #include "../vecstore.h"
 
 #define SERVER_VERSION "0.1.4"
+#define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_DBGLOG_DIR "debug_log"
@@ -34,6 +35,12 @@
 #define INFO(...) do { fprintf(stderr,"[INFO] " __VA_ARGS__); fflush(stderr); } while (0)
 #define WARN(...) do { fprintf(stderr,"[WARN] " __VA_ARGS__); fflush(stderr); } while (0)
 #define ERROR(...) do { fprintf(stderr,"[ERROR] " __VA_ARGS__); fflush(stderr); } while (0)
+
+#ifdef SERVER_DEBUG
+#define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
+#else
+#define DBG(...)
+#endif
 
 using namespace std;
 using namespace httplib;
@@ -58,7 +65,7 @@ struct session {
     chrono::time_point<chrono::steady_clock> last_req;
     mutex lk;
     string last_error;
-    vector<llama_token> iolog[2];
+    list<string> iolog;
 };
 
 map<int,session> usermap;
@@ -67,7 +74,10 @@ int active_user = -1;
 mutex usermap_mtx, q_lock;
 bool quit = false;
 
-string rlog(const Request &req) {
+#ifdef SERVER_DEBUG
+
+string rlog(const Request &req)
+{
     std::string s;
     char buf[BUFSIZ];
 
@@ -109,14 +119,20 @@ void save_log(int id)
     }
 
     if (!fwrite(&(usermap[id].cfg),sizeof(AnnaConfig),1,f)) goto log_end;
-    if (!vector_storage<llama_token>::store(usermap[id].iolog[0],f)) goto log_end;
-    if (!vector_storage<llama_token>::store(usermap[id].iolog[1],f)) goto log_end;
     if (!vector_storage<char>::store(vector_storage<char>::from_string(period),f)) goto log_end;
+    for (auto & i: usermap[id].iolog)
+        if (!vector_storage<char>::store(vector_storage<char>::from_string(i),f)) goto log_end;
 
 log_end:
     usermap[id].lk.unlock();
     if (f) fclose(f);
 }
+
+#else
+
+void save_log(int) {} // nothing to do in release config
+
+#endif /* SERVER_DEBUG */
 
 void add_queue(int id)
 {
@@ -148,9 +164,9 @@ int get_max_gpu_layers(AnnaConfig* cfg)
     }
 
     size_t msz = llama_model_size(mdl);
-    INFO("File size = %lu bytes; model size = %lu bytes\n",fsz,msz);
+    DBG("File size = %lu bytes; model size = %lu bytes\n",fsz,msz);
 
-    INFO("Model size: %lu\nLayers: %d\nState size: %lu\n",msz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
+    DBG("Model size: %lu\nLayers: %d\nState size: %lu\n",msz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
     double totsz = llama_get_state_size(ctx) + fsz;
     double fulloff = (double)SERVER_DEF_GPU_VRAM * (double)llama_model_n_layers(mdl) / totsz;
     int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
@@ -169,7 +185,7 @@ bool mod_user(int id, const AnnaConfig& cfg)
     save_log(id);
 
     INFO("Updating user %d\n",id);
-    INFO("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
+    DBG("Model file: %s\nContext size: %d\nPrompt: %s\nSeed: %u\n",
             cfg.params.model,cfg.params.n_ctx,cfg.params.prompt,cfg.params.seed);
 
     usermap[id].lk.lock();
@@ -254,7 +270,7 @@ bool unhold_user(int id)
     bool res = false;
     AnnaBrain* ptr = usermap[id].brain;
     if (!ptr) {
-        INFO("Re-creating a brain for user %d\n",id);
+        DBG("Re-creating a brain for user %d\n",id);
 
         if (usermap[id].gpu_layers < 0)
             usermap[id].gpu_layers = get_max_gpu_layers(&(usermap[id].cfg));
@@ -320,7 +336,7 @@ int check_request(const Request& req, Response& res, const string funame)
         return 0;
     }
 
-    INFO("%s() for user %d...\n",funame.c_str(),id);
+    DBG("%s() for user %d...\n",funame.c_str(),id);
     return id;
 }
 
@@ -346,7 +362,7 @@ bool check_brain(int id, const string funame, Response& res)
     case ANNASERV_CLIENT_CONFIGURED:
     case ANNASERV_CLIENT_UNLOADED:
         // valid request, just need to wait for client unhold
-        INFO("Putting request %s from user %d into queue\n",funame.c_str(),id);
+        DBG("Putting request %s from user %d into queue\n",funame.c_str(),id);
         res.status = ServiceUnavailable_503;
         add_queue(id);
         break;
@@ -452,7 +468,7 @@ void install_services(Server* srv)
 
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
-        INFO("getState() for user %d: %s\n",id,str.c_str());
+        DBG("getState() for user %d: %s\n",id,str.c_str());
         fin_request(id);
     });
 
@@ -468,7 +484,7 @@ void install_services(Server* srv)
             res.status = BadRequest_400;
             return;
         }
-        INFO("%lu bytes decoded\n",r);
+        DBG("%lu bytes decoded\n",r);
         fix_config(cfg);
 
         if (!check_brain(id,"setConfig",res)) {
@@ -479,7 +495,7 @@ void install_services(Server* srv)
         }
 
         mod_user(id,cfg);
-        INFO("setConfig() complete\n");
+        DBG("setConfig() complete\n");
         fin_request(id);
     });
 
@@ -496,7 +512,7 @@ void install_services(Server* srv)
         codec_infill_str(cfg.params.model,sizeof(cfg.params.model));
         codec_infill_str(cfg.params.prompt,sizeof(cfg.params.prompt));
         res.set_content(to_base64(id,&cfg,sizeof(cfg)),"text/plain");
-        INFO("getConfig() complete\n");
+        DBG("getConfig() complete\n");
         fin_request(id);
     });
 
@@ -518,7 +534,7 @@ void install_services(Server* srv)
 
         string str = AnnaBrain::myformat("%d",(int)s);
         res.set_content(str,"text/plain");
-        INFO("processing(%s) for user %d: %s\n",arg.c_str(),id,str.c_str());
+        DBG("processing(%s) for user %d: %s\n",arg.c_str(),id,str.c_str());
         fin_request(id);
     });
 
@@ -530,10 +546,11 @@ void install_services(Server* srv)
         usermap[id].lk.lock();
         AnnaBrain* ptr = usermap.at(id).brain;
         string str = ptr->getOutput();
+        usermap[id].iolog.push_back("A"+str);
         usermap[id].lk.unlock();
 
         res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
-        INFO("getOutput() for user %d: %s\n",id,str.c_str());
+        DBG("getOutput() for user %d: %s\n",id,str.c_str());
         fin_request(id);
     });
 
@@ -543,13 +560,14 @@ void install_services(Server* srv)
         if (!check_brain(id,"setInput",res)) return;
 
         string str = from_base64_str(id,req.body);
-        INFO("setInput() for user %d: '%s'\n",id,str.c_str());
+        DBG("setInput() for user %d: '%s'\n",id,str.c_str());
 
         usermap[id].lk.lock();
+        usermap[id].iolog.push_back("U"+str);
         usermap.at(id).brain->setInput(str);
         usermap[id].lk.unlock();
 
-        INFO("Brain input set\n");
+        DBG("Brain input set\n");
         fin_request(id);
     });
 
@@ -559,12 +577,12 @@ void install_services(Server* srv)
         if (!check_brain(id,"setPrefix",res)) return;
 
         string str = from_base64_str(id,req.body);
-        INFO("setPrefix() for user %d: '%s'\n",id,str.c_str());
+        DBG("setPrefix() for user %d: '%s'\n",id,str.c_str());
 
         usermap[id].lk.lock();
         usermap.at(id).brain->setPrefix(str);
         usermap[id].lk.unlock();
-        INFO("Prefix is set\n");
+        DBG("Prefix is set\n");
         fin_request(id);
     });
 
@@ -578,7 +596,7 @@ void install_services(Server* srv)
         usermap[id].lk.unlock();
 
         res.set_content(to_base64(id,str.data(),str.size()),"text/plain");
-        INFO("getError() for user %d: %s\n",id,str.c_str());
+        DBG("getError() for user %d: %s\n",id,str.c_str());
         fin_request(id);
     });
 
@@ -592,7 +610,7 @@ void install_services(Server* srv)
         usermap[id].lk.unlock();
 
         res.set_content(str,"text/plain");
-        INFO("getTokensUsed() for user %d: %s\n",id,str.c_str());
+        DBG("getTokensUsed() for user %d: %s\n",id,str.c_str());
         fin_request(id);
     });
 
@@ -604,7 +622,7 @@ void install_services(Server* srv)
         usermap[id].lk.lock();
         usermap.at(id).brain->Reset();
         usermap[id].lk.unlock();
-        INFO("Brain is reset\n");
+        DBG("Brain is reset\n");
         fin_request(id);
     });
 
@@ -616,7 +634,7 @@ void install_services(Server* srv)
         usermap[id].lk.lock();
         usermap.at(id).brain->Undo();
         usermap[id].lk.unlock();
-        INFO("Undo done\n");
+        DBG("Undo done\n");
         fin_request(id);
     });
 
@@ -630,7 +648,34 @@ void install_services(Server* srv)
         usermap[id].lk.unlock();
 
         res.set_content(str,"text/plain");
-        INFO("printContext() for user %d: %s\n",id,str.c_str());
+        DBG("printContext() for user %d: %s\n",id,str.c_str());
+        fin_request(id);
+    });
+
+    srv->Post("/addEmbeddings/:id", [](const Request& req, Response& res) {
+        int id = check_request(req,res,"addEmbeddings");
+        if (!id) return;
+        if (!check_brain(id,"addEmbeddings",res)) return;
+
+        string buf(req.body.length(),0);
+        size_t r = from_base64(id,(void*)buf.data(),buf.size(),req.body.c_str());
+        if (!r || r % sizeof(float)) {
+            ERROR("Unable to extract embeddings: %lu bytes decoded\n",r);
+            res.status = BadRequest_400;
+            return;
+        }
+        buf.resize(r);
+        DBG("%lu bytes decoded for embeddings\n",r);
+
+        vector<float> emb(r / sizeof(float));
+        memcpy((void*)emb.data(),buf.data(),r);
+        DBG("%lu float records constructed\n",emb.size());
+
+        usermap[id].lk.lock();
+        usermap.at(id).brain->addEmbeddings(emb);
+        usermap[id].lk.unlock();
+
+        DBG("addEmbeddings() complete\n");
         fin_request(id);
     });
 }

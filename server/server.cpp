@@ -5,6 +5,7 @@
 #include <iostream>
 #include <thread>
 #include <utility>
+#include <stdio.h>
 #include <unistd.h>
 #include "httplib.h"
 #include "base64m.h"
@@ -14,8 +15,8 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.4c"
-//#define SERVER_DEBUG 1
+#define SERVER_VERSION "0.1.5"
+#define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_DBGLOG_DIR "debug_log"
@@ -51,11 +52,12 @@ enum client_state {
     ANNASERV_CLIENT_CONFIGURED,
     ANNASERV_CLIENT_LOADED,
     ANNASERV_CLIENT_UNLOADED,
+    ANNASERV_CLIENT_TRANSFER,
     ANNASERV_CLIENT_NUMSTATES
 };
 
 struct session {
-    client_state state;
+    client_state state, old_state;
     string addr;
     AnnaConfig cfg;
     AnnaBrain* brain;
@@ -66,6 +68,7 @@ struct session {
     mutex lk;
     string last_error;
     list<string> iolog;
+    FILE* fhandle;
 };
 
 map<int,session> usermap;
@@ -251,7 +254,7 @@ bool hold_user(int id)
         usermap[id].state = ANNASERV_CLIENT_UNLOADED;
         res = true;
     } else
-        ERROR("Unable to hold inactive user!\n");
+        WARN("Unable to hold inactive user!\n");
     usermap[id].lk.unlock();
 
     if (res) INFO("User %d session suspended\n",id);
@@ -679,6 +682,65 @@ void install_services(Server* srv)
         usermap[id].lk.unlock();
 
         DBG("addEmbeddings() complete\n");
+        fin_request(id);
+    });
+
+    srv->Get("/checkModel/:id", [](const Request &req, Response &res) {
+        int id = check_request(req,res,"checkModel");
+        if (!id) return;
+
+        string fn = req.get_param_value("arg");
+        if (fn.empty()) {
+            ERROR("Empty filename received for checkModel\n");
+            res.status = BadRequest_400;
+            return;
+        }
+
+        string path = AnnaBrain::myformat("%s/%s",SERVER_MODEL_DIR,fn.c_str());
+        FILE* f = fopen(path.c_str(),"rb");
+        if (f) {
+            fclose(f);
+            res.set_content("OK","text/plain");
+        } else
+            res.set_content("File not found","text/plain");
+
+        DBG("checkModel() for user %d: %s\n",id,res.body.c_str());
+        fin_request(id);
+    });
+
+    srv->Get("/uploadModel/:id/:fn", [](const Request &req, Response &res) {
+        int id = check_request(req,res,"uploadModel");
+        if (!id) return;
+
+        string fn = req.path_params.at("fn");
+        string ssz = req.get_param_value("arg");
+        DBG("fn = %s; ssz = %s\n",fn.c_str(),ssz.c_str());
+        size_t sz = atoll(ssz.c_str());
+        if (fn.empty() || ssz.empty() || !sz) {
+            ERROR("Malformed request to uploadModel: '%s','%s'\n",fn.c_str(),ssz.c_str());
+            res.status = BadRequest_400;
+            return;
+        }
+
+        string path = AnnaBrain::myformat("%s/%s",SERVER_MODEL_DIR,fn.c_str());
+        FILE* f = fopen(path.c_str(),"wb");
+        if (!f) {
+            ERROR("Unable to create file %s\n",path.c_str());
+            res.set_content("Unable to create file " + path,"text/plain");
+            return;
+        }
+
+        q_lock.lock();
+        hold_user(id);
+        usermap[id].lk.lock();
+        usermap[id].old_state = usermap[id].state;
+        usermap[id].state = ANNASERV_CLIENT_TRANSFER;
+        usermap[id].fhandle = f;
+        usermap[id].lk.unlock();
+        q_lock.unlock();
+
+        res.set_content("OK","text/plain");
+        DBG("uploadModel() started for user %d\n",id);
         fin_request(id);
     });
 }

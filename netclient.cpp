@@ -43,13 +43,23 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, std::function<void(bool)>
         return;
     }
 
+    fixConfig();
+    if (request("/checkModel",config.params.model) != "OK") {
+        DBG("Uploading model file %s...\n",cfg->params.model);
+        if (!UploadModel(cfg->params.model,config.params.model)) {
+            state = ANNA_ERROR;
+            return;
+        }
+        DBG(" upload done\n");
+    }
+
     AnnaClient::setConfig(config);
 }
 
 AnnaClient::~AnnaClient()
 {
     DBG("client d'tor\n");
-    command("/sessionEnd",true);
+    command("/sessionEnd"," ","",true);
 }
 
 AnnaState AnnaClient::getState()
@@ -92,13 +102,7 @@ void AnnaClient::setConfig(const AnnaConfig &cfg)
 {
     DBG("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
     config = cfg;
-
-    // replace full file path with just file name
-    string fn = config.params.model;
-    memset(config.params.model,0,sizeof(config.params.model));
-    auto ps = fn.rfind('/');
-    if (ps != string::npos) fn.erase(0,ps+1);
-    strncpy(config.params.model,fn.c_str(),sizeof(config.params.model)-1);
+    fixConfig();
 
     // infill large strings
     codec_infill_str(config.params.model,sizeof(config.params.model));
@@ -147,6 +151,40 @@ bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
     return false;
 }
 
+bool AnnaClient::UploadModel(string fpath, string mname)
+{
+    FILE* f = fopen(fpath.c_str(),"rb");
+    if (!f) {
+        internal_error = myformat("Unable to open file '%s' for reading",fpath.c_str());
+        return false;
+    }
+
+    // get size
+    fseek(f,0,SEEK_END);
+    size_t sz = ftell(f);
+    fseek(f,0,SEEK_SET);
+
+    // try to negotiate uploading
+    string urq = request("/uploadModel",myformat("%lu",sz),mname);
+    if (urq != "OK") {
+        fclose(f);
+        internal_error = "uploadModel request failed: " + urq;
+        return false;
+    }
+
+    // do the actual transfer
+    DBG("Upload started... ");
+    bool r = uploadFile(f);
+    DBG("Finished uploading\n");
+
+    // finalize transfer
+    command("/endTransfer");
+    if (wait_callback) wait_callback(false);
+
+    fclose(f);
+    return r;
+}
+
 AnnaState AnnaClient::Processing(bool skip_sampling)
 {
     int r = atoi(request("/processing",skip_sampling? "skip":"noskip").c_str());
@@ -161,6 +199,16 @@ void AnnaClient::Reset()
 void AnnaClient::Undo()
 {
     command("/undo");
+}
+
+void AnnaClient::fixConfig()
+{
+    // replace full file path with just file name
+    string fn = config.params.model;
+    memset(config.params.model,0,sizeof(config.params.model));
+    auto ps = fn.rfind('/');
+    if (ps != string::npos) fn.erase(0,ps+1);
+    strncpy(config.params.model,fn.c_str(),sizeof(config.params.model)-1);
 }
 
 string AnnaClient::asBase64(const void *data, size_t len)
@@ -205,10 +253,11 @@ size_t AnnaClient::fromBase64(void *data, size_t len, string in)
     return n;
 }
 
-string AnnaClient::request(const string cmd, const string arg)
+string AnnaClient::request(const string cmd, const string arg, const string mod)
 {
     if (state != ANNA_READY) return "";
     string fcmd = cmd + myformat("/%d",clid);
+    if (!mod.empty()) fcmd += "/" + mod;
 
     Result r;
     if (arg.empty()) {
@@ -234,7 +283,7 @@ string AnnaClient::request(const string cmd, const string arg)
         DBG("Temporarily unavailable, retrying...\n");
         if (wait_callback) wait_callback(true);
         else sleep(1);
-        return request(cmd,arg); // tail recursion
+        return request(cmd,arg,mod); // tail recursion
     default:
         state = ANNA_ERROR;
         if (wait_callback) wait_callback(false);
@@ -243,16 +292,12 @@ string AnnaClient::request(const string cmd, const string arg)
     }
 }
 
-bool AnnaClient::command(const string cmd, bool force)
-{
-    return command(cmd,"<empty>",force);
-}
-
-bool AnnaClient::command(const string cmd, const string arg, bool force)
+bool AnnaClient::command(const string cmd, const string arg, const string mod, bool force)
 {
     if (!force && state != ANNA_READY) return false;
     string fcmd = cmd + myformat("/%d",clid);
-    DBG("command: '%s'\n",fcmd.c_str());
+    if (!mod.empty()) fcmd += "/" + mod;
+
     auto r = client->Post(fcmd,arg,"text/plain");
     if (!r) {
         state = ANNA_ERROR;
@@ -269,11 +314,41 @@ bool AnnaClient::command(const string cmd, const string arg, bool force)
         DBG("Temporarily unavailable, retrying...\n");
         if (wait_callback) wait_callback(true);
         else sleep(1);
-        return command(cmd,arg,force); // tail recursion
+        return command(cmd,arg,mod,force); // tail recursion
     default:
         state = ANNA_ERROR;
         if (wait_callback) wait_callback(false);
         internal_error = myformat("Remote rejected command %s: %d",fcmd.c_str(),r->status);
         return false;
     }
+}
+
+bool AnnaClient::uploadFile(FILE *f)
+{
+    uint8_t* buf = (uint8_t*)malloc(ANNA_CLIENT_CHUNK);
+    if (!buf) {
+        internal_error = "Unable to allocate buffer in uploadFile()";
+        return false;
+    }
+
+    size_t i = 0;
+    while (!feof(f)) {
+        size_t r = ANNA_CLIENT_CHUNK;
+        if (!fread(buf,ANNA_CLIENT_CHUNK,1,f)) { // try bufferized read
+            r = fread(buf,1,ANNA_CLIENT_CHUNK,f); // try partial read
+            if (!r) break;
+        }
+
+        // encode and send
+        if (!command("setChunk",asBase64(buf,r),myformat("%lu",i))) {
+            free(buf);
+            return false;
+        }
+
+        // make it responsive
+        if (wait_callback) wait_callback(true);
+    }
+
+    free(buf);
+    return true;
 }

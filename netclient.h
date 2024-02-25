@@ -6,6 +6,7 @@
 #include "brain.h"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
+#define ANNA_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
 
 // Avoid inclusion of httplib.h into any header files
 namespace httplib {
@@ -33,6 +34,7 @@ public:
 
     bool SaveState(std::string fname, const void* user_data, size_t user_size) override;
     bool LoadState(std::string fname, void* user_data, size_t* user_size) override;
+    bool UploadModel(std::string fpath, std::string mname);
 
     AnnaState Processing(bool skip_sampling = false) override;
     void Reset() override;
@@ -43,14 +45,15 @@ private:
     uint32_t clid = 0;
     std::function<void(bool)> wait_callback = nullptr;
 
+    void fixConfig();
+
     std::string asBase64(const void* data, size_t len);
     std::string asBase64(const std::string& in);
     std::string fromBase64(const std::string& in);
     size_t fromBase64(void *data, size_t len, std::string in);
 
-    std::string request(const std::string cmd, const std::string arg = "");
-    bool command(const std::string cmd, bool force = false);
-    bool command(const std::string cmd, const std::string arg, bool force = false);
+    std::string request(const std::string cmd, const std::string arg = "", const std::string mod = "");
+    bool command(const std::string cmd, const std::string arg = " ", const std::string mod = "", bool force = false);
 
     bool uploadFile(FILE* f);
     bool downloadFile(FILE* f, size_t sz);

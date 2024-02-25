@@ -1,3 +1,4 @@
+#include <thread>
 #include <string.h>
 #include <unistd.h>
 #include "mainwnd.h"
@@ -286,19 +287,29 @@ void MainWnd::ProcessInput(std::string str)
 {
     if (!brain) return;
 
-    brain->setInput(str);
-    while (brain->Processing(true) == ANNA_PROCESSING) {
-        ui->ContextFull->setMaximum(config.params.n_ctx);
-        ui->ContextFull->setValue(brain->getTokensUsed());
+    block = true; // block out sync-only UI functions
 
-        // simulate multi-threaded UI, but don't forget to block out sync-only functions
-        block = true;
+    // detach potentially long process into separate thread
+    volatile bool signal = false;
+    std::thread pt([&]() {
+        brain->setInput(str);
+        while (brain->Processing(true) == ANNA_PROCESSING) {
+            ui->ContextFull->setMaximum(config.params.n_ctx);
+            ui->ContextFull->setValue(brain->getTokensUsed());
+        }
+        signal = true;
+    });
+
+    while (!signal) {
         qApp->processEvents();
-        block = false;
+        usleep(AG_SERVER_WAIT_MS);
     }
+    pt.join();
 
     if (brain->getState() == ANNA_ERROR)
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
+
+    block = false;
 }
 
 void MainWnd::Generate()
@@ -594,6 +605,8 @@ bool MainWnd::eventFilter(QObject* obj, QEvent* event)
 
 void MainWnd::on_AttachButton_clicked()
 {
+    if (block) return;
+
     AnnaAttachment a;
     a.fn = GetOpenFileName(ANNA_FILE_ATTACHMENT);
     if (a.fn.isEmpty()) return;

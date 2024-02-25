@@ -1,8 +1,6 @@
 #ifndef BUSYBOX_H
 #define BUSYBOX_H
 
-#include <thread>
-#include <functional>
 #include <QDialog>
 
 #define GUI_BUSYBX_ELRAD 20

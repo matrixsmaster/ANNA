@@ -7,6 +7,8 @@
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
+#define ANNA_TRANSFER_RETRIES 5
+#define ANNA_RETRY_WAIT_MS 500
 
 // Avoid inclusion of httplib.h into any header files
 namespace httplib {
@@ -41,6 +43,8 @@ public:
     AnnaState Processing(bool skip_sampling = false) override;
     void Reset() override;
     void Undo() override;
+
+    void KeepAlive();
 
 private:
     httplib::Client* client = nullptr;

@@ -19,12 +19,14 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, waitfunction wait_cb) :
     wait_callback(wait_cb)
 {
     DBG("client c'tor\n");
-    clid = make_clid();
-    DBG("clid = %u (0x%08X)\n",clid,clid);
-
     state = ANNA_NOT_INITIALIZED;
     if (!cfg) return;
 
+    // create a client ID for ourselves
+    clid = make_clid();
+    DBG("clid = %u (0x%08X)\n",clid,clid);
+
+    // create HTTP client
     client = new Client(server);
     if (!client->is_valid()) {
         state = ANNA_ERROR;
@@ -35,17 +37,23 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, waitfunction wait_cb) :
     client->set_write_timeout(ANNA_CLIENT_TIMEOUT,0);
     client->set_connection_timeout(ANNA_CLIENT_TIMEOUT,0);
 
+    // set internal data
     config = *cfg;
     state = ANNA_READY;
+    fixConfig(); // this changes internal config
 
+    // begin the session
     if (!command("/sessionStart")) {
         state = ANNA_ERROR;
         internal_error = "Unable to create remote session!";
         return;
     }
 
-    fixConfig();
-    if (request("/checkModel",config.params.model) != "OK") {
+    // request model file presence and upload the file if necessary
+    string mrq = request("/checkModel",config.params.model);
+    DBG("Model request: %s\n",mrq.c_str());
+    // TODO: check file size and show a warning
+    if (mrq.substr(0,2) != "OK") {
         DBG("Uploading model file %s...\n",cfg->params.model);
         if (!UploadModel(cfg->params.model,config.params.model)) {
             state = ANNA_ERROR;
@@ -54,6 +62,7 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, waitfunction wait_cb) :
         DBG(" upload done\n");
     }
 
+    // finally we can attempt to upload the config
     AnnaClient::setConfig(config);
 }
 
@@ -202,6 +211,11 @@ void AnnaClient::Undo()
     command("/undo");
 }
 
+void AnnaClient::KeepAlive()
+{
+    command("/keepAlive");
+}
+
 void AnnaClient::fixConfig()
 {
     // replace full file path with just file name
@@ -305,7 +319,7 @@ bool AnnaClient::command(const string cmd, const string arg, const string mod, b
         state = ANNA_ERROR;
         if (wait_callback) wait_callback(-1,false);
         internal_error = myformat("Remote command failed: %s",fcmd.c_str());
-        return true;
+        return false;
     }
 
     DBG("status = %d\n",r->status);
@@ -341,6 +355,7 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
     // do the transfer chunk by chunk
     size_t i = 0;
     while (!feof(f)) {
+        // read the data
         size_t r = ANNA_CLIENT_CHUNK;
         size_t p = mtell(f);
         if (!fread(buf,ANNA_CLIENT_CHUNK,1,f)) { // try bufferized read
@@ -349,16 +364,27 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
             if (!r) break;
         }
 
+        // make it appear responsive
+        float prg = (float)i / (float)(sz / ANNA_CLIENT_CHUNK) * 100.f;
+        if (wcb) wcb(ceil(prg),false);
+
         // encode and send
-        if (!command("/setChunk",asBase64(buf,r),myformat("%zu",i++))) {
+        string enc = asBase64(buf,r);
+        bool flag = false;
+        for (int retry = 0; !flag && retry < ANNA_TRANSFER_RETRIES; retry++) {
+            if (command("/setChunk",enc,myformat("%zu",i)))
+                flag = true;
+            else {
+                if (wcb) wcb(ceil(prg),true);
+                else usleep(1000UL * ANNA_RETRY_WAIT_MS);
+            }
+        }
+        if (!flag) {
             free(buf);
             wait_callback = wcb;
             return false;
         }
-
-        // make it appear responsive
-        float prg = (float)i / (float)(sz / ANNA_CLIENT_CHUNK) * 100.f;
-        if (wcb) wcb(ceil(prg),false);
+        i++;
     }
 
     free(buf);

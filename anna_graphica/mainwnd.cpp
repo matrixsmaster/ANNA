@@ -74,6 +74,8 @@ MainWnd::MainWnd(QWidget *parent)
     next_attach = nullptr;
     last_username = false;
 
+    startTimer(AG_SERVER_KEEPALIVE_MINS * 60000);
+
     ui->statusbar->showMessage("ANNA ver. " ANNA_VERSION " GUI ver. " AG_VERSION);
 }
 
@@ -221,7 +223,7 @@ bool MainWnd::NewBrain()
     } else {
         // create network client instance
         AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),[&](int prog, bool wait) {
-            WaitingFun(prog,wait);
+            WaitingFun(prog,wait,"Server is busy. Waiting in the queue...");
         });
         brain = dynamic_cast<AnnaBrain*>(ptr);
     }
@@ -286,7 +288,6 @@ void MainWnd::ForceAIName(const QString &nm)
 void MainWnd::ProcessInput(std::string str)
 {
     if (!brain) return;
-
     block = true; // block out sync-only UI functions
 
     // detach potentially long process into separate thread
@@ -300,16 +301,40 @@ void MainWnd::ProcessInput(std::string str)
         signal = true;
     });
 
-    while (!signal) {
-        qApp->processEvents();
-        usleep(AG_SERVER_WAIT_MS);
-    }
+    while (!signal) WaitingFun(0,true,"Processing text...");
     pt.join();
+    WaitingFun(-1,false);
 
     if (brain->getState() == ANNA_ERROR)
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 
     block = false;
+}
+
+bool MainWnd::EmbedImage(const QString& fn)
+{
+    if (!brain) return false;
+
+    bool oldblock = block;
+    block = true; // block out sync-only UI functions
+
+    // detach long process into separate thread
+    volatile bool signal = false;
+    bool res = false;
+    std::thread pt([&]() {
+        res = brain->EmbedImage(fn.toStdString());
+        signal = true;
+    });
+
+    while (!signal) WaitingFun(0,true,"Embedding image...");
+    pt.join();
+    WaitingFun(-1,false);
+
+    if (!res)
+        QMessageBox::critical(this,"ANNA",QString::fromStdString("Unable to embed image: "+brain->getError()));
+
+    block = oldblock;
+    return res;
 }
 
 void MainWnd::Generate()
@@ -526,13 +551,10 @@ void MainWnd::on_SendButton_clicked()
 
         if (next_attach->txt.isEmpty()) {
             // image attachment
-            if (!brain->EmbedImage(next_attach->fn.toStdString())) {
-                QMessageBox::critical(this,"ANNA",QString::fromStdString("Unable to embed image: "+brain->getError()));
-                return;
-            }
+            if (!EmbedImage(next_attach->fn)) return;
         } else {
             // text attachment
-            usr += next_attach->txt + "\n";
+            usr += "\n" + guiconfig.txt_prefix + "\n" + next_attach->txt + "\n" + guiconfig.txt_suffix + "\n";
         }
 
         next_attach = nullptr;
@@ -565,6 +587,13 @@ void MainWnd::closeEvent(QCloseEvent* event)
         event->accept();
     } else
         event->ignore();
+}
+
+void MainWnd::timerEvent(QTimerEvent* /*event*/)
+{
+    if (!brain) return;
+    AnnaClient* ptr = dynamic_cast<AnnaClient*>(brain);
+    if (ptr) ptr->KeepAlive();
 }
 
 bool MainWnd::eventFilter(QObject* obj, QEvent* event)
@@ -993,29 +1022,41 @@ void MainWnd::on_actionReset_prompt_to_default_triggered()
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }
 
-void MainWnd::WaitingFun(int prog, bool wait)
+void MainWnd::WaitingFun(int prog, bool wait, const QString& text)
 {
     bool prev_block = block;
     block = true;
 
     if (prog >= 0) {
-        ui->statusbar->showMessage("Server is busy. Waiting in the queue...");
+        if (prog)
+            ui->statusbar->showMessage("Transfer in progress...");
+        else
+            ui->statusbar->showMessage(text);
+
         for (int i = 0; i < AG_SERVER_WAIT_CYCLES; i++) {
             if (guiconfig.use_busybox) {
+                busybox_lock.lock();
                 if (!busy_box) {
                     busy_box = new BusyBox(nullptr,geometry());
                     busy_box->show();
                 }
                 busy_box->Use(prog);
-            }
-            qApp->processEvents();
+                qApp->processEvents();
+                busybox_lock.unlock();
+            } else
+                qApp->processEvents();
+
             if (wait) usleep(1000UL * AG_SERVER_WAIT_MS);
             else break; // no need to do many cycles, as we're not waiting
         }
 
-    } else if (busy_box) {
-        delete busy_box;
-        busy_box = nullptr;
+    } else {
+        busybox_lock.lock();
+        if (busy_box) {
+            delete busy_box;
+            busy_box = nullptr;
+        }
+        busybox_lock.unlock();
     }
 
     block = prev_block;

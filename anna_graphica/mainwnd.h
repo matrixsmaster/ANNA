@@ -11,12 +11,13 @@
 #include <QComboBox>
 #include <QSettings>
 #include <QCompleter>
+#include <mutex>
 #include "rqpeditor.h"
 #include "busybox.h"
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.5c"
+#define AG_VERSION "0.8.6"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -31,6 +32,7 @@
 #define AG_DEFAULT_SERVER "127.0.0.1:8080"
 #define AG_SERVER_WAIT_MS 50
 #define AG_SERVER_WAIT_CYCLES 20
+#define AG_SERVER_KEEPALIVE_MINS 2
 
 struct AnnaAttachment {
     QString fn;
@@ -46,6 +48,7 @@ struct AnnaGuiSettings {
     QString server;
     bool use_server, use_busybox;
     QFont log_fnt, usr_fnt;
+    QString txt_prefix, txt_suffix;
     std::vector<AnnaRQPFile> rqps;
 };
 
@@ -76,6 +79,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
+    void timerEvent(QTimerEvent* event) override;
     bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:
@@ -155,6 +159,7 @@ private:
     bool last_username;
     bool stop;
     bool block;
+    std::mutex busybox_lock;
     QString filedlg_cache[ANNA_NUM_FILETYPES];
     std::vector<AnnaRQPState> rqps;
 
@@ -171,6 +176,7 @@ private:
     void CheckRQPs(const QString& inp);
     void ForceAIName(const QString& nm);
     void ProcessInput(std::string str);
+    bool EmbedImage(const QString& fn);
     void Generate();
 
     QString GetSaveFileName(const AnnaFileDialogType tp);
@@ -178,7 +184,7 @@ private:
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 
-    void WaitingFun(int prog, bool wait);
+    void WaitingFun(int prog, bool wait, const QString& text = "");
 };
 
 #endif // MAINWND_H

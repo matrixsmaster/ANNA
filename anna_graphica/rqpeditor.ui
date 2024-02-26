@@ -223,6 +223,9 @@
         </item>
         <item>
          <widget class="QLineEdit" name="prefix">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="toolTip">
            <string>Use &quot;\n&quot; to insert newline</string>
           </property>
@@ -253,6 +256,9 @@
         </item>
         <item>
          <widget class="QLineEdit" name="suffix">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="toolTip">
            <string>Use &quot;\n&quot; to insert newline</string>
           </property>

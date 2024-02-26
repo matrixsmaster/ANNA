@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.6"
+#define SERVER_VERSION "0.2.0"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -27,7 +27,7 @@
 #define SERVER_SCHED_WAIT 100000
 #define SERVER_CLIENT_TIMEOUT 5
 #define SERVER_CLIENT_MAXTIME 30
-//#define SERVER_CLIENT_DEAD_TO 24
+#define SERVER_CLIENT_DEAD_TO (2*60)
 
 #define SERVER_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
 
@@ -172,7 +172,7 @@ int get_max_gpu_layers(AnnaConfig* cfg)
         return 0;
     }
 
-    DBG("Model size: %lu\nLayers: %d\nState size: %lu\n",fsz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
+    DBG("Model size: %zu\nLayers: %d\nState size: %zu\n",fsz,llama_model_n_layers(mdl),llama_get_state_size(ctx));
     double totsz = llama_get_state_size(ctx) + fsz;
     double fulloff = (double)SERVER_DEF_GPU_VRAM * (double)llama_model_n_layers(mdl) / totsz;
     int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
@@ -391,7 +391,7 @@ string to_base64(uint32_t clid, const void* in, size_t inlen)
 {
     uint8_t* tmp = (uint8_t*)malloc(inlen);
     if (!tmp) {
-        ERROR("Unable to allocate %lu bytes of memory!\n",inlen);
+        ERROR("Unable to allocate %zu bytes of memory!\n",inlen);
         return 0;
     }
 
@@ -403,7 +403,7 @@ string to_base64(uint32_t clid, const void* in, size_t inlen)
     size_t n = encode((char*)s.data(),s.size(),tmp,inlen);
     s.resize(n);
 
-    INFO("Data encoded: %lu bytes from %lu bytes\n",n,inlen);
+    INFO("Data encoded: %zu bytes from %zu bytes\n",n,inlen);
     free(tmp);
     return s;
 }
@@ -412,7 +412,7 @@ size_t from_base64(uint32_t clid, void* out, size_t maxlen, const char* in)
 {
     size_t n = decode(out,maxlen,in);
     codec_backward(clid,out,n);
-    INFO("%lu bytes decoded from %lu bytes string\n",n,strlen(in));
+    INFO("%zu bytes decoded from %zu bytes string\n",n,strlen(in));
     return n;
 }
 
@@ -504,18 +504,18 @@ void install_services(Server* srv)
     });
 
     srv->Post("/setConfig/:id", [](const Request& req, Response& res) {
-        //INFO("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
+        //INFO("sizeof AnnaConfig = %zu\n",sizeof(AnnaConfig));
         int id = check_request(req,res,"setConfig");
         if (!id) return;
 
         AnnaConfig cfg;
         size_t r = from_base64(id,&cfg,sizeof(cfg),req.body.c_str());
         if (r != sizeof(cfg)) {
-            ERROR("Unable to decode params: %lu bytes read, %lu bytes needed\n",r,sizeof(cfg));
+            ERROR("Unable to decode params: %zu bytes read, %zu bytes needed\n",r,sizeof(cfg));
             res.status = BadRequest_400;
             return;
         }
-        DBG("%lu bytes decoded\n",r);
+        DBG("%zu bytes decoded\n",r);
         fix_config(cfg);
 
         if (!check_brain(id,"setConfig",res)) {
@@ -691,16 +691,16 @@ void install_services(Server* srv)
         string buf(req.body.length(),0);
         size_t r = from_base64(id,(void*)buf.data(),buf.size(),req.body.c_str());
         if (!r || r % sizeof(float)) {
-            ERROR("Unable to extract embeddings: %lu bytes decoded\n",r);
+            ERROR("Unable to extract embeddings: %zu bytes decoded\n",r);
             res.status = BadRequest_400;
             return;
         }
         buf.resize(r);
-        DBG("%lu bytes decoded for embeddings\n",r);
+        DBG("%zu bytes decoded for embeddings\n",r);
 
         vector<float> emb(r / sizeof(float));
         memcpy((void*)emb.data(),buf.data(),r);
-        DBG("%lu float records constructed\n",emb.size());
+        DBG("%zu float records constructed\n",emb.size());
 
         usermap[id].lk.lock();
         usermap.at(id).brain->addEmbeddings(emb);
@@ -724,8 +724,10 @@ void install_services(Server* srv)
         string path = AnnaBrain::myformat("%s/%s",SERVER_MODEL_DIR,fn.c_str());
         FILE* f = fopen(path.c_str(),"rb");
         if (f) {
+            fseek(f,0,SEEK_END);
+            size_t sz = ftell(f);
             fclose(f);
-            res.set_content("OK","text/plain");
+            res.set_content(AnnaBrain::myformat("OK%zu",sz),"text/plain");
         } else
             res.set_content("File not found","text/plain");
 
@@ -766,7 +768,7 @@ void install_services(Server* srv)
         q_lock.unlock();
 
         res.set_content("OK","text/plain");
-        DBG("uploadModel() started for user %d\n",id);
+        DBG("uploadModel(%zu) started for user %d\n",sz,id);
         fin_request(id);
     });
 
@@ -789,27 +791,69 @@ void install_services(Server* srv)
         string sidx = req.path_params.at("ci");
         size_t idx = atoll(sidx.c_str());
         if (idx > sz / SERVER_CLIENT_CHUNK) {
-            ERROR("setChunk() for client %d: Chunk index beyond limit (#%lu in %lu bytes file)\n",id,idx,sz);
+            ERROR("setChunk() for client %d: Chunk index beyond limit (#%zu in %zu bytes file)\n",id,idx,sz);
             res.status = BadRequest_400;
             return;
         }
         if (idx != ftell(f) / SERVER_CLIENT_CHUNK) {
-            ERROR("setChunk() for client %d: Chunk is out of order (expected #%lu, got #%lu)\n",id,size_t(ftell(f) / SERVER_CLIENT_CHUNK),idx);
+            ERROR("setChunk() for client %d: Chunk is out of order (expected #%zu, got #%zu)\n",id,size_t(ftell(f) / SERVER_CLIENT_CHUNK),idx);
             res.status = BadRequest_400;
             return;
         }
 
         string buf(SERVER_CLIENT_CHUNK,0);
         size_t r = from_base64(id,(void*)buf.data(),SERVER_CLIENT_CHUNK,req.body.c_str());
-        DBG("%lu bytes decoded as chunk data\n",r);
+        DBG("%zu bytes decoded as chunk data\n",r);
 
         if (!fwrite(buf.data(),r,1,f)) {
-            ERROR("setChunk() for client %d: unable to write chunk #%lu\n",id,idx);
+            ERROR("setChunk() for client %d: unable to write chunk #%zu\n",id,idx);
             res.status = InternalServerError_500;
             return;
         }
 
-        DBG("setChunk() complete\n");
+        DBG("setChunk(%zu) complete for user %d\n",idx,id);
+        fin_request(id);
+    });
+
+    srv->Get("/getChunk/:id/:ci", [](const Request &req, Response &res) {
+        int id = check_request(req,res,"getChunk");
+        if (!id) return;
+
+        usermap[id].lk.lock();
+        client_state s = usermap[id].state;
+        FILE* f = usermap[id].fhandle;
+        size_t sz = usermap[id].transize;
+        usermap[id].lk.unlock();
+
+        if (s != ANNASERV_CLIENT_TRANSFER || !f) {
+            ERROR("getChunk() for client %d: Wrong state or file is not open\n",id);
+            res.status = BadRequest_400;
+            return;
+        }
+
+        string sidx = req.path_params.at("ci");
+        size_t idx = atoll(sidx.c_str());
+        if (idx > sz / SERVER_CLIENT_CHUNK) {
+            ERROR("getChunk() for client %d: Chunk index beyond limit (#%zu in %zu bytes file)\n",id,idx,sz);
+            res.status = BadRequest_400;
+            return;
+        }
+
+        string buf(SERVER_CLIENT_CHUNK,0);
+        fseek(f,idx*SERVER_CLIENT_CHUNK,SEEK_SET);
+        size_t r = SERVER_CLIENT_CHUNK;
+        if (!fread((void*)buf.data(),SERVER_CLIENT_CHUNK,1,f)) { // try bufferized read
+            fseek(f,idx*SERVER_CLIENT_CHUNK,SEEK_SET);
+            r = fread((void*)buf.data(),1,SERVER_CLIENT_CHUNK,f); // try partial read
+            if (!r) {
+                ERROR("getChunk() for client %d: unable to read chunk #%zu\n",id,idx);
+                res.status = InternalServerError_500;
+                return;
+            }
+        }
+
+        res.set_content(to_base64(id,buf.data(),r),"text/plain");
+        DBG("getChunk(%zu) complete for user %d\n",idx,id);
         fin_request(id);
     });
 
@@ -831,6 +875,86 @@ void install_services(Server* srv)
 
         DBG("File transfer complete for client %d\n",id);
         fin_request(id);
+    });
+
+    srv->Get("/downloadState/:id", [](const Request &req, Response &res) {
+        int id = check_request(req,res,"downloadState");
+        if (!id) return;
+
+        q_lock.lock();
+        hold_user(id);
+        usermap[id].lk.lock();
+        usermap[id].old_state = usermap[id].state;
+        usermap[id].state = ANNASERV_CLIENT_TRANSFER;
+        usermap[id].lk.unlock();
+        q_lock.unlock();
+
+        string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
+        FILE* f = fopen(fn.c_str(),"rb");
+        if (!f) {
+            ERROR("Unable to open file %s\n",fn.c_str());
+            res.set_content("Unable to get state file","text/plain");
+
+            q_lock.lock();
+            usermap[id].lk.lock();
+            usermap[id].state = usermap[id].old_state;
+            usermap[id].lk.unlock();
+            q_lock.unlock();
+            return;
+        }
+        fseek(f,0,SEEK_END);
+        size_t sz = ftell(f);
+        fseek(f,0,SEEK_SET);
+
+        usermap[id].lk.lock();
+        usermap[id].transize = sz;
+        usermap[id].fhandle = f;
+        usermap[id].lk.unlock();
+
+        res.set_content(AnnaBrain::myformat("OK%zu",sz),"text/plain");
+        DBG("downloadState() started for user %d\n",id);
+        fin_request(id);
+    });
+
+    srv->Get("/uploadState/:id", [](const Request &req, Response &res) {
+        int id = check_request(req,res,"uploadState");
+        if (!id) return;
+
+        string ssz = req.get_param_value("arg");
+        DBG("ssz = %s\n",ssz.c_str());
+        size_t sz = atoll(ssz.c_str());
+        if (ssz.empty() || !sz) {
+            ERROR("Malformed request to uploadState: %s\n",ssz.c_str());
+            res.status = BadRequest_400;
+            return;
+        }
+
+        string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
+        FILE* f = fopen(fn.c_str(),"wb");
+        if (!f) {
+            ERROR("Unable to write to file %s\n",fn.c_str());
+            res.set_content("Unable to create state file","text/plain");
+            return;
+        }
+
+        q_lock.lock();
+        hold_user(id);
+        usermap[id].lk.lock();
+        usermap[id].old_state = usermap[id].state;
+        usermap[id].state = ANNASERV_CLIENT_TRANSFER;
+        usermap[id].fhandle = f;
+        usermap[id].transize = sz;
+        usermap[id].lk.unlock();
+        q_lock.unlock();
+
+        res.set_content("OK","text/plain");
+        DBG("uploadState(%zu) started for user %d\n",sz,id);
+        fin_request(id);
+    });
+
+    srv->Post("/keepAlive/:id", [](const Request& req, Response& res) {
+        int id = check_request(req,res,"keepAlive");
+        if (id) fin_request(id);
     });
 }
 
@@ -855,6 +979,17 @@ void sched_thread()
 
         usermap_mtx.lock();
         q_lock.lock();
+
+        // check for "client dead" timeout
+        for (auto ui = usermap.begin(); ui != usermap.end();) {
+            int age = (chrono::steady_clock::now() - usermap.at(ui->first).last_req) / 1min;
+            if (age > SERVER_CLIENT_DEAD_TO) {
+                WARN("Removing dead client %d (no life signs for %d mins)\n",ui->first,age);
+                del_user(ui->first);
+                ui = usermap.begin();
+            } else
+                ++ui;
+        }
 
         // check for active user's validity
         if (active_user > 0) {
@@ -996,7 +1131,7 @@ int main()
             puts("=======================================");
             for (auto i : userqueue) printf("%d (0x%08X)\n",i,i);
             puts("=======================================");
-            printf("%lu requests in the queue\n",userqueue.size());
+            printf("%zu requests in the queue\n",userqueue.size());
             q_lock.unlock();
 
         } else if (c == "kick" || c == "sus" || c == "res") {

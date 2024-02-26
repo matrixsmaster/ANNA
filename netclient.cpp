@@ -3,6 +3,7 @@
 #include "../server/httplib.h"
 #include "../server/base64m.h"
 #include "../server/codec.h"
+#include "lfs.h"
 
 //#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -100,7 +101,7 @@ AnnaConfig AnnaClient::getConfig()
 
 void AnnaClient::setConfig(const AnnaConfig &cfg)
 {
-    DBG("sizeof AnnaConfig = %lu\n",sizeof(AnnaConfig));
+    DBG("sizeof AnnaConfig = %zu\n",sizeof(AnnaConfig));
     config = cfg;
     fixConfig();
 
@@ -110,7 +111,7 @@ void AnnaClient::setConfig(const AnnaConfig &cfg)
 
     // encode and send
     string enc = asBase64((void*)&(config),sizeof(config));
-    DBG("encoded state len = %lu\n",enc.size());
+    DBG("encoded state len = %zu\n",enc.size());
     command("/setConfig",enc);
 }
 
@@ -132,7 +133,7 @@ void AnnaClient::setPrefix(string str)
 void AnnaClient::addEmbeddings(const std::vector<float>& emb)
 {
     string enc = asBase64(emb.data(),emb.size()*sizeof(float));
-    DBG("encoded embedding len = %lu\n",enc.size());
+    DBG("encoded embedding len = %zu\n",enc.size());
     command("/addEmbeddings",enc);
 }
 
@@ -160,12 +161,12 @@ bool AnnaClient::UploadModel(string fpath, string mname)
     }
 
     // get size
-    fseek(f,0,SEEK_END);
-    size_t sz = ftell(f);
-    fseek(f,0,SEEK_SET);
+    mseek(f,0,SEEK_END);
+    size_t sz = mtell(f);
+    mseek(f,0,SEEK_SET);
 
     // try to negotiate uploading
-    string urq = request("/uploadModel",myformat("%lu",sz),mname);
+    string urq = request("/uploadModel",myformat("%zu",sz),mname);
     if (urq != "OK") {
         fclose(f);
         internal_error = "uploadModel request failed: " + urq;
@@ -216,7 +217,7 @@ string AnnaClient::asBase64(const void *data, size_t len)
     uint8_t* tmp = (uint8_t*)malloc(len);
     if (!tmp) {
         state = ANNA_ERROR;
-        internal_error = myformat("Unable to allocate %lu bytes of memory!\n",len);
+        internal_error = myformat("Unable to allocate %zu bytes of memory!\n",len);
         return "";
     }
 
@@ -249,7 +250,7 @@ size_t AnnaClient::fromBase64(void *data, size_t len, string in)
 {
     size_t n = decode(data,len,in.c_str());
     codec_backward(clid,data,n);
-    DBG("%lu bytes decoded from %lu bytes string\n",n,strlen(in.c_str()));
+    DBG("%zu bytes decoded from %zu bytes string\n",n,strlen(in.c_str()));
     return n;
 }
 
@@ -341,15 +342,15 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
     size_t i = 0;
     while (!feof(f)) {
         size_t r = ANNA_CLIENT_CHUNK;
-        size_t p = ftell(f);
+        size_t p = mtell(f);
         if (!fread(buf,ANNA_CLIENT_CHUNK,1,f)) { // try bufferized read
-            fseek(f,p,SEEK_SET);
+            mseek(f,p,SEEK_SET);
             r = fread(buf,1,ANNA_CLIENT_CHUNK,f); // try partial read
             if (!r) break;
         }
 
         // encode and send
-        if (!command("/setChunk",asBase64(buf,r),myformat("%lu",i++))) {
+        if (!command("/setChunk",asBase64(buf,r),myformat("%zu",i++))) {
             free(buf);
             wait_callback = wcb;
             return false;

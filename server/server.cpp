@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.1.5b"
+#define SERVER_VERSION "0.1.6"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -445,6 +445,18 @@ void fix_config(AnnaConfig& cfg)
     strncpy(cfg.params.model,fn.c_str(),sizeof(cfg.params.model)-1);
 }
 
+bool is_workable(int id)
+{
+    switch (usermap[id].state) {
+    case ANNASERV_CLIENT_CONFIGURED:
+    case ANNASERV_CLIENT_LOADED:
+    case ANNASERV_CLIENT_UNLOADED:
+        return true;
+    default:
+        return false;
+    }
+}
+
 void install_services(Server* srv)
 {
     srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
@@ -847,14 +859,18 @@ void sched_thread()
         // check for active user's validity
         if (active_user > 0) {
             if (usermap.count(active_user) < 1) {
-                WARN("Invalid active user %d (not existing), removing",active_user);
+                WARN("Invalid active user %d (not existing), removing...\n",active_user);
+                active_user = -1;
+
+            } else if (!is_workable(active_user)) {
+                WARN("Current active user %d is in inactive state, switching over...\n",active_user);
                 active_user = -1;
             }
         }
 
         // sanitize the queue
         for (auto qi = userqueue.begin(); qi != userqueue.end();) {
-            if (*qi == active_user || usermap.count(*qi) < 1)
+            if (*qi == active_user || usermap.count(*qi) < 1 || !is_workable(*qi))
                 qi = userqueue.erase(qi);
             else
                 ++qi;

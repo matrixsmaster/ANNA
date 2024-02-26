@@ -15,6 +15,7 @@ SOURCES += \
     settingsdialog.cpp
 
 HEADERS += \
+    ../lfs.h \
     ../netclient.h \
     ../server/base64m.h \
     ../server/codec.h \

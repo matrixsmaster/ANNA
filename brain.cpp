@@ -114,12 +114,12 @@ void AnnaBrain::Evaluate()
             if (n_past + (int)queue.size() + n_ext_emb > (int)llama_n_ctx(ctx)) {
                 // context overflow
                 if (!n_past) {
-                    internal_error = myformat("Impossible queue length for the context window size: queue = %lu, ext_emb = %d\n",queue.size(),n_ext_emb);
+                    internal_error = myformat("Impossible queue length for the context window size: queue = %zu, ext_emb = %d\n",queue.size(),n_ext_emb);
                     state = ANNA_ERROR;
                     return;
                 }
 
-                DBG("Context overflow: n_past = %d, queue = %lu, ext_emb = %d\n",n_past,queue.size(),n_ext_emb);
+                DBG("Context overflow: n_past = %d, queue = %zu, ext_emb = %d\n",n_past,queue.size(),n_ext_emb);
 
 #if 0 /* FIXME: Bring back reload-on-reset feature later */
                 int nseed = llama_get_rng_seed(ctx);
@@ -397,7 +397,7 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     }
 
     if (ftruncate(fd,total)) {
-        internal_error = myformat("Unable to truncate to %lu bytes\n",total);
+        internal_error = myformat("Unable to truncate to %zu bytes\n",total);
         return false;
     }
     uint8_t* data = (uint8_t*)mmap(NULL,total,PROT_WRITE,MAP_SHARED,fd,0);
@@ -442,7 +442,7 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
 
     uint8_t* sbuf = (uint8_t*)malloc(hdr.data_size);
     if (!sbuf) {
-        internal_error = myformat("Unable to allocate temporary buffer for the state data (%lu bytes)",hdr.data_size);
+        internal_error = myformat("Unable to allocate temporary buffer for the state data (%zu bytes)",hdr.data_size);
         fclose(f);
         return false;
     }
@@ -463,12 +463,12 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     fclose(f);
 
     if (nh+nd+nu != 3 || nv != hdr.vector_size) {
-        internal_error = myformat("Data write failed: %lu,%lu,%lu,%lu -> %s\n",nh,nd,nv,nu,strerror(errno));
+        internal_error = myformat("Data write failed: %zu,%zu,%zu,%zu -> %s\n",nh,nd,nv,nu,strerror(errno));
         return false;
     }
 #endif
 
-    DBG("Cache (%lu bytes) saved to %s\n",total,fname.c_str());
+    DBG("Cache (%zu bytes) saved to %s\n",total,fname.c_str());
     return true;
 }
 
@@ -496,16 +496,16 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     if (internal_error.empty() && strncmp(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic)))
         internal_error = myformat("Wrong cache file magic ID: expected " ANNA_STATE_MAGIC ", got %4s",hdr.magic);
     if (internal_error.empty() && hdr.data_size != dsize)
-        internal_error = myformat("Wrong state data size: expected %lu, got %lu bytes",dsize,hdr.data_size);
+        internal_error = myformat("Wrong state data size: expected %zu, got %zu bytes",dsize,hdr.data_size);
     if (internal_error.empty() && hdr.user_size > (user_size? (*user_size):0))
-        internal_error = myformat("Unable to load user data: %lu bytes in the file, but can read only %lu bytes",hdr.user_size,user_size);
+        internal_error = myformat("Unable to load user data: %zu bytes in the file, but can read only %zu bytes",hdr.user_size,(user_size? (*user_size):0));
 
     size_t total = sizeof(hdr) + hdr.data_size + hdr.vector_size + hdr.user_size;
 
     fseek(f,0,SEEK_END);
     size_t fsize = ftell(f);
     if (internal_error.empty() && fsize != total)
-        internal_error = myformat("Wrong file size: expected %lu, got %lu bytes",total,fsize);
+        internal_error = myformat("Wrong file size: expected %zu, got %zu bytes",total,fsize);
 
     if (!internal_error.empty()) {
         fclose(f);
@@ -558,7 +558,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
 
     uint8_t* sbuf = (uint8_t*)malloc(dsize);
     if (!sbuf) {
-        internal_error = myformat("Unable to allocate temporary buffer for the state data (%lu bytes)",dsize);
+        internal_error = myformat("Unable to allocate temporary buffer for the state data (%zu bytes)",dsize);
         fclose(f);
         return false;
     }
@@ -578,7 +578,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     free(sbuf);
 
     if (nd+nu != 2) {
-        internal_error = myformat("Data read failed: %lu,%lu -> %s\n",nd,nu,strerror(errno));
+        internal_error = myformat("Data read failed: %zu,%zu -> %s\n",nd,nu,strerror(errno));
         return false;
     }
 #endif
@@ -589,7 +589,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     n_consumed = hdr.n_consumed;
     ga_i = hdr.ga_i;
 
-    DBG("Cache (%lu bytes) loaded from %s\n",dsize,fname.c_str());
+    DBG("Cache (%zu bytes) loaded from %s\n",dsize,fname.c_str());
     return true;
 }
 

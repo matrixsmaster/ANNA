@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.2.0"
+#define SERVER_VERSION "0.2.1"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -211,12 +211,12 @@ bool mod_user(int id, const AnnaConfig& cfg)
     return true;
 }
 
-bool del_user(int id)
+bool del_user(int id, bool lock = true)
 {
     if (!usermap.count(id)) return false;
     save_log(id);
 
-    usermap_mtx.lock();
+    if (lock) usermap_mtx.lock();
     usermap[id].lk.lock();
 
     AnnaBrain* ptr = usermap.at(id).brain;
@@ -228,7 +228,7 @@ bool del_user(int id)
     usermap.erase(id);
     reclaim_clid(id);
 
-    usermap_mtx.unlock();
+    if (lock) usermap_mtx.unlock();
 
     INFO("User %d session ended\n",id);
     return true;
@@ -985,7 +985,7 @@ void sched_thread()
             int age = (chrono::steady_clock::now() - usermap.at(ui->first).last_req) / 1min;
             if (age > SERVER_CLIENT_DEAD_TO) {
                 WARN("Removing dead client %d (no life signs for %d mins)\n",ui->first,age);
-                del_user(ui->first);
+                del_user(ui->first,false);
                 ui = usermap.begin();
             } else
                 ++ui;

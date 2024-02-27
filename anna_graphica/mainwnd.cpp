@@ -56,6 +56,7 @@ MainWnd::MainWnd(QWidget *parent)
 {
     ui->setupUi(this);
     seed_label = new QLabel(this);
+    busy_box = new BusyBox(nullptr);
 
     ui->statusbar->addPermanentWidget(seed_label);
     ui->UserInput->installEventFilter(this);
@@ -66,7 +67,6 @@ MainWnd::MainWnd(QWidget *parent)
     ui->UserNameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
 
     block = false;
-    busy_box = nullptr;
     on_actionSimple_view_triggered();
     DefaultConfig();
     LoadSettings();
@@ -85,6 +85,7 @@ MainWnd::~MainWnd()
     if (brain) delete brain;
     guiconfig.rqps.clear();
     UpdateRQPs(); // effectively destroys all QSettings() objects
+    delete busy_box;
     delete seed_label;
     delete ui;
 }
@@ -1034,29 +1035,14 @@ void MainWnd::WaitingFun(int prog, bool wait, const QString& text)
             ui->statusbar->showMessage(text);
 
         for (int i = 0; i < AG_SERVER_WAIT_CYCLES; i++) {
-            if (guiconfig.use_busybox) {
-                busybox_lock.lock();
-                if (!busy_box) {
-                    busy_box = new BusyBox(nullptr,geometry());
-                    busy_box->show();
-                }
-                busy_box->Use(prog);
-                qApp->processEvents();
-                busybox_lock.unlock();
-            } else
-                qApp->processEvents();
-
+            if (guiconfig.use_busybox) busy_box->Use(geometry(),prog);
+            qApp->processEvents();
             if (wait) usleep(1000UL * AG_SERVER_WAIT_MS);
             else break; // no need to do many cycles, as we're not waiting
         }
 
     } else {
-        busybox_lock.lock();
-        if (busy_box) {
-            delete busy_box;
-            busy_box = nullptr;
-        }
-        busybox_lock.unlock();
+        if (guiconfig.use_busybox) busy_box->close();
     }
 
     block = prev_block;

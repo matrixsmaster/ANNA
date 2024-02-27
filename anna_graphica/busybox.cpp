@@ -5,14 +5,14 @@
 #include "busybox.h"
 #include "ui_busybox.h"
 
-BusyBox::BusyBox(QWidget *parent, QRect base) :
+BusyBox::BusyBox(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::BusyBox)
 {
     ui->setupUi(this);
     setWindowFlags(Qt::FramelessWindowHint);
-    setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter,size(),base));
     angle = 0;
+    close();
 }
 
 BusyBox::~BusyBox()
@@ -20,11 +20,15 @@ BusyBox::~BusyBox()
     delete ui;
 }
 
-void BusyBox::Use(int progress)
+void BusyBox::Use(QRect base, int progress)
 {
+    if (!interlock.try_lock()) return;
+    if (isHidden()) show();
+    setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter,size(),base));
     ui->progressBar->setVisible(progress > 0);
     ui->progressBar->setValue(progress);
     update();
+    interlock.unlock();
 }
 
 void BusyBox::draw()

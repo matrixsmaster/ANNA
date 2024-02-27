@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.6"
+#define AG_VERSION "0.8.6d"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -159,7 +159,6 @@ private:
     bool last_username;
     bool stop;
     bool block;
-    std::mutex busybox_lock;
     QString filedlg_cache[ANNA_NUM_FILETYPES];
     std::vector<AnnaRQPState> rqps;
 

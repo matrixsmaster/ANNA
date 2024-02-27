@@ -82,8 +82,12 @@ AnnaState AnnaClient::getState()
 
 const string &AnnaClient::getError()
 {
+    // in non-ready state, we don't want to call the remote
     if (state != ANNA_READY) return internal_error;
-    internal_error = fromBase64(request("/getError"));
+    // check remote error first
+    string err = fromBase64(request("/getError"));
+    // we might or might not have a remote error, but we also might have an internal error
+    if (!err.empty()) internal_error = err;
     return internal_error;
 }
 
@@ -193,6 +197,15 @@ bool AnnaClient::UploadModel(string fpath, string mname)
 
     fclose(f);
     return r;
+}
+
+bool AnnaClient::EmbedImage(std::string imgfile)
+{
+    // being previously updated on the server, the config might have different amount of threads specified
+    if (config.params.n_threads > (int)thread::hardware_concurrency())
+        config.params.n_threads = thread::hardware_concurrency();
+    // now we can use EmbedImage as usual
+    return AnnaBrain::EmbedImage(imgfile);
 }
 
 AnnaState AnnaClient::Processing(bool skip_sampling)

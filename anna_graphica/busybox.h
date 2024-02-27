@@ -2,6 +2,7 @@
 #define BUSYBOX_H
 
 #include <QDialog>
+#include <mutex>
 
 #define GUI_BUSYBX_ELRAD 20
 #define GUI_BUSYBX_SPD 6.5
@@ -17,10 +18,10 @@ class BusyBox : public QDialog
     Q_OBJECT
 
 public:
-    explicit BusyBox(QWidget *parent, QRect base);
+    explicit BusyBox(QWidget *parent);
     ~BusyBox();
 
-    void Use(int progress);
+    void Use(QRect base, int progress);
 
 protected:
     virtual void paintEvent(QPaintEvent *event) override;
@@ -28,6 +29,7 @@ protected:
 private:
     Ui::BusyBox *ui;
     float angle,cx,cy;
+    std::mutex interlock;
 
     void draw();
     void pos(float a);

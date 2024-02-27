@@ -40,6 +40,8 @@ public:
     bool LoadState(std::string fname, void* user_data, size_t* user_size) override;
     bool UploadModel(std::string fpath, std::string mname);
 
+    bool EmbedImage(std::string imgfile) override;
+
     AnnaState Processing(bool skip_sampling = false) override;
     void Reset() override;
     void Undo() override;

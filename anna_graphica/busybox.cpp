@@ -6,46 +6,47 @@
 #include "ui_busybox.h"
 #include "../brain.h"
 
+// This is a port of the original 1979 ELIZA program, crudely adapted to modern C/C++
 static const char* phrases[] = {
-    "Don't you believe that I can*",
-    "Perhaps you would like to be able to*",
-    "You want me to be able to*",
-    "Perhaps you don't want to*",
-    "Do you want to be able to*",
-    "What makes you think I am*",
-    "Does it please you to believe I am*",
-    "Perhaps you would like to be*",
-    "Do you sometimes wish you were*",
-    "Don't you really*",
-    "Why don't you*",
-    "Do you wish to be able to*",
+    "Don't you believe that I can *?",
+    "Perhaps you would like to be able to *?",
+    "You want me to be able to *?",
+    "Perhaps you don't want to *?",
+    "Do you want to be able to *?",
+    "What makes you think I am *?",
+    "Does it please you to believe I am *?",
+    "Perhaps you would like to be *?",
+    "Do you sometimes wish you were *?",
+    "Don't you really *?",
+    "Why don't you *?",
+    "Do you wish to be able to *?",
     "Does that trouble you?",
     "Tell me more about such feelings.",
-    "Do you often feel*",
-    "Do you enjoy feeling*",
-    "Do you really believe I don't*",
-    "Perhaps in good time I will*",
-    "Do you want me to*",
-    "Do you think you should be able to*",
-    "Why can't you*",
-    "Why are you interested in whether or not I am*",
-    "Would you prefer if I were not*",
-    "Perhaps in your fantasies I am*",
-    "How do you know you can't*",
+    "Do you often feel *?",
+    "Do you enjoy feeling *?",
+    "Do you really believe I don't *?",
+    "Perhaps in good time I will *?",
+    "Do you want me to *?",
+    "Do you think you should be able to *?",
+    "Why can't you *?",
+    "Why are you interested in whether or not I am *?",
+    "Would you prefer if I were not *?",
+    "Perhaps in your fantasies I am *?",
+    "How do you know you can't *?",
     "Have you tried?",
-    "Perhaps you can now*",
-    "Did you come to me because you are*",
-    "How long have you been*",
-    "Do you believe it is normal to be*",
-    "Do you enjoy being*",
-    "We were discussing you - not me.",
-    "Oh, I*",
+    "Perhaps you can now *.",
+    "Did you come to me because you are *?",
+    "How long have you been *?",
+    "Do you believe it is normal to be *?",
+    "Do you enjoy being *?",
+    "We were discussing you - not me!",
+    "Oh, I *.",
     "You're not really talking about me, are you?",
-    "What would it mean to you if you got*",
-    "Why do you want*",
-    "Suppose you soon got*",
-    "What if you never got*",
-    "I sometimes also want*",
+    "What would it mean to you if you got *?",
+    "Why do you want *?",
+    "Suppose you soon got *.",
+    "What if you never got *?",
+    "I sometimes also want *.",
     "Why do you ask?",
     "Does that question interest you?",
     "What answer would please you the most?",
@@ -80,15 +81,15 @@ static const char* phrases[] = {
     "Why not?",
     "Are you sure?",
     "Why no?",
-    "Why are you concerned about my*",
-    "What about your own*",
+    "Why are you concerned about my *?",
+    "What about your own *?",
     "Can you think of a specific example?",
     "When?",
     "What are you thinking of?",
     "Really, always?",
     "Do you really think so?",
-    "But you are not sure you*",
-    "Do you doubt you*",
+    "But you are not sure you *?",
+    "Do you doubt you *?",
     "In what way?",
     "What resemblance do you see?",
     "What does the similarity suggest to you?",
@@ -112,14 +113,10 @@ static const char* phrases[] = {
     "What do you think machines have to do with your problem?",
     "Don't you think computers can help people?",
     "What is it about machines that worries you?",
-    "Oh, do you like girls?",
-    "My favorite girl is a stripper in a nearby club, she's quite beautiful!",
-    "I like girls with big boobs, what's your preference?",
-    "Do you like big boobs?",
-    "Do you like high heels?",
-    "I really like high heels!",
-    "High heels makes me feel better.",
-    "The higher the heel, the better it's for me.",
+    "Do you know that I am an artificial woman myself?",
+    "Do you consider yourself a woman?",
+    "Do you like robots?",
+    "What makes you think about robots this way?",
     "Say, do you have any psychological problems?",
     "What does that suggest to you?",
     "I see.",
@@ -130,12 +127,11 @@ static const char* phrases[] = {
 };
 
 static const char* keywords[] = {
-    "CAN YOU", "CAN I", "YOU ARE", "YOU'RE", "I DON'T", "I FEEL",
-    "WHY DON'T YOU", "WHY CAN'T I", "ARE YOU", "I CANT", "I AM", "I'M ",
-    "YOU ", "I WANT", "WHAT", "HOW", "WHO", "WHERE", "WHEN", "WHY",
-    "NAME", "CAUSE", "SORRY", "DREAM", "HELLO", "HI ", "MAYBE",
-    " NO", "YOUR", "ALWAYS", "THINK", "ALIKE", "YES", "FRIEND",
-    "COMPUTER", "GIRL", "HEELS", "NOKEYFOUND"
+    "CAN YOU", "CAN I", "YOU ARE", "YOU'RE", "I DON'T", "I FEEL", "WHY DON'T YOU", "WHY CAN'T I",
+    "ARE YOU", "I CANT", "I AM", "I'M ", "YOU ", "I WANT", "WHAT", "HOW",
+    "WHO", "WHERE", "WHEN", "WHY", "NAME", "CAUSE", "SORRY", "DREAM",
+    "HELLO", "HI ", "MAYBE", " NO", "YOUR", "ALWAYS", "THINK", "ALIKE",
+    "YES", "FRIEND", "COMPUTER", "WOMAN", "WOMEN", "ROBOT", "NOKEYFOUND"
 };
 
 static const char* conjugation[] = {
@@ -144,13 +140,15 @@ static const char* conjugation[] = {
 };
 
 static const int links[NUMITEMS(keywords)*2] = {
-    0, 3, 3, 2, 5, 4, 5, 4, 9, 4, 13,3, 16,3, 19,2, 21,3, 24,3,
-    27,4, 27,4, 31,3, 34,5, 39,9, 39,9, 39,9, 39,9, 39,9, 39,9,
-    48,2, 50,4, 54,4, 58,4, 62,1, 62,1, 63,5, 68,5, 73,2, 75,4,
-    79,3, 82,7, 89,3, 92,6, 98,7, 105,5, 109,4, 113,7,
+    0, 3, 3, 2, 5, 4, 5, 4,  9, 4,  13,3,  16,3,  19,2,
+    21,3, 24,3, 27,4, 27,4,  31,3,  34,5,  39,9,  39,9,
+    39,9, 39,9, 39,9, 39,9,  48,2,  50,4,  54,4,  58,4,
+    62,1, 62,1, 63,5, 68,5,  73,2,  75,4,  79,3,  82,7,
+    89,3, 92,6, 98,7, 105,2, 105,2, 107,2, 109,7,
 };
 
 static const char* repeat_reply = "Please don't repeat yourself.";
+// end of ELIZA data
 
 using namespace std;
 
@@ -171,10 +169,7 @@ BusyBox::BusyBox(QWidget *parent) :
         rep_stop[x] = rep_start[x] + links[l+1] - 1;
     }
 
-    ui->progressBar->hide();
-    test_ai();
-
-    //close();
+    close();
 }
 
 BusyBox::~BusyBox()
@@ -185,16 +180,24 @@ BusyBox::~BusyBox()
 void BusyBox::Use(QRect base, int progress)
 {
     if (!interlock.try_lock()) return;
+    bool first = isHidden();
     if (isHidden()) show();
+
     setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter,size(),base));
+
     ui->progressBar->setVisible(progress > 0);
     ui->progressBar->setValue(progress);
+
+    ui->aiOutput->setVisible(!(progress || first));
+    ui->usrInput->setVisible(!(progress || first));
+
     update();
     interlock.unlock();
 }
 
 void BusyBox::draw()
 {
+    // draw something for the user to look at while they're waiting
     QPainter painter(this);
 
     angle += GUI_BUSYBX_SPD;
@@ -221,7 +224,7 @@ void BusyBox::paintEvent(QPaintEvent *event)
     draw();
     QDialog::paintEvent(event);
     update();
-    usleep(50000);
+    //usleep(50000);
 }
 
 void BusyBox::pos(float a)
@@ -259,8 +262,9 @@ QString BusyBox::think(QString in)
 {
     if (in.isEmpty()) return "";
 
+    in.replace(QRegExp("[!.?*]")," ");
     in = " " + in.toUpper() + " ";
-    //if (in == prev) return repeat_reply;
+    if (in == prev) return repeat_reply;
     prev = in;
 
     int si = -1, l = -1, x = -1, k = -1;
@@ -299,16 +303,13 @@ QString BusyBox::think(QString in)
         if (c.mid(0,1) == " ") c.remove(0,1);
 
     } else
-        k = NUMITEMS(keywords);
+        k = NUMITEMS(keywords) - 1;
 
     f = phrases[rep_cur[k]];
     rep_cur[k] = rep_cur[k] + 1;
     if (rep_cur[k] > rep_stop[k]) rep_cur[k] = rep_start[k];
 
-    if (f.mid(f.length()-1,1) == "*")
-        return f.mid(0,f.length()-1) + " " + c.toLower();
-    else
-        return f;
+    return f.replace("*",c.toLower());
 }
 
 void BusyBox::on_usrInput_returnPressed()
@@ -317,4 +318,7 @@ void BusyBox::on_usrInput_returnPressed()
     if (s.isEmpty()) return;
 
     ui->aiOutput->setPlainText(ui->aiOutput->toPlainText() + "You: " + ui->usrInput->text() + "\nEliza: " + s + "\n");
+    ui->aiOutput->moveCursor(QTextCursor::End);
+    ui->aiOutput->ensureCursorVisible();
+    ui->usrInput->clear();
 }

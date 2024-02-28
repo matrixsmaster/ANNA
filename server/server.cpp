@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.2.1"
+#define SERVER_VERSION "0.2.2"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -232,6 +232,15 @@ bool del_user(int id, bool lock = true)
 
     INFO("User %d session ended\n",id);
     return true;
+}
+
+void del_all()
+{
+    usermap_mtx.lock();
+    while (usermap.begin() != usermap.end()) del_user(usermap.begin()->first,false);
+    usermap_mtx.unlock();
+
+    INFO("\nAll user sessions closed.\n");
 }
 
 bool hold_user(int id)
@@ -1093,11 +1102,58 @@ string get_input(string prompt)
     return s;
 }
 
-int main()
+void ver()
 {
     printf("\nANNA Server version " SERVER_VERSION " starting up\n");
     printf("\nANNA Brain version " ANNA_VERSION "\n\n");
+}
+
+void cli()
+{
+    string c = get_input("ANNA> ");
+
+    if (c == "quit" || c == "q") {
+        quit = true;
+
+    } else if (c == "list" || c == "ls") {
+        puts("=======================================");
+        usermap_mtx.lock();
+        const auto now = chrono::steady_clock::now();
+        for (auto & i : usermap) {
+            float age = (float)((now - i.second.last_req) / 1ms) / 1000.f;
+            printf("Client %d (0x%08X): state %d, IP %s, %d requests, last one %.2f seconds ago\n",
+                    i.first,i.first,i.second.state,i.second.addr.c_str(),i.second.reqs,age);
+        }
+        usermap_mtx.unlock();
+        puts("=======================================");
+        printf("Current active user: %d\n",active_user);
+
+    } else if (c == "queue") {
+        q_lock.lock();
+        puts("=======================================");
+        for (auto i : userqueue) printf("%d (0x%08X)\n",i,i);
+        puts("=======================================");
+        printf("%zu requests in the queue\n",userqueue.size());
+        q_lock.unlock();
+
+    } else if (c == "kick" || c == "sus" || c == "res") {
+        string a = get_input("Client ID> ");
+        if (a.empty()) return;
+        int id = atoi(a.c_str());
+        if (id < 1) return;
+        if (c == "kick") del_user(id);
+        else if (c == "sus") hold_user(id);
+        else if (c == "res") unhold_user(id);
+
+    } else if (c == "ver") {
+        ver();
+    }
+}
+
+int main()
+{
     srand(time(NULL));
+    ver();
 
     Server srv;
     thread srv_thr(server_thread,&srv);
@@ -1105,50 +1161,15 @@ int main()
     INFO("Server started\n");
 
     // main CLI loop
-    sleep(1); // give time to other threads
-    while (!quit) {
-        string c = get_input("ANNA> ");
-
-        if (c == "quit" || c == "q") {
-            quit = true;
-            break;
-
-        } else if (c == "list" || c == "ls") {
-            puts("=======================================");
-            usermap_mtx.lock();
-            const auto now = chrono::steady_clock::now();
-            for (auto & i : usermap) {
-                float age = (float)((now - i.second.last_req) / 1ms) / 1000.f;
-                printf("Client %d (0x%08X): state %d, IP %s, %d requests, last one %.2f seconds ago\n",
-                        i.first,i.first,i.second.state,i.second.addr.c_str(),i.second.reqs,age);
-            }
-            usermap_mtx.unlock();
-            puts("=======================================");
-            printf("Current active user: %d\n",active_user);
-
-        } else if (c == "queue") {
-            q_lock.lock();
-            puts("=======================================");
-            for (auto i : userqueue) printf("%d (0x%08X)\n",i,i);
-            puts("=======================================");
-            printf("%zu requests in the queue\n",userqueue.size());
-            q_lock.unlock();
-
-        } else if (c == "kick" || c == "sus" || c == "res") {
-            string a = get_input("Client ID> ");
-            if (a.empty()) continue;
-            int id = atoi(a.c_str());
-            if (id < 1) continue;
-            if (c == "kick") del_user(id);
-            else if (c == "sus") hold_user(id);
-            else if (c == "res") unhold_user(id);
-        }
-    }
+    sleep(1); // give some time to other threads
+    while (!quit) cli();
 
     INFO("Stopping the server...\n");
     srv.stop();
     srv_thr.join();
     sched_thr.join();
 
+    del_all();
     puts("Server exits normally.");
+    return 0;
 }

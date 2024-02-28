@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.6d"
+#define AG_VERSION "0.8.7"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48

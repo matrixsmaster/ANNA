@@ -77,6 +77,7 @@ MainWnd::MainWnd(QWidget *parent)
     startTimer(AG_SERVER_KEEPALIVE_MINS * 60000);
 
     ui->statusbar->showMessage("ANNA ver. " ANNA_VERSION " GUI ver. " AG_VERSION);
+    busy_box->show();
 }
 
 MainWnd::~MainWnd()

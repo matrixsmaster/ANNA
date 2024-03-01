@@ -68,6 +68,10 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->useBusyBox->setChecked(gs->use_busybox);
         ui->chatLogExample->setFont(gs->log_fnt);
         ui->userInExample->setFont(gs->usr_fnt);
+        ui->aaUsePrefix->setChecked(gs->use_attprefix);
+        ui->aaPrefix->setText(gs->att_prefix);
+        ui->taPrefix->setText(gs->txt_prefix);
+        ui->taSuffix->setText(gs->txt_suffix);
 
         ui->rqpList->clear();
         for (auto & i : gs->rqps) addRQPfile(i.fn,i.enabled);
@@ -120,6 +124,10 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("use_busybox",gs->use_busybox);
     sets->setValue("chat_font",gs->log_fnt.toString());
     sets->setValue("user_font",gs->usr_fnt.toString());
+    sets->setValue("use_attprefix",gs->use_attprefix);
+    sets->setValue("att_prefix",gs->att_prefix);
+    sets->setValue("txt_prefix",gs->txt_prefix);
+    sets->setValue("txt_suffix",gs->txt_suffix);
 
     sets->beginWriteArray("RQP");
     for (int i = 0; i < (int)gs->rqps.size(); i++) {
@@ -174,6 +182,10 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->use_busybox = ui->useBusyBox->isChecked();
     gs->log_fnt = ui->chatLogExample->font();
     gs->usr_fnt = ui->userInExample->font();
+    gs->use_attprefix = ui->aaUsePrefix->isChecked();
+    gs->att_prefix = ui->aaPrefix->text();
+    gs->txt_prefix = ui->taPrefix->text();
+    gs->txt_suffix = ui->taSuffix->text();
 
     gs->rqps.clear();
     for (int i = 0; i < ui->rqpList->count(); i++) {
@@ -227,6 +239,10 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->use_busybox = sets->value("use_busybox",gs->use_busybox).toBool();
     gs->log_fnt = LoadFont(sets,"chat_font",gs->log_fnt);
     gs->usr_fnt = LoadFont(sets,"user_font",gs->usr_fnt);
+    gs->use_attprefix = sets->value("use_attprefix",gs->use_attprefix).toBool();
+    gs->att_prefix = sets->value("att_prefix",gs->att_prefix).toString();
+    gs->txt_prefix = sets->value("txt_prefix",gs->txt_prefix).toString();
+    gs->txt_suffix = sets->value("txt_suffix",gs->txt_suffix).toString();
 
     int n_rqps = sets->beginReadArray("RQP");
     gs->rqps.clear();

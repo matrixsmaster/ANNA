@@ -46,6 +46,7 @@ static const char* md_fix_tab[] = {
     "([^\\\\])#", "\\1\\#",
     "\\n\\*\\*[ \t]+", "\n**",
     "([^\\\\])<", "\\1\\<",
+    "\\n[*]{4}\\n", "\n\n",
     NULL, NULL // terminator
 };
 
@@ -341,13 +342,14 @@ bool MainWnd::EmbedImage(const QString& fn)
 void MainWnd::Generate()
 {
     //bool skips = false;
+    AnnaState s = ANNA_NOT_INITIALIZED;
     std::string str;
     QString convo;
     stop = false;
     block = true;
 
     while (brain && !stop) {
-        AnnaState s = brain->Processing(ui->SamplingCheck->isChecked());
+        s = brain->Processing(ui->SamplingCheck->isChecked());
         //qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
 
         switch (s) {
@@ -365,7 +367,7 @@ void MainWnd::Generate()
                 last_username = true;
                 s = ANNA_TURNOVER;
                 convo.chop(ui->UserNameBox->currentText().length());
-                qDebug("convo = %s\n",convo.toStdString().c_str());
+                //qDebug("convo = %s\n",convo.toStdString().c_str());
             }
             break;
         case ANNA_PROCESSING:
@@ -380,7 +382,7 @@ void MainWnd::Generate()
             stop = true;
         }
 
-        ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
+        ui->statusbar->showMessage("Brain state: thinking...");
         ui->ChatLog->setMarkdown(cur_chat + convo);
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
@@ -395,6 +397,7 @@ void MainWnd::Generate()
     block = false;
     cur_chat += convo + "\n";
     raw_output += convo + "\n";
+    ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
     on_actionRefresh_chat_box_triggered();
 }
 
@@ -542,6 +545,16 @@ void MainWnd::on_SendButton_clicked()
     ui->UserInput->clear();
 
     if (next_attach) {
+        if (guiconfig.use_attprefix) {
+            // insert pre-attchment prefix if needed
+            QString pre = guiconfig.att_prefix;
+            pre.replace("\\n","\n");
+            pre.replace("%f",next_attach->shrt);
+            pre.replace("%p",next_attach->fn);
+            qDebug("pre = '%s'\n",pre.toStdString().c_str());
+            ProcessInput(pre.toStdString());
+        }
+
         if (ui->AfterRadio->isChecked()) {
             // in after-text attachment scenario, force embeddings and evaluation of the user input first, without any sampling
             ProcessInput(usr.toStdString());

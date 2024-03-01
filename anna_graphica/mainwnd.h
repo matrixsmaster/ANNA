@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.7"
+#define AG_VERSION "0.8.8"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -46,9 +46,9 @@ struct AnnaGuiSettings {
     int enter_key;
     bool md_fix, save_prompt, clear_log;
     QString server;
-    bool use_server, use_busybox;
+    bool use_server, use_busybox, use_attprefix;
     QFont log_fnt, usr_fnt;
-    QString txt_prefix, txt_suffix;
+    QString att_prefix, txt_prefix, txt_suffix;
     std::vector<AnnaRQPFile> rqps;
 };
 

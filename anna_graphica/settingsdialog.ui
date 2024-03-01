@@ -1013,7 +1013,7 @@
         <string>Change</string>
        </property>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -1062,7 +1062,7 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>10</y>
+         <y>230</y>
          <width>531</width>
          <height>121</height>
         </rect>
@@ -1109,6 +1109,32 @@
         </item>
        </layout>
       </widget>
+      <widget class="QCheckBox" name="aaUsePrefix">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>20</y>
+         <width>531</width>
+         <height>25</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Insert attachment prefix before any attachment</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="aaPrefix">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>50</y>
+         <width>531</width>
+         <height>27</height>
+        </rect>
+       </property>
+       <property name="toolTip">
+        <string>Use &quot;\n&quot; to insert newline; use &quot;%f&quot; to insert file name; use &quot;%p&quot; to insert full path</string>
+       </property>
+      </widget>
      </widget>
      <widget class="QWidget" name="tab_4">
       <attribute name="title">
@@ -1118,7 +1144,7 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>80</y>
+         <y>140</y>
          <width>291</width>
          <height>25</height>
         </rect>
@@ -1131,7 +1157,7 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>120</y>
+         <y>180</y>
          <width>531</width>
          <height>27</height>
         </rect>

@@ -117,6 +117,7 @@ void MainWnd::DefaultConfig()
     guiconfig.server = AG_DEFAULT_SERVER;
     guiconfig.use_server = false;
     guiconfig.use_busybox = true;
+    guiconfig.use_attprefix = false;
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
 }

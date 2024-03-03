@@ -5,7 +5,7 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.2.2"
+#define ANNA_CLIENT_VERSION "0.3.0"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
@@ -62,8 +62,8 @@ private:
     std::string fromBase64(const std::string& in);
     size_t fromBase64(void *data, size_t len, std::string in);
 
-    std::string request(const std::string cmd, const std::string arg = "", const std::string mod = "");
-    bool command(const std::string cmd, const std::string arg = " ", const std::string mod = "", bool force = false);
+    std::string request(bool post, const std::string cmd, const std::string arg = "", const std::string mod = "", bool force = false);
+    //bool command(const std::string cmd, const std::string arg = " ", const std::string mod = "", bool force = false);
 
     bool uploadFile(FILE* f, size_t sz);
     bool downloadFile(FILE* f, size_t sz);

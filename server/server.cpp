@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.2.2"
+#define SERVER_VERSION "0.3.0"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -72,6 +72,11 @@ struct session {
     list<string> iolog;
     FILE* fhandle;
     size_t transize;
+};
+
+const char* allowed_versions[] = {
+    "0.3.0",
+    NULL
 };
 
 map<int,session> usermap;
@@ -466,13 +471,29 @@ bool is_workable(int id)
     }
 }
 
+bool check_allowed(const char* ver)
+{
+    const char** tab = allowed_versions;
+    while (*tab) {
+        if (!strcmp(ver,*tab)) return true;
+        tab++;
+    }
+    return false;
+}
+
 void install_services(Server* srv)
 {
     srv->Post("/sessionStart/:id", [](const Request &req, Response &res) {
         cout << rlog(req) << endl;
         int id = atoi(req.path_params.at("id").c_str());
 
-        INFO("Starting session for user %d\n",id);
+        if (req.body.empty() || !check_allowed(req.body.c_str())) {
+            WARN("New incompatible client attempted to connect, IP = %s, client ver. = %s\n",req.remote_addr.c_str(),req.body.c_str());
+            res.status = Forbidden_403;
+            return;
+        }
+
+        INFO("Starting session for user %d (client ver. %s)\n",id,req.body.c_str());
         if (usermap.count(id) > 0) {
             ERROR("User %d already exists, rejecting.\n",id);
             res.status = Forbidden_403;
@@ -949,7 +970,7 @@ void install_services(Server* srv)
         q_lock.lock();
         hold_user(id);
         usermap[id].lk.lock();
-        usermap[id].old_state = usermap[id].state;
+        usermap[id].old_state = ANNASERV_CLIENT_UNLOADED;
         usermap[id].state = ANNASERV_CLIENT_TRANSFER;
         usermap[id].fhandle = f;
         usermap[id].transize = sz;
@@ -1104,7 +1125,7 @@ string get_input(string prompt)
 
 void ver()
 {
-    printf("\nANNA Server version " SERVER_VERSION " starting up\n");
+    printf("\nANNA Server version " SERVER_VERSION "\n");
     printf("\nANNA Brain version " ANNA_VERSION "\n\n");
 }
 

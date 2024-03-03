@@ -43,14 +43,14 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, waitfunction wait_cb) :
     fixConfig(); // this changes internal config
 
     // begin the session
-    if (!command("/sessionStart")) {
+    if (request(true,"/sessionStart",ANNA_CLIENT_VERSION).empty()) {
         state = ANNA_ERROR;
         internal_error = "Unable to create remote session!";
         return;
     }
 
     // request model file presence and upload the file if necessary
-    string mrq = request("/checkModel",config.params.model);
+    string mrq = request(false,"/checkModel",config.params.model);
     DBG("Model request: %s\n",mrq.c_str());
     // TODO: check file size and show a warning
     if (mrq.substr(0,2) != "OK") {
@@ -69,13 +69,13 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, waitfunction wait_cb) :
 AnnaClient::~AnnaClient()
 {
     DBG("client d'tor\n");
-    command("/sessionEnd"," ","",true);
+    request(true,"/sessionEnd"," ","",true);
 }
 
 AnnaState AnnaClient::getState()
 {
     if (state == ANNA_ERROR) return state; // internal error has already occured
-    int r = atoi(request("/getState").c_str());
+    int r = atoi(request(false,"/getState").c_str());
     if (state == ANNA_ERROR) return state; // request failed
     return (r < 0 || r >= ANNA_NUM_STATES)? ANNA_ERROR : (AnnaState)r;
 }
@@ -85,7 +85,7 @@ const string &AnnaClient::getError()
     // in non-ready state, we don't want to call the remote
     if (state != ANNA_READY) return internal_error;
     // check remote error first
-    string err = fromBase64(request("/getError"));
+    string err = fromBase64(request(false,"/getError"));
     // we might or might not have a remote error, but we also might have an internal error
     if (!err.empty()) internal_error = err;
     return internal_error;
@@ -93,12 +93,12 @@ const string &AnnaClient::getError()
 
 int AnnaClient::getTokensUsed()
 {
-    return atoi(request("/getTokensUsed").c_str());
+    return atoi(request(false,"/getTokensUsed").c_str());
 }
 
 AnnaConfig AnnaClient::getConfig()
 {
-    string r = request("/getConfig");
+    string r = request(false,"/getConfig");
     if (r.empty()) return config; // return internal config (server busy?)
 
     AnnaConfig cfg;
@@ -125,34 +125,34 @@ void AnnaClient::setConfig(const AnnaConfig &cfg)
     // encode and send
     string enc = asBase64((void*)&(config),sizeof(config));
     DBG("encoded state len = %zu\n",enc.size());
-    command("/setConfig",enc);
+    request(true,"/setConfig",enc);
 }
 
 string AnnaClient::getOutput()
 {
-    return fromBase64(request("/getOutput"));
+    return fromBase64(request(false,"/getOutput"));
 }
 
 void AnnaClient::setInput(string inp)
 {
-    command("/setInput",asBase64(inp));
+    request(true,"/setInput",asBase64(inp));
 }
 
 void AnnaClient::setPrefix(string str)
 {
-    command("/setPrefix",asBase64(str));
+    request(true,"/setPrefix",asBase64(str));
 }
 
 void AnnaClient::addEmbeddings(const std::vector<float>& emb)
 {
     string enc = asBase64(emb.data(),emb.size()*sizeof(float));
     DBG("encoded embedding len = %zu\n",enc.size());
-    command("/addEmbeddings",enc);
+    request(true,"/addEmbeddings",enc);
 }
 
 string AnnaClient::PrintContext()
 {
-    return request("/printContext");
+    return request(false,"/printContext");
 }
 
 bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size)
@@ -179,7 +179,7 @@ bool AnnaClient::UploadModel(string fpath, string mname)
     mseek(f,0,SEEK_SET);
 
     // try to negotiate uploading
-    string urq = request("/uploadModel",myformat("%zu",sz),mname);
+    string urq = request(false,"/uploadModel",myformat("%zu",sz),mname);
     if (urq != "OK") {
         fclose(f);
         internal_error = "uploadModel request failed: " + urq;
@@ -192,7 +192,7 @@ bool AnnaClient::UploadModel(string fpath, string mname)
     DBG("Finished uploading\n");
 
     // finalize transfer
-    command("/endTransfer");
+    request(true,"/endTransfer");
     if (wait_callback) wait_callback(-1,false);
 
     fclose(f);
@@ -210,23 +210,23 @@ bool AnnaClient::EmbedImage(std::string imgfile)
 
 AnnaState AnnaClient::Processing(bool skip_sampling)
 {
-    int r = atoi(request("/processing",skip_sampling? "skip":"noskip").c_str());
+    int r = atoi(request(false,"/processing",skip_sampling? "skip":"noskip").c_str());
     return (r < 0 || r >= ANNA_NUM_STATES)? ANNA_ERROR : (AnnaState)r;
 }
 
 void AnnaClient::Reset()
 {
-    command("/reset");
+    request(true,"/reset");
 }
 
 void AnnaClient::Undo()
 {
-    command("/undo");
+    request(true,"/undo");
 }
 
 void AnnaClient::KeepAlive()
 {
-    command("/keepAlive");
+    request(true,"/keepAlive");
 }
 
 void AnnaClient::fixConfig()
@@ -281,21 +281,26 @@ size_t AnnaClient::fromBase64(void *data, size_t len, string in)
     return n;
 }
 
-string AnnaClient::request(const string cmd, const string arg, const string mod)
+string AnnaClient::request(bool post, const string cmd, const string arg, const string mod, bool force)
 {
-    if (state != ANNA_READY) return "";
+    if (!force && state != ANNA_READY) return "";
     string fcmd = cmd + myformat("/%d",clid);
     if (!mod.empty()) fcmd += "/" + mod;
 
     Result r;
-    if (arg.empty()) {
-        DBG("request/1: '%s'\n",fcmd.c_str());
-        r = client->Get(fcmd);
+    if (post) {
+        DBG("post: %s\n",fcmd.c_str());
+        r = client->Post(fcmd,arg,"text/plain");
     } else {
-        DBG("request/2: '%s' '%s'\n",fcmd.c_str(),arg.c_str());
-        Params params { { "arg", arg } };
-        r = client->Get(fcmd,params,Headers(),Progress());
+        Params p;
+        if (!arg.empty()) {
+            p.insert(pair("arg",arg));
+            DBG("argument '%s' added\n",arg.c_str());
+        }
+        DBG("get: %s\n",fcmd.c_str());
+        r = client->Get(fcmd,p,Headers(),Progress());
     }
+
     if (!r) {
         state = ANNA_ERROR;
         if (wait_callback) wait_callback(-1,false);
@@ -307,49 +312,19 @@ string AnnaClient::request(const string cmd, const string arg, const string mod)
     switch (r->status) {
     case OK_200:
         if (wait_callback) wait_callback(-1,false);
-        return r->body;
+        return post? "OK" : r->body;
+
     case ServiceUnavailable_503:
         DBG("Temporarily unavailable, retrying...\n");
         if (wait_callback) wait_callback(0,true);
         else sleep(1);
-        return request(cmd,arg,mod); // tail recursion
+        return request(post,cmd,arg,mod,force); // tail recursion
+
     default:
         state = ANNA_ERROR;
         if (wait_callback) wait_callback(-1,false);
         internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
         return "";
-    }
-}
-
-bool AnnaClient::command(const string cmd, const string arg, const string mod, bool force)
-{
-    if (!force && state != ANNA_READY) return false;
-    string fcmd = cmd + myformat("/%d",clid);
-    if (!mod.empty()) fcmd += "/" + mod;
-
-    auto r = client->Post(fcmd,arg,"text/plain");
-    if (!r) {
-        state = ANNA_ERROR;
-        if (wait_callback) wait_callback(-1,false);
-        internal_error = myformat("Remote command failed: %s",fcmd.c_str());
-        return false;
-    }
-
-    DBG("status = %d\n",r->status);
-    switch (r->status) {
-    case OK_200:
-        if (wait_callback) wait_callback(-1,false);
-        return true;
-    case ServiceUnavailable_503:
-        DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback(0,true);
-        else sleep(1);
-        return command(cmd,arg,mod,force); // tail recursion
-    default:
-        state = ANNA_ERROR;
-        if (wait_callback) wait_callback(-1,false);
-        internal_error = myformat("Remote rejected command %s: %d",fcmd.c_str(),r->status);
-        return false;
     }
 }
 
@@ -361,7 +336,7 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
         return false;
     }
 
-    // temporarily substitute the waiting function to prevent generating "end-of-progress" events from command()
+    // temporarily substitute the waiting function to prevent generating "end-of-progress" events from request(true,)
     waitfunction wcb = wait_callback;
     wait_callback = nullptr;
 
@@ -385,7 +360,7 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
         string enc = asBase64(buf,r);
         bool flag = false;
         for (int retry = 0; !flag && retry < ANNA_TRANSFER_RETRIES; retry++) {
-            if (command("/setChunk",enc,myformat("%zu",i)))
+            if (!request(true,"/setChunk",enc,myformat("%zu",i)).empty())
                 flag = true;
             else {
                 if (wcb) wcb(ceil(prg),true);

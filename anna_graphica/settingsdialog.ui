@@ -1142,32 +1142,35 @@
       <attribute name="title">
        <string>Network</string>
       </attribute>
-      <widget class="QCheckBox" name="useServer">
-       <property name="geometry">
-        <rect>
-         <x>10</x>
-         <y>140</y>
-         <width>291</width>
-         <height>25</height>
-        </rect>
+      <layout class="QVBoxLayout" name="verticalLayout_4">
+       <property name="topMargin">
+        <number>80</number>
        </property>
-       <property name="text">
-        <string>Use remote server for inference</string>
+       <property name="bottomMargin">
+        <number>80</number>
        </property>
-      </widget>
-      <widget class="QLineEdit" name="serverAddr">
-       <property name="geometry">
-        <rect>
-         <x>10</x>
-         <y>180</y>
-         <width>531</width>
-         <height>27</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>127.0.0.1:8080</string>
-       </property>
-      </widget>
+       <item>
+        <widget class="QCheckBox" name="useServer">
+         <property name="text">
+          <string>Use remote server for inference</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="serverAddr">
+         <property name="text">
+          <string>127.0.0.1:8080</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="mkDummy">
+         <property name="text">
+          <string>Automatically create dummy files for LLMs</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </widget>
      <widget class="QWidget" name="tab_5">
       <attribute name="title">

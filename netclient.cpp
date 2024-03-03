@@ -16,8 +16,9 @@
 using namespace std;
 using namespace httplib;
 
-AnnaClient::AnnaClient(AnnaConfig* cfg, string server, waitfunction wait_cb) :
+AnnaClient::AnnaClient(AnnaConfig* cfg, string server, bool mk_dummy, waitfunction wait_cb) :
     AnnaBrain(nullptr),
+    create_dummy(mk_dummy),
     wait_callback(wait_cb)
 {
     DBG("client c'tor\n");
@@ -195,7 +196,7 @@ bool AnnaClient::UploadModel(string fpath, string mname)
 
     // finalize transfer
     request(true,"/endTransfer");
-    if (wait_callback) wait_callback(-1,false);
+    if (wait_callback) wait_callback(-1,false,"");
 
     fclose(f);
     return r;
@@ -312,7 +313,7 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
 
     if (!r) {
         state = ANNA_ERROR;
-        if (wait_callback) wait_callback(-1,false);
+        if (wait_callback) wait_callback(-1,false,"");
         internal_error = myformat("Remote request failed: %s",fcmd.c_str());
         return "";
     }
@@ -320,18 +321,18 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:
-        if (wait_callback) wait_callback(-1,false);
+        if (wait_callback) wait_callback(-1,false,"");
         return post? "OK" : r->body;
 
     case ServiceUnavailable_503:
         DBG("Temporarily unavailable, retrying...\n");
-        if (wait_callback) wait_callback(0,true);
+        if (wait_callback) wait_callback(0,true,"Server is busy. Waiting in the queue...");
         else sleep(1);
         return request(post,cmd,arg,mod,force); // tail recursion
 
     default:
         state = ANNA_ERROR;
-        if (wait_callback) wait_callback(-1,false);
+        if (wait_callback) wait_callback(-1,false,"");
         internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
         if (r->status == ImATeapot_418) internal_error += " " + r->body;
         return "";
@@ -346,7 +347,7 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
         return false;
     }
 
-    // temporarily substitute the waiting function to prevent generating "end-of-progress" events from request(true,)
+    // temporarily substitute the waiting function to prevent generating "end-of-progress" events from request(true,...)
     waitfunction wcb = wait_callback;
     wait_callback = nullptr;
 
@@ -364,7 +365,7 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
 
         // make it appear responsive
         float prg = (float)i / (float)(sz / ANNA_CLIENT_CHUNK) * 100.f;
-        if (wcb) wcb(ceil(prg),false);
+        if (wcb) wcb(ceil(prg),false,"Uploading file...");
 
         // encode and send
         string enc = asBase64(buf,r);
@@ -373,7 +374,7 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
             if (!request(true,"/setChunk",enc,myformat("%zu",i)).empty())
                 flag = true;
             else {
-                if (wcb) wcb(ceil(prg),true);
+                if (wcb) wcb(ceil(prg),true,"Uploading file...");
                 else usleep(1000UL * ANNA_RETRY_WAIT_MS);
             }
         }
@@ -414,6 +415,7 @@ string AnnaClient::hashFile(const std::string fn)
     if (sz == MD5_DIGEST_STR) {
         res.resize(MD5_DIGEST_STR);
         size_t r = fread(res.data(),MD5_DIGEST_STR,1,f);
+        fclose(f);
         if (r) return res;
         else {
             internal_error = myformat("Unable to read from file %s",fn.c_str());
@@ -425,13 +427,19 @@ string AnnaClient::hashFile(const std::string fn)
     auto lp = chrono::steady_clock::now();
     res = md5FileToStr(f,[&](size_t rb) {
         int ms = (chrono::steady_clock::now() - lp) / 1ms;
-        if (this->wait_callback && ms > ANNA_HASH_UPDATE_MS) {
+        if (wait_callback && ms > ANNA_HASH_UPDATE_MS) {
             lp = chrono::steady_clock::now();
-            this->wait_callback(floor((double)rb / (double)sz * 100.f),false);
+            wait_callback(floor((double)rb / (double)sz * 100.f),false,"Calculating hash...");
         }
     });
-    if (wait_callback) wait_callback(-1,false);
-
+    if (wait_callback) wait_callback(-1,false,"");
     fclose(f);
+
+    // if we want to save dummy files, let's do it
+    string nfn = fn + ".dummy";
+    f = fopen(nfn.c_str(),"wb");
+    if (f) fwrite(res.c_str(),res.length(),1,f);
+    else internal_error = myformat("Unable to write to file %s",nfn.c_str());
+
     return res;
 }

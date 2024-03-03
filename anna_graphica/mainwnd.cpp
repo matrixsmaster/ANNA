@@ -19,13 +19,13 @@ static const char* filetype_names[ANNA_NUM_FILETYPES] = {
 };
 
 static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
-    "GGUF files (*.gguf)",
-    "Text files (*.txt)",
+    "GGUF files (*.gguf);;Dummy files (*.dummy);;All files (*.*)",
+    "Text files (*.txt);;All files (*.*)",
     "Text files (*.txt)",
     "Markdown files (*.md);;Text files (*.txt)",
     "HTML files (*.html *.htm)",
     "ANNA save states (*.anna);;All files (*.*)",
-    "GGUF files (*.gguf)",
+    "GGUF files (*.gguf);;All files (*.*)",
     "Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm);;Text files (*.txt);;All files (*.*)",
 };
 
@@ -118,6 +118,7 @@ void MainWnd::DefaultConfig()
     guiconfig.use_server = false;
     guiconfig.use_busybox = true;
     guiconfig.use_attprefix = false;
+    guiconfig.mk_dummy = false;
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
 }
@@ -225,8 +226,8 @@ bool MainWnd::NewBrain()
         brain = new AnnaBrain(&config);
     } else {
         // create network client instance
-        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),[&](int prog, bool wait) {
-            WaitingFun(prog,wait,"Server is busy. Waiting in the queue...");
+        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),guiconfig.mk_dummy,[this](int prog, bool wait, auto txt) {
+            WaitingFun(prog,wait,txt);
         });
         brain = dynamic_cast<AnnaBrain*>(ptr);
     }
@@ -1030,16 +1031,13 @@ void MainWnd::on_actionReset_prompt_to_default_triggered()
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }
 
-void MainWnd::WaitingFun(int prog, bool wait, const QString& text)
+void MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
 {
     bool prev_block = block;
     block = true;
 
     if (prog >= 0) {
-        if (prog)
-            ui->statusbar->showMessage("Transfer in progress...");
-        else
-            ui->statusbar->showMessage(text);
+        ui->statusbar->showMessage(QString::fromStdString(text));
 
         for (int i = 0; i < AG_SERVER_WAIT_CYCLES; i++) {
             if (guiconfig.use_busybox) busy_box->Use(geometry(),prog);

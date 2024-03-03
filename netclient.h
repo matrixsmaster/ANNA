@@ -5,7 +5,7 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.3.1"
+#define ANNA_CLIENT_VERSION "0.3.2"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
@@ -18,12 +18,12 @@ namespace httplib {
     class Client;
 }
 
-typedef std::function<void (int,bool)> waitfunction;
+typedef std::function<void (int,bool,const std::string&)> waitfunction;
 
 class AnnaClient : public AnnaBrain
 {
 public:
-    AnnaClient(AnnaConfig* cfg, std::string server, waitfunction wait_cb);
+    AnnaClient(AnnaConfig* cfg, std::string server, bool mk_dummy, waitfunction wait_cb);
     virtual ~AnnaClient();
 
     AnnaState getState() override;
@@ -54,7 +54,8 @@ public:
 private:
     httplib::Client* client = nullptr;
     uint32_t clid = 0;
-    waitfunction wait_callback = nullptr;
+    bool create_dummy;
+    waitfunction wait_callback;
 
     void fixConfig();
 

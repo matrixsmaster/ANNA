@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.8.9"
+#define AG_VERSION "0.8.10"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -46,7 +46,7 @@ struct AnnaGuiSettings {
     int enter_key;
     bool md_fix, save_prompt, clear_log;
     QString server;
-    bool use_server, use_busybox, use_attprefix;
+    bool use_server, use_busybox, use_attprefix, mk_dummy;
     QFont log_fnt, usr_fnt;
     QString att_prefix, txt_prefix, txt_suffix;
     std::vector<AnnaRQPFile> rqps;
@@ -183,7 +183,7 @@ private:
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 
-    void WaitingFun(int prog, bool wait, const QString& text = "");
+    void WaitingFun(int prog, bool wait, const std::string& text = "");
 };
 
 #endif // MAINWND_H

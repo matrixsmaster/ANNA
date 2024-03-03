@@ -15,12 +15,13 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.3.0"
+#define SERVER_VERSION "0.3.1"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_DBGLOG_DIR "debug_log"
 #define SERVER_MODEL_DIR "models"
+#define SERVER_TEMP_DIR "tmp"
 
 #define SERVER_PORT 8080
 
@@ -72,10 +73,12 @@ struct session {
     list<string> iolog;
     FILE* fhandle;
     size_t transize;
+    string org_fname, res_fname;
 };
 
 const char* allowed_versions[] = {
     "0.3.0",
+    "0.3.1",
     NULL
 };
 
@@ -229,6 +232,9 @@ bool del_user(int id, bool lock = true)
 
     string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
     if (!remove(fn.c_str())) INFO("Save file %s removed\n",fn.c_str());
+
+    fn = AnnaBrain::myformat("%s/%d.tmp",SERVER_TEMP_DIR,id);
+    if (!remove(fn.c_str())) INFO("Temporary file %s removed\n",fn.c_str());
 
     usermap.erase(id);
     reclaim_clid(id);
@@ -779,7 +785,8 @@ void install_services(Server* srv)
             return;
         }
 
-        string path = AnnaBrain::myformat("%s/%s",SERVER_MODEL_DIR,fn.c_str());
+        string path = AnnaBrain::myformat("%s/%d.tmp",SERVER_TEMP_DIR,id);
+        string npath = AnnaBrain::myformat("%s/%s",SERVER_MODEL_DIR,fn.c_str());
         FILE* f = fopen(path.c_str(),"wb");
         if (!f) {
             ERROR("Unable to create file %s\n",path.c_str());
@@ -794,6 +801,8 @@ void install_services(Server* srv)
         usermap[id].state = ANNASERV_CLIENT_TRANSFER;
         usermap[id].fhandle = f;
         usermap[id].transize = sz;
+        usermap[id].org_fname = path;
+        usermap[id].res_fname = npath;
         usermap[id].lk.unlock();
         q_lock.unlock();
 
@@ -891,19 +900,34 @@ void install_services(Server* srv)
         int id = check_request(req,res,"endTransfer");
         if (!id) return;
 
+        string org,trg;
         usermap[id].lk.lock();
         if (usermap[id].fhandle) fclose(usermap[id].fhandle);
         usermap[id].fhandle = NULL;
+        org = usermap[id].org_fname;
+        trg = usermap[id].res_fname;
         usermap[id].lk.unlock();
+
+        bool err = false;
+        if (!org.empty() && !trg.empty()) {
+            DBG("Renaming/moving '%s' -> '%s'\n",org.c_str(),trg.c_str());
+            if (rename(org.c_str(),trg.c_str())) err = true;
+        }
 
         q_lock.lock();
         usermap[id].lk.lock();
-        client_state s = usermap[id].state;
-        if (s == ANNASERV_CLIENT_TRANSFER) usermap[id].state = usermap[id].old_state;
+        if (err) {
+            usermap[id].state = ANNASERV_CLIENT_ERROR;
+            ERROR("Unable to finalize file transfer: %s",strerror(errno));
+            res.status = InternalServerError_500;
+        } else {
+            client_state s = usermap[id].state;
+            if (s == ANNASERV_CLIENT_TRANSFER) usermap[id].state = usermap[id].old_state;
+        }
         usermap[id].lk.unlock();
         q_lock.unlock();
 
-        DBG("File transfer complete for client %d\n",id);
+        DBG("File transfer ended for client %d\n",id);
         fin_request(id);
     });
 
@@ -959,7 +983,8 @@ void install_services(Server* srv)
             return;
         }
 
-        string fn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
+        string fn = AnnaBrain::myformat("%s/%d.tmp",SERVER_TEMP_DIR,id);
+        string nfn = AnnaBrain::myformat("%s/%d.anna",SERVER_SAVE_DIR,id);
         FILE* f = fopen(fn.c_str(),"wb");
         if (!f) {
             ERROR("Unable to write to file %s\n",fn.c_str());
@@ -974,6 +999,8 @@ void install_services(Server* srv)
         usermap[id].state = ANNASERV_CLIENT_TRANSFER;
         usermap[id].fhandle = f;
         usermap[id].transize = sz;
+        usermap[id].org_fname = fn;
+        usermap[id].res_fname = nfn;
         usermap[id].lk.unlock();
         q_lock.unlock();
 
@@ -1136,6 +1163,9 @@ void cli()
     if (c == "quit" || c == "q") {
         quit = true;
 
+    } else if (c == "ver") {
+        ver();
+
     } else if (c == "list" || c == "ls") {
         puts("=======================================");
         usermap_mtx.lock();
@@ -1166,8 +1196,8 @@ void cli()
         else if (c == "sus") hold_user(id);
         else if (c == "res") unhold_user(id);
 
-    } else if (c == "ver") {
-        ver();
+    } else if (c == "kickall" || c == "killall") {
+        del_all();
     }
 }
 

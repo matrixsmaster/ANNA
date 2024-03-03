@@ -333,6 +333,7 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
         state = ANNA_ERROR;
         if (wait_callback) wait_callback(-1,false);
         internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
+        if (r->status == ImATeapot_418) internal_error += " " + r->body;
         return "";
     }
 }

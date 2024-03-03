@@ -16,4 +16,5 @@ anna_server
 saves/
 models/
 debug_log/
+tmp/
 test_run.sh

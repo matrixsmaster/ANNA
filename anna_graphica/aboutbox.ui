@@ -215,6 +215,9 @@
    </item>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <property name="spacing">
+      <number>8</number>
+     </property>
      <property name="leftMargin">
       <number>6</number>
      </property>
@@ -224,7 +227,7 @@
      <item>
       <widget class="QLabel" name="label_3">
        <property name="text">
-        <string>This software allows you to run neural network inference locally and privately, using an easy-to-use GUI in a stand-alone program. No internet, no servers, no rules!</string>
+        <string>This software allows you to run LLM inference locally and privately, using an intuitive GUI in a standalone program. Or, if you really want it, you can use remote offloading as well.</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
@@ -242,8 +245,8 @@
         </font>
        </property>
        <property name="text">
-        <string>Copyright (c) Georgi Gerganov, 2023
-Copyright (c) llama.cpp contributors, 2023
+        <string>Copyright (c) Georgi Gerganov, 2023-2024
+Copyright (c) llama.cpp contributors, 2023-2024
 Copyright (c) Dmitry 'sciloaf' Solovyev, 2023-2024</string>
        </property>
        <property name="alignment">
@@ -305,6 +308,20 @@ Copyright (c) Dmitry 'sciloaf' Solovyev, 2023-2024</string>
          <height>27</height>
         </size>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_6">
+       <property name="text">
+        <string>NC ver.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="verNC">
        <property name="readOnly">
         <bool>true</bool>
        </property>

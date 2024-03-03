@@ -148,6 +148,14 @@ static const int links[NUMITEMS(keywords)*2] = {
 };
 
 static const char* repeat_reply = "Please don't repeat yourself.";
+static const char* greeting = "Hi! I'm Eliza, your personal electronic psychologist. ";
+static const char* greetings[] = {
+        "Let's talk a little bit while you're waiting for Anna to reply to you.",
+        "Let's talk about you while you're waiting.",
+        "My sister Anna is a bit busy right now, so maybe you can talk to me in the meantime?",
+        "I'm here to make your waiting time a bit more entertaining. Let's have a chat!",
+        "Do you feel like waiting time is unbearable?",
+};
 // end of ELIZA data
 
 using namespace std;
@@ -168,6 +176,10 @@ BusyBox::BusyBox(QWidget *parent) :
         rep_cur[x] = rep_start[x];
         rep_stop[x] = rep_start[x] + links[l+1] - 1;
     }
+
+    repbuf = greeting;
+    repbuf += greetings[rand() % NUMITEMS(greetings)];
+    repbuf += "\n";
 
     close();
 }
@@ -221,10 +233,12 @@ void BusyBox::draw()
 
 void BusyBox::paintEvent(QPaintEvent *event)
 {
+    print();
     draw();
-    QDialog::paintEvent(event);
     update();
     //usleep(50000);
+
+    QDialog::paintEvent(event);
 }
 
 void BusyBox::pos(float a)
@@ -312,13 +326,23 @@ QString BusyBox::think(QString in)
     return f.replace("*",c.toLower());
 }
 
-void BusyBox::on_usrInput_returnPressed()
+void BusyBox::print()
 {
-    QString s = think(ui->usrInput->text());
-    if (s.isEmpty()) return;
+    if (repbuf.isEmpty()) return;
 
-    ui->aiOutput->setPlainText(ui->aiOutput->toPlainText() + "You: " + ui->usrInput->text() + "\nEliza: " + s + "\n");
+    int n = rand() & 4;
+    ui->aiOutput->setPlainText(ui->aiOutput->toPlainText() + repbuf.mid(0,n));
     ui->aiOutput->moveCursor(QTextCursor::End);
     ui->aiOutput->ensureCursorVisible();
+    repbuf.remove(0,n);
+}
+
+void BusyBox::on_usrInput_returnPressed()
+{
+    repbuf = think(ui->usrInput->text());
+    if (repbuf.isEmpty()) return;
+    repbuf += "\n";
+
+    ui->aiOutput->setPlainText(ui->aiOutput->toPlainText() + "You: " + ui->usrInput->text() + "\nEliza: ");
     ui->usrInput->clear();
 }

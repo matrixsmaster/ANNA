@@ -35,13 +35,14 @@ private:
     Ui::BusyBox *ui;
     float angle,cx,cy;
     std::mutex interlock;
-    QString prev;
+    QString prev, repbuf;
     std::vector<int> rep_start, rep_stop, rep_cur;
 
     void draw();
     void pos(float a);
     void test_ai();
     QString think(QString in);
+    void print();
 };
 
 #endif // BUSYBOX_H

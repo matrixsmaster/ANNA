@@ -26,7 +26,7 @@ static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
     "HTML files (*.html *.htm)",
     "ANNA save states (*.anna);;All files (*.*)",
     "GGUF files (*.gguf)",
-    "Text files (*.txt);;Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm);;All files (*.*)",
+    "Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm);;Text files (*.txt);;All files (*.*)",
 };
 
 static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
@@ -77,7 +77,7 @@ MainWnd::MainWnd(QWidget *parent)
 
     startTimer(AG_SERVER_KEEPALIVE_MINS * 60000);
 
-    ui->statusbar->showMessage("ANNA ver. " ANNA_VERSION " GUI ver. " AG_VERSION);
+    ui->statusbar->showMessage("ANNA ver. " ANNA_VERSION " GUI ver. " AG_VERSION " NC ver. " ANNA_CLIENT_VERSION);
 }
 
 MainWnd::~MainWnd()
@@ -279,13 +279,13 @@ void MainWnd::ForceAIName(const QString &nm)
 
     brain->setPrefix(std::string()); // erase any existing prefix first, to prevent accumulation
     if (nm.isEmpty() || nm == "<none>") {
-        qDebug("AI prefix removed");
+        //qDebug("AI prefix removed");
         return;
     }
 
     // set actual prefix
     brain->setPrefix(nm.toStdString());
-    qDebug("AI prefix set to %s",nm.toLatin1().data());
+    //qDebug("AI prefix set to %s",nm.toLatin1().data());
 }
 
 void MainWnd::ProcessInput(std::string str)
@@ -593,15 +593,8 @@ void MainWnd::on_SendButton_clicked()
 void MainWnd::closeEvent(QCloseEvent* event)
 {
     auto b = QMessageBox::question(this,"ANNA","Exit ANNA?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
-    if (b == QMessageBox::Yes) {
-        if (brain) {
-            // This will stop current processing, as it is synchronous
-            delete brain;
-            brain = nullptr;
-        }
-        event->accept();
-    } else
-        event->ignore();
+    if (b == QMessageBox::Yes) event->accept();
+    else event->ignore();
 }
 
 void MainWnd::timerEvent(QTimerEvent* /*event*/)

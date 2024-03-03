@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.3.1"
+#define SERVER_VERSION "0.3.2"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -31,6 +31,7 @@
 #define SERVER_CLIENT_DEAD_TO (2*60)
 
 #define SERVER_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
+#define SERVER_CLIENT_MINLLMSIZE (1024ULL * 1024ULL)
 
 #define SERVER_DEF_CPU_THREADS 12
 #define SERVER_DEF_GPU_VRAM (14ULL * 1024ULL * 1024ULL * 1024ULL)
@@ -782,6 +783,11 @@ void install_services(Server* srv)
         size_t sz = atoll(ssz.c_str());
         if (fn.empty() || ssz.empty() || !sz) {
             ERROR("Malformed request to uploadModel: '%s','%s'\n",fn.c_str(),ssz.c_str());
+            res.status = BadRequest_400;
+            return;
+        }
+        if (sz < SERVER_CLIENT_MINLLMSIZE) {
+            ERROR("Client %d tries to upload a very small model file: %zu bytes\n",id,sz);
             res.status = BadRequest_400;
             return;
         }

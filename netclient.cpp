@@ -1,9 +1,11 @@
-#include "unistd.h"
+#include <unistd.h>
+#include <chrono>
 #include "netclient.h"
 #include "../server/httplib.h"
 #include "../server/base64m.h"
 #include "../server/codec.h"
 #include "lfs.h"
+#include "md5calc.h"
 
 //#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
@@ -231,12 +233,19 @@ void AnnaClient::KeepAlive()
 
 void AnnaClient::fixConfig()
 {
-    // replace full file path with just file name
+    // replace LLM file name with its hash
     string fn = config.params.model;
-    memset(config.params.model,0,sizeof(config.params.model));
-    auto ps = fn.rfind('/');
-    if (ps != string::npos) fn.erase(0,ps+1);
-    strncpy(config.params.model,fn.c_str(),sizeof(config.params.model)-1);
+    string tmp = fn;
+    transform(tmp.begin(),tmp.end(),tmp.begin(),[](char c) { return ::toupper(c); });
+    if (fn.length() == MD5_DIGEST_STR && tmp.find(".GGUF") == string::npos) return; // already replaced
+
+    string hash = hashFile(fn);
+    if (hash.empty()) {
+        state = ANNA_ERROR;
+        internal_error = myformat("Unable to calculate hash for file '%s'",fn.c_str());
+        return;
+    }
+    strncpy(config.params.model,hash.c_str(),sizeof(config.params.model)-1);
 }
 
 string AnnaClient::asBase64(const void *data, size_t len)
@@ -378,4 +387,50 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
     free(buf);
     wait_callback = wcb;
     return true;
+}
+
+bool AnnaClient::downloadFile(FILE* f, size_t sz)
+{
+    // TODO
+    return false;
+}
+
+string AnnaClient::hashFile(const std::string fn)
+{
+    string res;
+    FILE* f = fopen(fn.c_str(),"rb");
+    if (!f) {
+        internal_error = myformat("Unable to open file %s",fn.c_str());
+        return "";
+    }
+
+    // get size
+    mseek(f,0,SEEK_END);
+    size_t sz = mtell(f);
+    mseek(f,0,SEEK_SET);
+
+    // check if it's a dummy file (sz == sizeof(hash string))
+    if (sz == MD5_DIGEST_STR) {
+        res.resize(MD5_DIGEST_STR);
+        size_t r = fread(res.data(),MD5_DIGEST_STR,1,f);
+        if (r) return res;
+        else {
+            internal_error = myformat("Unable to read from file %s",fn.c_str());
+            return "";
+        }
+    }
+
+    // otherwise get its hash
+    auto lp = chrono::steady_clock::now();
+    res = md5FileToStr(f,[&](size_t rb) {
+        int ms = (chrono::steady_clock::now() - lp) / 1ms;
+        if (this->wait_callback && ms > ANNA_HASH_UPDATE_MS) {
+            lp = chrono::steady_clock::now();
+            this->wait_callback(floor((double)rb / (double)sz * 100.f),false);
+        }
+    });
+    if (wait_callback) wait_callback(-1,false);
+
+    fclose(f);
+    return res;
 }

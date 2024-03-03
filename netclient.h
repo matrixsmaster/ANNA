@@ -5,12 +5,13 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.3.0"
+#define ANNA_CLIENT_VERSION "0.3.1"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
 #define ANNA_TRANSFER_RETRIES 5
 #define ANNA_RETRY_WAIT_MS 500
+#define ANNA_HASH_UPDATE_MS 100
 
 // Avoid inclusion of httplib.h into any header files
 namespace httplib {
@@ -63,8 +64,9 @@ private:
     size_t fromBase64(void *data, size_t len, std::string in);
 
     std::string request(bool post, const std::string cmd, const std::string arg = "", const std::string mod = "", bool force = false);
-    //bool command(const std::string cmd, const std::string arg = " ", const std::string mod = "", bool force = false);
 
     bool uploadFile(FILE* f, size_t sz);
     bool downloadFile(FILE* f, size_t sz);
+
+    std::string hashFile(const std::string fn);
 };

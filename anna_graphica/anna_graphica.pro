@@ -16,6 +16,7 @@ SOURCES += \
 
 HEADERS += \
     ../lfs.h \
+    ../md5calc.h \
     ../netclient.h \
     ../server/base64m.h \
     ../server/codec.h \

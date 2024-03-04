@@ -304,7 +304,7 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
     } else {
         Params p;
         if (!arg.empty()) {
-            p.insert(pair("arg",arg));
+            p.insert(pair<string,string>("arg",arg));
             DBG("argument '%s' added\n",arg.c_str());
         }
         DBG("get: %s\n",fcmd.c_str());
@@ -414,7 +414,7 @@ string AnnaClient::hashFile(const std::string fn)
     // check if it's a dummy file (sz == sizeof(hash string))
     if (sz == MD5_DIGEST_STR) {
         res.resize(MD5_DIGEST_STR);
-        size_t r = fread(res.data(),MD5_DIGEST_STR,1,f);
+        size_t r = fread((void*)res.data(),MD5_DIGEST_STR,1,f);
         fclose(f);
         if (r) return res;
         else {
@@ -436,10 +436,15 @@ string AnnaClient::hashFile(const std::string fn)
     fclose(f);
 
     // if we want to save dummy files, let's do it
-    string nfn = fn + ".dummy";
-    f = fopen(nfn.c_str(),"wb");
-    if (f) fwrite(res.c_str(),res.length(),1,f);
-    else internal_error = myformat("Unable to write to file %s",nfn.c_str());
+    if (create_dummy) {
+        string nfn = fn + ".dummy";
+        f = fopen(nfn.c_str(),"wb");
+        if (f) {
+            fwrite(res.c_str(),res.length(),1,f);
+            fclose(f);
+        } else
+            internal_error = myformat("Unable to write to file %s",nfn.c_str());
+    }
 
     return res;
 }

@@ -370,11 +370,13 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
         // encode and send
         string enc = asBase64(buf,r);
         bool flag = false;
+        AnnaState oldst = state;
         for (int retry = 0; !flag && retry < ANNA_TRANSFER_RETRIES; retry++) {
-            if (!request(true,"/setChunk",enc,myformat("%zu",i)).empty())
+            if (!request(true,"/setChunk",enc,myformat("%zu",i),true).empty()) // force request
                 flag = true;
             else {
-                if (wcb) wcb(ceil(prg),true,"Uploading file...");
+                state = oldst; // we know we'll be in ERROR state due to failed transfer, so restore what we knew before
+                if (wcb) wcb(ceil(prg),true,myformat("Retrying upload %d/%d...",retry+1,ANNA_TRANSFER_RETRIES));
                 else usleep(1000UL * ANNA_RETRY_WAIT_MS);
             }
         }

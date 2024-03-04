@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.3.2"
+#define SERVER_VERSION "0.3.3"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -30,7 +30,7 @@
 #define SERVER_CLIENT_MAXTIME 30
 #define SERVER_CLIENT_DEAD_TO (2*60)
 
-#define SERVER_CLIENT_CHUNK (16ULL * 1024ULL * 1024ULL)
+#define SERVER_CLIENT_CHUNK (8ULL * 1024ULL * 1024ULL)
 #define SERVER_CLIENT_MINLLMSIZE (1024ULL * 1024ULL)
 
 #define SERVER_DEF_CPU_THREADS 12
@@ -81,6 +81,7 @@ const char* allowed_versions[] = {
     "0.3.0",
     "0.3.1",
     "0.3.2",
+    "0.3.3",
     NULL
 };
 

@@ -15,8 +15,8 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.3.3"
-#define SERVER_DEBUG 1
+#define SERVER_VERSION "0.3.3b"
+//#define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_DBGLOG_DIR "debug_log"
@@ -78,9 +78,6 @@ struct session {
 };
 
 const char* allowed_versions[] = {
-    "0.3.0",
-    "0.3.1",
-    "0.3.2",
     "0.3.3",
     NULL
 };

@@ -2,7 +2,7 @@
 #define BUSYBOX_H
 
 #include <QDialog>
-#include <mutex>
+//#include <mutex>
 
 #define NUMITEMS(A) ((int)(sizeof(A) / sizeof((A)[0])))
 
@@ -34,7 +34,7 @@ private slots:
 private:
     Ui::BusyBox *ui;
     float angle,cx,cy;
-    std::mutex interlock;
+    //std::mutex interlock;
     QString prev, repbuf;
     std::vector<int> rep_start, rep_stop, rep_cur;
 

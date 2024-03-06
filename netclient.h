@@ -5,11 +5,12 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.3.3"
+#define ANNA_CLIENT_VERSION "0.3.4"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (8ULL * 1024ULL * 1024ULL)
 #define ANNA_TRANSFER_RETRIES 15
+#define ANNA_REQUEST_CHECK 50ms
 #define ANNA_RETRY_WAIT_MS 500
 #define ANNA_HASH_UPDATE_MS 100
 
@@ -18,7 +19,7 @@ namespace httplib {
     class Client;
 }
 
-typedef std::function<void (int,bool,const std::string&)> waitfunction;
+typedef std::function<bool(int,bool,const std::string&)> waitfunction;
 
 class AnnaClient : public AnnaBrain
 {

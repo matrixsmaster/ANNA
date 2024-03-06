@@ -79,6 +79,7 @@ struct session {
 
 const char* allowed_versions[] = {
     "0.3.3",
+    "0.3.4",
     NULL
 };
 

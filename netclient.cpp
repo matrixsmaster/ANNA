@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <chrono>
+#include <future>
 #include "netclient.h"
 #include "../server/httplib.h"
 #include "../server/base64m.h"
@@ -294,33 +295,45 @@ size_t AnnaClient::fromBase64(void *data, size_t len, string in)
 string AnnaClient::request(bool post, const string cmd, const string arg, const string mod, bool force)
 {
     if (!force && state != ANNA_READY) return "";
+
+    // format the command/request URL and add modification part if needed
     string fcmd = cmd + myformat("/%d",clid);
     if (!mod.empty()) fcmd += "/" + mod;
 
-    Result r;
-    if (post) {
-        DBG("post: %s\n",fcmd.c_str());
-        r = client->Post(fcmd,arg,"text/plain");
-    } else {
-        Params p;
-        if (!arg.empty()) {
-            p.insert(pair<string,string>("arg",arg));
-            DBG("argument '%s' added\n",arg.c_str());
+    // create an async object to offload the actual Get/Post, allowing the main thread to continue its stuff
+    auto rhnd = async(launch::async,[&]() -> auto {
+        if (post) {
+            DBG("post: %s\n",fcmd.c_str());
+            return client->Post(fcmd,arg,"text/plain");
+        } else {
+            Params p;
+            if (!arg.empty()) {
+                p.insert(pair<string,string>("arg",arg));
+                DBG("argument '%s' added\n",arg.c_str());
+            }
+            DBG("get: %s\n",fcmd.c_str());
+            return client->Get(fcmd,p,Headers(),Progress());
         }
-        DBG("get: %s\n",fcmd.c_str());
-        r = client->Get(fcmd,p,Headers(),(Progress)([&](auto a, auto b) -> bool { //Progress());
-            DBG("progress(%lu, %lu)\n",a,b);
-            return true;
-        }));
-    }
+    });
 
+    // use wait function while async object is busy
+    bool dowait = true;
+    while (rhnd.wait_for(ANNA_REQUEST_CHECK) != future_status::ready) {
+        // don't fire up wait function again if it was rejected once (another thread is already using it)
+        if (wait_callback && dowait)
+            dowait = wait_callback(0,true,"Waiting for server response...");
+    }
+    if (wait_callback) wait_callback(-1,false,"");
+
+    // finally we can acquire the request result
+    Result r = rhnd.get();
     if (!r) {
         state = ANNA_ERROR;
-        if (wait_callback) wait_callback(-1,false,"");
         internal_error = myformat("Remote request failed: %s",fcmd.c_str());
         return "";
     }
 
+    // response status handling - OK, RETRY or FAIL
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:

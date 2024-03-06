@@ -191,7 +191,7 @@ BusyBox::~BusyBox()
 
 void BusyBox::Use(QRect base, int progress)
 {
-    if (!interlock.try_lock()) return;
+    //if (!interlock.try_lock()) return;
     bool first = isHidden();
     if (isHidden()) show();
 
@@ -204,7 +204,7 @@ void BusyBox::Use(QRect base, int progress)
     ui->usrInput->setVisible(!(progress || first));
 
     update();
-    interlock.unlock();
+    //interlock.unlock();
 }
 
 void BusyBox::draw()

@@ -74,6 +74,7 @@ MainWnd::MainWnd(QWidget *parent)
     UpdateRQPs();
     next_attach = nullptr;
     last_username = false;
+    nowait = false;
 
     startTimer(AG_SERVER_KEEPALIVE_MINS * 60000);
 
@@ -82,6 +83,7 @@ MainWnd::MainWnd(QWidget *parent)
 
 MainWnd::~MainWnd()
 {
+    nowait = true;
     SaveSettings();
     if (brain) delete brain;
     guiconfig.rqps.clear();
@@ -226,8 +228,9 @@ bool MainWnd::NewBrain()
         brain = new AnnaBrain(&config);
     } else {
         // create network client instance
-        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),guiconfig.mk_dummy,[this](int prog, bool wait, auto txt) {
-            WaitingFun(prog,wait,txt);
+        AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),guiconfig.mk_dummy,
+                                         [this](int prog, bool wait, auto txt) -> bool {
+            return WaitingFun(prog,wait,txt);
         });
         brain = dynamic_cast<AnnaBrain*>(ptr);
     }
@@ -343,13 +346,13 @@ bool MainWnd::EmbedImage(const QString& fn)
 
 void MainWnd::Generate()
 {
-    //bool skips = false;
     AnnaState s = ANNA_NOT_INITIALIZED;
     std::string str;
     QString convo;
     stop = false;
     block = true;
 
+    // main LLM generation loop - continues until brain is deleted (in processEvents()), or turnover, or error
     while (brain && !stop) {
         s = brain->Processing(ui->SamplingCheck->isChecked());
         //qDebug("s = %s",AnnaBrain::StateToStr(s).c_str());
@@ -384,6 +387,7 @@ void MainWnd::Generate()
             stop = true;
         }
 
+        // set a temporary UI state to interactively "stream" the tokens which are being generated
         ui->statusbar->showMessage("Brain state: thinking...");
         ui->ChatLog->setMarkdown(cur_chat + convo);
         ui->ChatLog->moveCursor(QTextCursor::End);
@@ -391,11 +395,19 @@ void MainWnd::Generate()
         ui->ContextFull->setMaximum(config.params.n_ctx);
         ui->ContextFull->setValue(brain->getTokensUsed());
 
+        // now we can check the RQPs, execute stuff and inject things into LLM, all in this one convenient call
         CheckRQPs(raw_output + convo);
+
+        // now it's a good time to bail if turnover was detected
         if (s == ANNA_TURNOVER) break;
+        nowait = true; // this is needed after the first full loop to prevent the brain to fire a wait on every token
+
+        // make it interactive - update the UI
         qApp->processEvents();
     }
 
+    // restore the global state and update the text widgets
+    nowait = false;
     block = false;
     cur_chat += convo + "\n";
     raw_output += convo + "\n";
@@ -472,7 +484,8 @@ void MainWnd::on_actionProfessional_view_triggered()
 void MainWnd::on_ModelFindButton_clicked()
 {
     if (!cur_chat.isEmpty()) {
-        auto b = QMessageBox::question(this,"ANNA","You have active dialog. Loading another LLM would reset it.\nDo you want to load another LLM?",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
+        auto b = QMessageBox::question(this,"ANNA","You have active dialog. Loading another LLM would reset it.\nDo you want to load another LLM?",
+                                       QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
         if (b != QMessageBox::Yes) return;
     }
 
@@ -757,7 +770,8 @@ void MainWnd::on_actionSettings_triggered()
             // warn the user about others
             if (!cur_chat.isEmpty()) {
                 if (QMessageBox::information(this,"ANNA","Most of the settings require the model to be reloaded.\n"
-                                             "Do you want to reload the model? The current dialog will be lost.",QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::Yes)
+                                             "Do you want to reload the model? The current dialog will be lost.",
+                                             QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::Yes)
                     LoadLLM(QString::fromStdString(config.params.model));
             }
         }
@@ -926,6 +940,7 @@ void MainWnd::CheckRQPs(const QString& inp)
 {
     bool pre_block = block;
     block = true;
+
     for (auto & i : rqps) {
         QString out = RQPEditor::DoRequest(i,inp,true,[&](QString& fn) {
             ui->statusbar->showMessage("Running external command "+fn);
@@ -938,9 +953,9 @@ void MainWnd::CheckRQPs(const QString& inp)
                 cur_chat += "\n\n### RQP output:\n\n" + out + "\n\n### End of RQP output\n\n";
                 on_actionRefresh_chat_box_triggered();
             }
-        } /*else
-            ui->statusbar->clearMessage();*/
+        }
     }
+
     block = pre_block;
 }
 
@@ -1031,14 +1046,19 @@ void MainWnd::on_actionReset_prompt_to_default_triggered()
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }
 
-void MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
+bool MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
 {
+    if (nowait) return false; // is waiting temporarily prohibited?
+    if (!busybox_lock.try_lock()) return false; // this might signal to other threads that waiting is already happening
+
+    // save previous block state and block the UI
     bool prev_block = block;
     block = true;
 
     if (prog >= 0) {
         ui->statusbar->showMessage(QString::fromStdString(text));
 
+        // this cycle allows for a more "interactive" waiting with multiple calls to processEvents()
         for (int i = 0; i < AG_SERVER_WAIT_CYCLES; i++) {
             if (guiconfig.use_busybox) busy_box->Use(geometry(),prog);
             qApp->processEvents();
@@ -1050,5 +1070,8 @@ void MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
         if (guiconfig.use_busybox) busy_box->close();
     }
 
+    // restore the block state, unlock and move along
     block = prev_block;
+    busybox_lock.unlock();
+    return true;
 }

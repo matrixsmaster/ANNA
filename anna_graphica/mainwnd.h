@@ -161,6 +161,8 @@ private:
     bool block;
     QString filedlg_cache[ANNA_NUM_FILETYPES];
     std::vector<AnnaRQPState> rqps;
+    std::mutex busybox_lock;
+    bool nowait;
 
     void DefaultConfig();
     void LoadSettings();
@@ -183,7 +185,7 @@ private:
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 
-    void WaitingFun(int prog, bool wait, const std::string& text = "");
+    bool WaitingFun(int prog, bool wait, const std::string& text = "");
 };
 
 #endif // MAINWND_H

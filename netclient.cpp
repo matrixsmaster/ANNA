@@ -308,7 +308,10 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
             DBG("argument '%s' added\n",arg.c_str());
         }
         DBG("get: %s\n",fcmd.c_str());
-        r = client->Get(fcmd,p,Headers(),Progress());
+        r = client->Get(fcmd,p,Headers(),(Progress)([&](auto a, auto b) -> bool { //Progress());
+            DBG("progress(%lu, %lu)\n",a,b);
+            return true;
+        }));
     }
 
     if (!r) {

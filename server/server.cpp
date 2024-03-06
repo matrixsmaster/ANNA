@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.3.3b"
+#define SERVER_VERSION "0.3.4"
 //#define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -87,6 +87,7 @@ deque<int> userqueue;
 int active_user = -1;
 mutex usermap_mtx, q_lock;
 bool quit = false;
+bool g_lock = false;
 
 #ifdef SERVER_DEBUG
 
@@ -423,7 +424,7 @@ string to_base64(uint32_t clid, const void* in, size_t inlen)
     size_t n = encode((char*)s.data(),s.size(),tmp,inlen);
     s.resize(n);
 
-    INFO("Data encoded: %zu bytes from %zu bytes\n",n,inlen);
+    DBG("Data encoded: %zu bytes from %zu bytes\n",n,inlen);
     free(tmp);
     return s;
 }
@@ -432,7 +433,7 @@ size_t from_base64(uint32_t clid, void* out, size_t maxlen, const char* in)
 {
     size_t n = decode(out,maxlen,in);
     codec_backward(clid,out,n);
-    INFO("%zu bytes decoded from %zu bytes string\n",n,strlen(in));
+    DBG("%zu bytes decoded from %zu bytes string\n",n,strlen(in));
     return n;
 }
 
@@ -1032,105 +1033,109 @@ void server_thread(Server* srv)
     INFO("Stopped listening\n");
 }
 
+void sched_quantum()
+{
+    int hold = -1, unhold = -1;
+
+    usermap_mtx.lock();
+    q_lock.lock();
+
+    // check for "client dead" timeout
+    for (auto ui = usermap.begin(); ui != usermap.end();) {
+        int age = (chrono::steady_clock::now() - usermap.at(ui->first).last_req) / 1min;
+        if (age > SERVER_CLIENT_DEAD_TO) {
+            WARN("Removing dead client %d (no life signs for %d mins)\n",ui->first,age);
+            del_user(ui->first,false);
+            ui = usermap.begin();
+        } else
+            ++ui;
+    }
+
+    // check for active user's validity
+    if (active_user > 0) {
+        if (usermap.count(active_user) < 1) {
+            WARN("Invalid active user %d (not existing), removing...\n",active_user);
+            active_user = -1;
+
+        } else if (!is_workable(active_user)) {
+            WARN("Current active user %d is in inactive state, switching over...\n",active_user);
+            active_user = -1;
+        }
+    }
+
+    // sanitize the queue
+    for (auto qi = userqueue.begin(); qi != userqueue.end();) {
+        if (*qi == active_user || usermap.count(*qi) < 1 || !is_workable(*qi))
+            qi = userqueue.erase(qi);
+        else
+            ++qi;
+    }
+
+    // check for active user's inactivity timeout
+    if (active_user > 0) {
+        float age = (float)((chrono::steady_clock::now() - usermap.at(active_user).last_req) / 1ms) / 1000.f;
+        if (userqueue.empty()) age = 0; // no need to switch, as there's no more requests atm
+        if (usermap[active_user].lk.try_lock()) usermap[active_user].lk.unlock(); // just test the lock
+        else age = 0; // if locked - something's happening, so we can't release this client yet
+
+        if (age > SERVER_CLIENT_TIMEOUT) {
+            INFO("User %d inactivity timeout\n",active_user);
+            hold = active_user;
+        }
+    }
+
+    // check for queue waiting time
+    if (active_user > 0 && !userqueue.empty()) {
+        int next = userqueue.front(); // oldest request will be the first
+        if (usermap.count(next)) {
+            int age = (chrono::steady_clock::now() - usermap.at(next).last_req) / 1s;
+            // if another client waited too long, then remove the current client
+            if (age > SERVER_CLIENT_MAXTIME) {
+                INFO("User %d waited too long, forcing suspend of user %d\n",next,active_user);
+                hold = active_user;
+            }
+        }
+    }
+
+    // check for the queue
+    if (active_user < 0 && !userqueue.empty()) {
+        unhold = userqueue.front();
+        userqueue.pop_front();
+        // check if it's still valid
+        if (usermap.count(unhold) < 1)
+            unhold = -1;
+    }
+
+    q_lock.unlock();
+    usermap_mtx.unlock();
+
+    // hold a user
+    if (hold > 0) {
+        // put the client on hold and reset active user
+        hold_user(hold);
+        q_lock.lock();
+        active_user = -1;
+        q_lock.unlock();
+    }
+
+    // unhold a user
+    if (unhold > 0) {
+        if (!unhold_user(unhold)) { // and resume it
+            ERROR("Unable to resume session for user %d\n",unhold);
+            unhold = -1;
+        }
+        q_lock.lock();
+        active_user = unhold;
+        q_lock.unlock();
+    }
+}
+
 void sched_thread()
 {
     INFO("Scheduler started\n");
 
     while (!quit) {
-        int hold = -1, unhold = -1;
-
-        usermap_mtx.lock();
-        q_lock.lock();
-
-        // check for "client dead" timeout
-        for (auto ui = usermap.begin(); ui != usermap.end();) {
-            int age = (chrono::steady_clock::now() - usermap.at(ui->first).last_req) / 1min;
-            if (age > SERVER_CLIENT_DEAD_TO) {
-                WARN("Removing dead client %d (no life signs for %d mins)\n",ui->first,age);
-                del_user(ui->first,false);
-                ui = usermap.begin();
-            } else
-                ++ui;
-        }
-
-        // check for active user's validity
-        if (active_user > 0) {
-            if (usermap.count(active_user) < 1) {
-                WARN("Invalid active user %d (not existing), removing...\n",active_user);
-                active_user = -1;
-
-            } else if (!is_workable(active_user)) {
-                WARN("Current active user %d is in inactive state, switching over...\n",active_user);
-                active_user = -1;
-            }
-        }
-
-        // sanitize the queue
-        for (auto qi = userqueue.begin(); qi != userqueue.end();) {
-            if (*qi == active_user || usermap.count(*qi) < 1 || !is_workable(*qi))
-                qi = userqueue.erase(qi);
-            else
-                ++qi;
-        }
-
-        // check for active user's inactivity timeout
-        if (active_user > 0) {
-            float age = (float)((chrono::steady_clock::now() - usermap.at(active_user).last_req) / 1ms) / 1000.f;
-            if (userqueue.empty()) age = 0; // no need to switch, as there's no more requests atm
-            if (usermap[active_user].lk.try_lock()) usermap[active_user].lk.unlock(); // just test the lock
-            else age = 0; // if locked - something's happening, so we can't release this client yet
-
-            if (age > SERVER_CLIENT_TIMEOUT) {
-                INFO("User %d inactivity timeout\n",active_user);
-                hold = active_user;
-            }
-        }
-
-        // check for queue waiting time
-        if (active_user > 0 && !userqueue.empty()) {
-            int next = userqueue.front(); // oldest request will be the first
-            if (usermap.count(next)) {
-                int age = (chrono::steady_clock::now() - usermap.at(next).last_req) / 1s;
-                // if another client waited too long, then remove the current client
-                if (age > SERVER_CLIENT_MAXTIME) {
-                    INFO("User %d waited too long, forcing suspend of user %d\n",next,active_user);
-                    hold = active_user;
-                }
-            }
-        }
-
-        // check for the queue
-        if (active_user < 0 && !userqueue.empty()) {
-            unhold = userqueue.front();
-            userqueue.pop_front();
-            // check if it's still valid
-            if (usermap.count(unhold) < 1)
-                unhold = -1;
-        }
-
-        q_lock.unlock();
-        usermap_mtx.unlock();
-
-        // hold a user
-        if (hold > 0) {
-            // put the client on hold and reset active user
-            hold_user(hold);
-            q_lock.lock();
-            active_user = -1;
-            q_lock.unlock();
-        }
-
-        // unhold a user
-        if (unhold > 0) {
-            if (!unhold_user(unhold)) { // and resume it
-                ERROR("Unable to resume session for user %d\n",unhold);
-                unhold = -1;
-            }
-            q_lock.lock();
-            active_user = unhold;
-            q_lock.unlock();
-        }
-
+        if (!g_lock) sched_quantum();
         usleep(SERVER_SCHED_WAIT);
     }
 
@@ -1203,6 +1208,10 @@ void cli()
 
     } else if (c == "kickall" || c == "killall") {
         del_all();
+
+    } else if (c == "lock" || c == "unlock") {
+        g_lock = (c[0] == 'l');
+        WARN("Server scheduling %s\n",(g_lock? "locked":"unlocked"));
     }
 }
 

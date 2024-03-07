@@ -70,6 +70,13 @@
     </widget>
    </item>
    <item>
+    <widget class="QPushButton" name="pushButton">
+     <property name="text">
+      <string>I'm bored</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QProgressBar" name="progressBar">
      <property name="palette">
       <palette>

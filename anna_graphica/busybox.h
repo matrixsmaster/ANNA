@@ -31,10 +31,11 @@ protected:
 private slots:
     void on_usrInput_returnPressed();
 
+    void on_pushButton_clicked();
+
 private:
     Ui::BusyBox *ui;
     float angle,cx,cy;
-    //std::mutex interlock;
     QString prev, repbuf;
     std::vector<int> rep_start, rep_stop, rep_cur;
 

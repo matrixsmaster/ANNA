@@ -166,6 +166,8 @@ BusyBox::BusyBox(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowFlags(Qt::FramelessWindowHint);
+    ui->aiOutput->hide();
+    ui->usrInput->hide();
 
     angle = 0;
     rep_start.resize(NUMITEMS(keywords));
@@ -177,10 +179,6 @@ BusyBox::BusyBox(QWidget *parent) :
         rep_stop[x] = rep_start[x] + links[l+1] - 1;
     }
 
-    repbuf = greeting;
-    repbuf += greetings[rand() % NUMITEMS(greetings)];
-    repbuf += "\n";
-
     close();
 }
 
@@ -191,8 +189,6 @@ BusyBox::~BusyBox()
 
 void BusyBox::Use(QRect base, int progress)
 {
-    //if (!interlock.try_lock()) return;
-    bool first = isHidden();
     if (isHidden()) show();
 
     setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter,size(),base));
@@ -200,11 +196,7 @@ void BusyBox::Use(QRect base, int progress)
     ui->progressBar->setVisible(progress > 0);
     ui->progressBar->setValue(progress);
 
-    ui->aiOutput->setVisible(!(progress || first));
-    ui->usrInput->setVisible(!(progress || first));
-
     update();
-    //interlock.unlock();
 }
 
 void BusyBox::draw()
@@ -328,7 +320,7 @@ QString BusyBox::think(QString in)
 
 void BusyBox::print()
 {
-    if (repbuf.isEmpty()) return;
+    if (repbuf.isEmpty() || ui->aiOutput->isHidden()) return;
 
     int n = rand() & 4;
     ui->aiOutput->setPlainText(ui->aiOutput->toPlainText() + repbuf.mid(0,n));
@@ -345,4 +337,15 @@ void BusyBox::on_usrInput_returnPressed()
 
     ui->aiOutput->setPlainText(ui->aiOutput->toPlainText() + "You: " + ui->usrInput->text() + "\nEliza: ");
     ui->usrInput->clear();
+}
+
+void BusyBox::on_pushButton_clicked()
+{
+    repbuf = greeting;
+    repbuf += greetings[rand() % NUMITEMS(greetings)];
+    repbuf += "\n";
+
+    ui->aiOutput->show();
+    ui->usrInput->show();
+    ui->pushButton->hide();
 }

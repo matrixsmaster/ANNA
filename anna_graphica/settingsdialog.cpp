@@ -60,6 +60,8 @@ void SettingsDialog::showEvent(QShowEvent *event)
 
         AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
         ui->enterButn->setCurrentIndex(gs->enter_key);
+        ui->autoGPU->setChecked(gs->auto_gpu);
+        ui->stateReload->setChecked(gs->full_reload);
         ui->fixMD->setChecked(gs->md_fix);
         ui->savePrompt->setChecked(gs->save_prompt);
         ui->clearLog->setChecked(gs->clear_log);
@@ -117,6 +119,8 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->endGroup();
     sets->beginGroup("UI");
     sets->setValue("enter_key",gs->enter_key);
+    sets->setValue("auto_gpu",gs->auto_gpu);
+    sets->setValue("full_reload",gs->full_reload);
     sets->setValue("md_fix",gs->md_fix);
     sets->setValue("save_prompt",gs->save_prompt);
     sets->setValue("clear_log",gs->clear_log);
@@ -176,6 +180,8 @@ void SettingsDialog::on_buttonBox_accepted()
 
     AnnaGuiSettings* gs = (AnnaGuiSettings*)pconfig->user;
     gs->enter_key = ui->enterButn->currentIndex();
+    gs->auto_gpu = ui->autoGPU->isChecked();
+    gs->full_reload = ui->stateReload->isChecked();
     gs->md_fix = ui->fixMD->isChecked();
     gs->save_prompt = ui->savePrompt->isChecked();
     gs->clear_log = ui->clearLog->isChecked();
@@ -234,6 +240,8 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     sets->endGroup();
     sets->beginGroup("UI");
     gs->enter_key = sets->value("enter_key",gs->enter_key).toInt();
+    gs->auto_gpu = sets->value("auto_gpu",gs->auto_gpu).toBool();
+    gs->full_reload = sets->value("full_reload",gs->full_reload).toBool();
     gs->md_fix = sets->value("md_fix",gs->md_fix).toBool();
     gs->save_prompt = sets->value("save_prompt",gs->save_prompt).toBool();
     gs->clear_log = sets->value("clear_log",gs->clear_log).toBool();

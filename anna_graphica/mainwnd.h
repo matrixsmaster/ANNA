@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.9.1b"
+#define AG_VERSION "0.9.2"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -44,9 +44,10 @@ struct AnnaAttachment {
 
 struct AnnaGuiSettings {
     int enter_key;
+    bool auto_gpu, full_reload;
     bool md_fix, save_prompt, clear_log;
-    QString server;
     bool use_server, use_busybox, use_attprefix, mk_dummy;
+    QString server;
     QFont log_fnt, usr_fnt;
     QString att_prefix, txt_prefix, txt_suffix;
     std::vector<AnnaRQPFile> rqps;
@@ -142,6 +143,8 @@ private slots:
     void on_actionUse_current_input_as_prompt_triggered();
 
     void on_actionReset_prompt_to_default_triggered();
+
+    void on_actionUndo_triggered();
 
 private:
     Ui::MainWnd *ui;

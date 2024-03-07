@@ -113,6 +113,8 @@ void MainWnd::DefaultConfig()
 
     config.user = &guiconfig;
     guiconfig.enter_key = 0;
+    guiconfig.auto_gpu = false;
+    guiconfig.full_reload = false;
     guiconfig.md_fix = true;
     guiconfig.save_prompt = false;
     guiconfig.clear_log = true;
@@ -847,6 +849,12 @@ bool MainWnd::LoadLLMState(const QString& fn)
 {
     if (block) return false;
 
+    // if full reload required, let's remove old brain first
+    if (brain && guiconfig.full_reload) {
+        delete brain;
+        brain = nullptr;
+    }
+
     // shortcut for loading model + state in an easier way
     if (!brain) {
         AnnaBrain br; // an "empty" brain (no model loaded)
@@ -1074,4 +1082,11 @@ bool MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
     block = prev_block;
     busybox_lock.unlock();
     return true;
+}
+
+void MainWnd::on_actionUndo_triggered()
+{
+    if (block || !brain) return;
+    brain->Undo();
+    // TODO: revert chat log as well
 }

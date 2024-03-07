@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.3.4"
+#define SERVER_VERSION "0.3.4b"
 //#define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -163,6 +163,11 @@ void add_queue(int id)
 
 int get_max_gpu_layers(AnnaConfig* cfg)
 {
+    if (!llama_supports_gpu_offload()) {
+        WARN("GPU support is not enabled!\n");
+        return 0;
+    }
+
     // first of all, let's determine the overall size of the model file
     FILE* f = fopen(cfg->params.model,"rb");
     if (!f) {

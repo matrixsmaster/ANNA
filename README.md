@@ -1,6 +1,6 @@
 # ANNA - Automatic Neural Network Assistant
 
-Initially an experiment based on llama.cpp ([https://github.com/ggerganov/llama.cpp]), it is now a very powerful cross-platform AI toolkit.
+Initially an experiment based on llama.cpp (https://github.com/ggerganov/llama.cpp), it is now a very powerful cross-platform AI toolkit.
 
 ## ANNA Server
 

@@ -2,9 +2,9 @@
 
 ## ANNA Server
 
-ANNA server is quite unique, as it allows you to host a multi-modAl, multi-modEl server without any constraint on the number of users. It uses preemptive type of multitask scheduling, allowing many users to share even relatively weak hardware quite efficiently. Every user can use their own unique models at the same time, no restrictions on how many different models are used simultaneously!
+ANNA server is quite unique, as it allows you to host a multi-mod**a**l, multi-mod**e**l server without any constraint on the number of users. It uses preemptive type of multitask scheduling, allowing many users to share even relatively weak hardware quite efficiently. Every user can use their own unique models at the same time, no restrictions on how many different models are used simultaneously!
 
-*ANNA Server is optional, and is not required for using either CLI or GUI interfaces (each of them has embedded inference engine).*
+**ANNA Server is optional, and is not required for using either CLI or GUI interfaces (each of them has embedded inference engine).**
 
 ## ANNA CLI
 

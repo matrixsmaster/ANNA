@@ -1,5 +1,7 @@
 # ANNA - Automatic Neural Network Assistant
 
+Initially an experiment based on llama.cpp ([https://github.com/ggerganov/llama.cpp]), it is now a very powerful cross-platform AI toolkit.
+
 ## ANNA Server
 
 ANNA server is quite unique, as it allows you to host a multi-mod**a**l, multi-mod**e**l server without any constraint on the number of users. It uses preemptive type of multitask scheduling, allowing many users to share even relatively weak hardware quite efficiently. Every user can use their own unique models at the same time, no restrictions on how many different models are used simultaneously!
@@ -64,3 +66,10 @@ The GUI version can be built with QtCreator. Qt version required is Qt 5.15. Ope
 On Windows, the build is fully automated and done by qmake. On Linux, a prerequisite for GUI build is to build the main library first (do `make` in the root of the source tree).
 
 The GUI contains built-in offline help system (WIP atm).
+
+
+# AUTHORS
+
+(C) Georgi Gerganov, 2023-2024
+(C) llama.cpp contributors, 2023-2024
+(C) Dmitry 'sciloaf' Solovyev, 2023-2024

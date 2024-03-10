@@ -2,9 +2,9 @@
 #include <chrono>
 #include <future>
 #include "netclient.h"
-#include "../server/httplib.h"
-#include "../server/base64m.h"
-#include "../server/codec.h"
+#include "httplib.h"
+#include "base64m.h"
+#include "codec.h"
 #include "lfs.h"
 #include "md5calc.h"
 

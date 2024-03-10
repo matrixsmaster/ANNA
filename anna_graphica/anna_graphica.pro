@@ -114,8 +114,8 @@ linux {
     }
 }
 
-INCLUDEPATH += $$PWD/../
-DEPENDPATH += $$PWD/../
+INCLUDEPATH += $$PWD/.. $$PWD/../server
+DEPENDPATH += $$PWD/.. $$PWD/../server
 
 RESOURCES += \
     resources.qrc

@@ -397,12 +397,11 @@ bool generate(bool skip, bool force)
 {
     AnnaState s = ANNA_NOT_INITIALIZED;
     string str,convo;
-    bool stop = false;
 
     if (force) brain->setPrefix(g_tokenf);
 
     // main LLM generation loop
-    while (!stop && s != ANNA_TURNOVER) {
+    while (s != ANNA_TURNOVER) {
         s = brain->Processing(skip);
 
         switch (s) {
@@ -416,7 +415,6 @@ bool generate(bool skip, bool force)
             str = brain->getOutput();
             DBG("str = %s\n",str.c_str());
             convo += str;
-
             for (auto &i : g_uprefix) {
                 if (convo.ends_with(i)) {
                     g_last_username = true;
@@ -433,12 +431,11 @@ bool generate(bool skip, bool force)
 
         case ANNA_ERROR:
             ERR("Error: %s\n",brain->getError().c_str());
-            stop = true;
-            break;
+            return false;
 
         default:
             ERR("Wrong brain state: %s\n",AnnaBrain::StateToStr(s).c_str());
-            stop = true;
+            return false;
         }
 
         // now we can check the RQPs, execute stuff and inject things into LLM, all in this one convenient call
@@ -446,7 +443,7 @@ bool generate(bool skip, bool force)
     }
 
     //cur_chat += convo + "\n";
-
+    return true;
 }
 
 bool load_cache()
@@ -555,10 +552,11 @@ int main(int argc, char* argv[])
                     printf("%s",g_uprefix.at(0).c_str());
                     fflush(stdout);
                 }
+                skip_sampling = false;
                 inp_str = get_input(&skip_sampling,&force_prefix);
             }
 
-            DBG("String received: '%s', sampling skip = %d\n",inp_str.c_str(),skip_sampling);
+            DBG("String received: '%s', sampling skip = %d, force_prefix = %d\n",inp_str.c_str(),skip_sampling,force_prefix);
             if (g_pipemode && !skip_sampling) {
                 DBG("Going to no-input mode automatically.\n");
                 no_input = true; // ignore anything past EOF in pipe mode
@@ -639,13 +637,17 @@ int main(int argc, char* argv[])
                 continue;
 
             } else if (inp_str == "print_context()\n") {
-                //brain->get
+                printf("\n\n***CONTEXT***\n%s\n\n",brain->PrintContext().c_str());
                 continue;
 
             } else if (inp_str == "stats()\n") {
                 // TODO: extend this
                 printf("n_past = %d\n",brain->getTokensUsed());
                 continue;
+
+            } else if (inp_str == "quit()\n") {
+                g_quit = true;
+                break;
             }
 
             // don't run on empty

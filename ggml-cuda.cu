@@ -125,7 +125,7 @@
 #include "ggml-backend-impl.h"
 
 #if LLAMA_DEBUG
-#define CUDA_DBG_PRN(...) CUDA_DBG_PRN(__VA_ARGS__)
+#define CUDA_DBG_PRN(...) printf(__VA_ARGS__)
 #else
 #define CUDA_DBG_PRN(...)
 #endif

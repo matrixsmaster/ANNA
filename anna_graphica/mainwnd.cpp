@@ -76,8 +76,6 @@ MainWnd::MainWnd(QWidget *parent)
     last_username = false;
     nowait = false;
 
-    startTimer(AG_SERVER_KEEPALIVE_MINS * 60000);
-
     ui->statusbar->showMessage("ANNA ver. " ANNA_VERSION " GUI ver. " AG_VERSION " NC ver. " ANNA_CLIENT_VERSION);
 }
 
@@ -611,13 +609,6 @@ void MainWnd::closeEvent(QCloseEvent* event)
     auto b = QMessageBox::question(this,"ANNA","Exit ANNA?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
     if (b == QMessageBox::Yes) event->accept();
     else event->ignore();
-}
-
-void MainWnd::timerEvent(QTimerEvent* /*event*/)
-{
-    if (!brain) return;
-    AnnaClient* ptr = dynamic_cast<AnnaClient*>(brain);
-    if (ptr) ptr->KeepAlive();
 }
 
 bool MainWnd::eventFilter(QObject* obj, QEvent* event)

@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.9.2"
+#define AG_VERSION "0.9.3"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -32,7 +32,6 @@
 #define AG_DEFAULT_SERVER "127.0.0.1:8080"
 #define AG_SERVER_WAIT_MS 50
 #define AG_SERVER_WAIT_CYCLES 20
-#define AG_SERVER_KEEPALIVE_MINS 2
 
 struct AnnaAttachment {
     QString fn;
@@ -80,7 +79,6 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
-    void timerEvent(QTimerEvent* event) override;
     bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:

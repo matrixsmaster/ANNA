@@ -52,6 +52,7 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, bool mk_dummy, waitfuncti
         internal_error = "Unable to create remote session!";
         return;
     }
+    startKeepAlives(true);
 
     // request model file presence and upload the file if necessary
     string mrq = request(false,"/checkModel",config.params.model);
@@ -73,6 +74,7 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, bool mk_dummy, waitfuncti
 AnnaClient::~AnnaClient()
 {
     DBG("client d'tor\n");
+    startKeepAlives(false);
     request(true,"/sessionEnd"," ","",true);
 }
 
@@ -518,4 +520,25 @@ string AnnaClient::hashFile(const std::string fn)
     }
 
     return res;
+}
+
+void AnnaClient::startKeepAlives(bool start)
+{
+    if (start == keepalive_started) return;
+    keepalive_started = start;
+    if (start) {
+        keepalive_thr = thread([this] {
+            while (keepalive_started) {
+                KeepAlive();
+                for (int i = 0; i < ANNA_KEEPALIVE_PERIOD && keepalive_started; i++)
+                    usleep(1000UL * ANNA_KEEPALIVE_CHECK_MS);
+            }
+        });
+        DBG("Keepalive thread started\n");
+
+    } else {
+        DBG("Joining keepalive thread...\n");
+        keepalive_thr.join();
+        DBG("Keepalive thread joined\n");
+    }
 }

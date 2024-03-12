@@ -5,7 +5,7 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.3.4"
+#define ANNA_CLIENT_VERSION "0.3.5"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (8ULL * 1024ULL * 1024ULL)
@@ -13,6 +13,8 @@
 #define ANNA_REQUEST_CHECK 50ms
 #define ANNA_RETRY_WAIT_MS 500
 #define ANNA_HASH_UPDATE_MS 100
+#define ANNA_KEEPALIVE_CHECK_MS 100
+#define ANNA_KEEPALIVE_PERIOD (2 * 60000 / (ANNA_KEEPALIVE_CHECK_MS))
 
 // Avoid inclusion of httplib.h into any header files
 namespace httplib {
@@ -57,6 +59,8 @@ private:
     uint32_t clid = 0;
     bool create_dummy;
     waitfunction wait_callback;
+    std::thread keepalive_thr;
+    bool keepalive_started = false;
 
     void fixConfig();
 
@@ -71,4 +75,6 @@ private:
     bool downloadFile(FILE* f, size_t sz);
 
     std::string hashFile(const std::string fn);
+
+    void startKeepAlives(bool start);
 };

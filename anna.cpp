@@ -17,6 +17,8 @@
 #include <sys/stat.h>
 #include "brain.h"
 
+#define CLI_VERSION "0.6.0"
+
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
 
@@ -70,7 +72,7 @@ const char* argstrings[] = {
 
 AnnaBrain* brain = nullptr;
 bool g_once = false, g_quit = false, g_pipemode = false;
-int g_info = 0, g_first = 0;
+int g_first = 0;
 string g_inbuf, g_tokenf, g_scache, g_terminator, g_vclip, g_raw_output;
 vector<string> g_uprefix;
 deque<string> g_sprompts;
@@ -153,7 +155,7 @@ int set_params(AnnaConfig& cfg, int argc, char* argv[])
             }
             break;
         case 'v':
-            g_info++;
+            cfg.verbose_level++;
             break;
         case 'T':
             g_terminator = optarg;
@@ -383,6 +385,7 @@ bool generate(bool skip, bool force)
     string str,convo;
 
     if (force) brain->setPrefix(g_tokenf);
+    g_last_username = false;
 
     // main LLM generation loop
     while (s != ANNA_TURNOVER) {
@@ -552,7 +555,8 @@ string cli(bool& skip_sampling, bool& force_prefix, bool& no_input)
 
 int main(int argc, char* argv[])
 {
-    fprintf(stderr,"ANNA version " ANNA_VERSION "\n\n");
+    fprintf(stderr,"ANNA version " ANNA_VERSION "\n");
+    fprintf(stderr,"CLI version " CLI_VERSION "\n\n");
 
     // get CLI arguments
     AnnaConfig cfg;
@@ -591,7 +595,7 @@ int main(int argc, char* argv[])
     bool force_prefix = !skip_sampling;
     bool no_input = false;
 
-    if (g_info) {
+    if (cfg.verbose_level) {
         printf("\nSeed: %d\n",brain->getConfig().params.seed);
         printf("Prompt size: %d tokens\n",brain->getTokensUsed());
         // TODO more info?

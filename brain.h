@@ -9,7 +9,7 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.9.2"
+#define ANNA_VERSION "0.9.3"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3

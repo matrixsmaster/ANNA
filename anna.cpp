@@ -17,16 +17,16 @@
 #include <sys/stat.h>
 #include "brain.h"
 
-#define CLI_VERSION "0.6.1"
+#define CLI_VERSION "0.6.1b"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
-//#else
-//#define DBG(...)
-//#endif
+#else
+#define DBG(...)
+#endif
 
 #define MAX_INPUT_LEN 2048
 #define MAX_INPUT_WAIT_MS 250
@@ -460,7 +460,7 @@ bool load_cache()
             i.fsm = 0;
             i.lpos = g_raw_output.length();
         }
-        DBG("Success!\n");
+        printf("Success!\n");
     } else
         ERR("Unable to load state: %s\n",brain->getError().c_str());
 
@@ -473,7 +473,7 @@ bool save_cache()
     if (!ok)
         ERR("Unable to save state: %s\n",brain->getError().c_str());
     else
-        DBG("Success!\n");
+        printf("Success!\n");
     return ok;
 }
 

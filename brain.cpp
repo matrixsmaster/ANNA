@@ -392,7 +392,7 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
 #ifdef ANNA_USE_MMAP
     int fd = open(fname.c_str(),O_CREAT|O_TRUNC|O_RDWR,00664);
     if (fd < 0) {
-        internal_error = myformat("Unable to open file '%s' for writing: %s",fname.c_str(),strerror(errno));
+        internal_error = myformat("Unable to open state file '%s' for writing: %s",fname.c_str(),strerror(errno));
         return false;
     }
 
@@ -404,7 +404,7 @@ bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_
     close(fd);
 
     if (data == MAP_FAILED) {
-        internal_error = myformat("Unable to map WR memory for cache buffer (%u bytes)",total);
+        internal_error = myformat("Unable to map WR memory for state buffer (%u bytes)",total);
         return false;
     }
 
@@ -476,7 +476,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
 {
     FILE* f = fopen(fname.c_str(),"rb");
     if (!f) {
-        internal_error = myformat("Couldn't open cache file %s",fname.c_str());
+        internal_error = myformat("Couldn't open state file %s",fname.c_str());
         return false;
     }
 
@@ -484,7 +484,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     internal_error.clear();
 
     if (!fread(&hdr,sizeof(hdr),1,f))
-        internal_error = "Couldn't read the header from the cache file";
+        internal_error = "Couldn't read the header from the state file";
 
     if (state == ANNA_NOT_INITIALIZED || !ctx) {
         config = hdr.cfg;
@@ -494,10 +494,10 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
 
     size_t dsize = llama_get_state_size(ctx);
     if (internal_error.empty() && strncmp(hdr.magic,ANNA_STATE_MAGIC,sizeof(hdr.magic)))
-        internal_error = myformat("Wrong cache file magic ID: expected " ANNA_STATE_MAGIC ", got %4s",hdr.magic);
+        internal_error = myformat("Wrong state file magic ID: expected " ANNA_STATE_MAGIC ", got %4s",hdr.magic);
     if (internal_error.empty() && hdr.data_size != dsize)
         internal_error = myformat("Wrong state data size: expected %zu, got %zu bytes",dsize,hdr.data_size);
-    if (internal_error.empty() && hdr.user_size > (user_size? (*user_size):0))
+    if (internal_error.empty() && user_data && hdr.user_size > (user_size? (*user_size):0))
         internal_error = myformat("Unable to load user data: %zu bytes in the file, but can read only %zu bytes",hdr.user_size,(user_size? (*user_size):0));
 
     size_t total = sizeof(hdr) + hdr.data_size + hdr.vector_size + hdr.user_size;
@@ -518,7 +518,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     fclose(f);
     int fd = open(fname.c_str(),O_RDONLY);
     if (fd < 0) {
-        internal_error = myformat("Unable to re-open() the file: %s",strerror(errno));
+        internal_error = myformat("Unable to re-open() the state file: %s",strerror(errno));
         return false;
     }
 
@@ -526,7 +526,7 @@ bool AnnaBrain::LoadState(std::string fname, void* user_data, size_t* user_size)
     close(fd);
 
     if (data == MAP_FAILED) {
-        internal_error = myformat("Unable to map RD memory for cache buffer (%u bytes)",total);
+        internal_error = myformat("Unable to map RD memory for state buffer (%u bytes)",total);
         return false;
     }
 

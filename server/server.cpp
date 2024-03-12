@@ -16,7 +16,7 @@
 #include "../vecstore.h"
 
 #define SERVER_VERSION "0.3.4b"
-//#define SERVER_DEBUG 1
+#define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
 #define SERVER_DBGLOG_DIR "debug_log"

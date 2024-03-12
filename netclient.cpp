@@ -166,7 +166,60 @@ bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size
 
 bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
 {
-    return false;
+    FILE* f = fopen(fname.c_str(),"rb");
+    if (!f) {
+        internal_error = myformat("Unable to open file '%s' for reading",fname.c_str());
+        return false;
+    }
+
+    // read the header and extract user data
+    AnnaSave hdr;
+    if (!fread(&hdr,sizeof(hdr),1,f)) {
+        internal_error = "Couldn't read the header from the state file";
+        fclose(f);
+        return false;
+    }
+    if (user_data && user_size) {
+        if (hdr.user_size > (*user_size)) {
+            internal_error = myformat("Not enough space for the user data buffer: %zu in file, %zu given",hdr.user_size,*user_size);
+            fclose(f);
+            return false;
+        }
+        size_t off = sizeof(hdr) + hdr.data_size + hdr.vector_size;
+        DBG("Offset calculated: %zu\n",off);
+        fseek(f,off,SEEK_SET);
+        if (!fread(user_data,hdr.user_size,1,f)) {
+            internal_error = "Can't read user data from the state file.";
+            fclose(f);
+            return false;
+        }
+        *user_size = hdr.user_size;
+    }
+
+    // get file size
+    mseek(f,0,SEEK_END);
+    size_t sz = mtell(f);
+    mseek(f,0,SEEK_SET);
+
+    // try to negotiate uploading
+    string urq = request(false,"/uploadState",myformat("%zu",sz));
+    if (urq != "OK") {
+        fclose(f);
+        internal_error = "uploadState request failed: " + urq;
+        return false;
+    }
+
+    // do the actual transfer
+    DBG("State upload started... ");
+    bool r = uploadFile(f,sz);
+    DBG("Finished uploading state\n");
+
+    // finalize transfer
+    request(true,"/endTransfer");
+    if (wait_callback) wait_callback(-1,false,"");
+
+    fclose(f);
+    return r;
 }
 
 bool AnnaClient::UploadModel(string fpath, string mname)
@@ -191,9 +244,9 @@ bool AnnaClient::UploadModel(string fpath, string mname)
     }
 
     // do the actual transfer
-    DBG("Upload started... ");
+    DBG("Model upload started... ");
     bool r = uploadFile(f,sz);
-    DBG("Finished uploading\n");
+    DBG("Finished uploading model\n");
 
     // finalize transfer
     request(true,"/endTransfer");

@@ -865,6 +865,7 @@ bool MainWnd::LoadLLMState(const QString& fn)
             qApp->processEvents();
 
             config = br.getConfig();
+            config.user = &guiconfig;
             if (!NewBrain()) return false;
 
             ui->ModelPath->setText(config.params.model);

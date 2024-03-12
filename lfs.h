@@ -2,6 +2,7 @@
 // borrowed from llama.cpp::llama_file
 #pragma once
 
+#include <cstdio>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -23,8 +24,8 @@ static size_t mtell(FILE* fp)
 static void mseek(FILE* fp, size_t offset, int whence)
 {
 #ifdef _WIN32
-    int ret = _fseeki64(fp, (__int64) offset, whence);
+    _fseeki64(fp, (__int64) offset, whence);
 #else
-    int ret = std::fseek(fp, (long) offset, whence);
+    std::fseek(fp, (long) offset, whence);
 #endif
 }

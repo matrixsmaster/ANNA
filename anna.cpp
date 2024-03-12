@@ -75,7 +75,6 @@ string g_inbuf, g_tokenf, g_scache, g_terminator, g_vclip, g_raw_output;
 vector<string> g_uprefix;
 deque<string> g_sprompts;
 vector<anna_requester> g_requesters;
-int g_request_active = 0;
 bool g_last_username = false;
 
 void usage(const char* sname)
@@ -144,9 +143,12 @@ int set_params(AnnaConfig& cfg, int argc, char* argv[])
         case 'r':
             {
                 anna_requester ar;
+                ar.fsm = 0;
+                ar.lpos = 0;
                 ar.prefix = argv[optind-1];
                 ar.suffix = argv[optind++];
                 ar.command = argv[optind++];
+                ar.args = "\"test %t\"";
                 g_requesters.push_back(ar);
                 DBG("Requester added: ['%s' / '%s'] -> '%s'\n",ar.prefix.c_str(),ar.suffix.c_str(),ar.command.c_str());
             }
@@ -358,6 +360,16 @@ list<string> detect_rqp(const string& in, anna_requester& st)
 
 void check_rqps(string buf)
 {
+    for (auto &i : g_requesters) {
+        auto lst = detect_rqp(buf,i);
+        if (lst.empty()) continue;
+
+        string cmd = i.command;
+        for (auto &j : lst) cmd += " " + j;
+        DBG("RQP compiled: '%s'\n",cmd.c_str());
+        string out = run_request(cmd);
+        DBG("Output: '%s'\n",out.c_str());
+    }
 }
 
 /* Back-ported from AnnaGraphica */
@@ -381,7 +393,9 @@ bool generate(bool skip, bool force)
             // fall-thru
         case ANNA_TURNOVER:
             str = brain->getOutput();
-            DBG("str = %s\n",str.c_str());
+            //DBG("str = %s\n",str.c_str());
+            printf("%s",str.c_str());
+            fflush(stdout);
             convo += str;
             for (auto &i : g_uprefix) {
                 if (convo.ends_with(i)) {
@@ -409,7 +423,7 @@ bool generate(bool skip, bool force)
         string atm = g_raw_output + convo;
 
         // check for terminate condition
-        if (atm.ends_with(g_terminator)) {
+        if (!g_terminator.empty() && atm.ends_with(g_terminator)) {
             DBG("Terminator found, exiting...\n");
             g_quit = true;
             break;
@@ -431,7 +445,8 @@ bool load_cache()
 
 bool save_cache()
 {
-    //TODO
+    //TODO: save state
+    // then save g_raw_output
     return false;
 }
 
@@ -443,6 +458,8 @@ string cli(bool& skip_sampling, bool& force_prefix, bool& no_input)
     DBG("String received: '%s', sampling skip = %d, force_prefix = %d\n",inp_str.c_str(),skip_sampling,force_prefix);
 
     // Rudimentary internal "CLI"
+    bool old_samp = skip_sampling;
+    skip_sampling = true;
     if (inp_str.empty() || inp_str == "\n") {
         skip_sampling = false;
         force_prefix = false; // don't force prefix after skipped user input
@@ -520,8 +537,10 @@ string cli(bool& skip_sampling, bool& force_prefix, bool& no_input)
     } else if (inp_str == "quit()\n") {
         g_quit = true;
 
-    } else
+    } else {
+        skip_sampling = old_samp;
         return inp_str;
+    }
 
     return out_str;
 }

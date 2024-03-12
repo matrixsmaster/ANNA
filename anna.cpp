@@ -36,9 +36,10 @@ using namespace std;
 
 struct anna_requester {
     string prefix,suffix;
-    string command;
+    string command, args;
     int fsm, lpos;
-    regex bex, eex;
+    //bool is_regex;
+    //regex bex, eex;
 };
 
 const char* argstrings[] = {
@@ -70,7 +71,7 @@ const char* argstrings[] = {
 AnnaBrain* brain = nullptr;
 bool g_once = false, g_quit = false, g_pipemode = false;
 int g_info = 0, g_first = 0;
-string g_inbuf, g_tokenf, g_scache, g_piecebuf, g_outcache, g_reqcache, g_terminator, g_vclip;
+string g_inbuf, g_tokenf, g_scache, g_terminator, g_vclip, g_raw_output;
 vector<string> g_uprefix;
 deque<string> g_sprompts;
 vector<anna_requester> g_requesters;
@@ -198,14 +199,6 @@ int set_params(AnnaConfig& cfg, int argc, char* argv[])
     return 0;
 }
 
-/* This is for backward compatibility as OG llama removed the 'const char * llama_token_to_str()' function.
- * Yet another point to abandon upstream completely soon. */
-const char* llama_token_to_str(llama_context* ctx, llama_token token)
-{
-    g_piecebuf = llama_token_to_piece(ctx,token);
-    return g_piecebuf.c_str(); // to make pointer available after returning from this stack frame
-}
-
 /*
  * Protocol:
  * Newline - end of string. Doesn't neccessarily mean newline itself will be present in the out string.
@@ -252,24 +245,8 @@ string get_input(bool* skip_next, bool* force_prefix)
     return s;
 }
 
-bool check_last_piece(string & pattern)
+string run_request(string cmd)
 {
-    if (pattern.empty()) return false;
-    // We assume that previous token was just sampled, and g_piecebuf represents its string
-    for (size_t i = 1; i <= g_piecebuf.length(); i++) {
-        string s = g_outcache + g_piecebuf.substr(0,i);
-        //DBG("s='%s'\n",s.c_str());
-        if (s.ends_with(pattern)) {
-            DBG("Pattern found.\n");
-            return true;
-        }
-    }
-    return false;
-}
-
-string run_request()
-{
-    string cmd = g_requesters.at(g_request_active-1).command + " \"" + g_reqcache + "\"";
     FILE* proc = popen(cmd.c_str(),"r");
     if (!proc) {
         ERR("Unable to execute process '%s'\n",cmd.c_str());
@@ -304,35 +281,33 @@ void default_config(AnnaConfig& cfg)
     p->sparams.temp = DEFAULT_TEMP;
 }
 
-#if 0
 /* Back-ported from AnnaGraphica */
 list<string> complete_rqp(const string& in, anna_requester& st)
 {
-    QStringList res;
-    QString arg = st.s->value("args").toString();
+    list<string> res;
     int fsm = 0;
-    QString acc;
-    for (int i = 0; i < arg.length(); i++) {
-        char c = arg[i].toLatin1();
+    string acc;
+    for (int i = 0; i < (int)st.args.length(); i++) {
+        char c = st.args[i];
         switch (c) {
         case ' ':
         case '\t':
         case '\"':
-            if (!acc.isEmpty() && ((!fsm) || (fsm && c == '\"'))) {
-                res.append(acc);
+            if (!acc.empty() && ((!fsm) || (fsm && c == '\"'))) {
+                res.push_back(acc);
                 acc.clear();
             }
             if (c == '\"') fsm = 1 - fsm;
-            else if (fsm) acc += arg[i];
+            else if (fsm) acc += st.args[i];
             break;
         default:
-            acc += arg[i];
+            acc += st.args[i];
         }
     }
-    if (!acc.isEmpty()) res.append(acc);
+    if (!acc.empty()) res.push_back(acc);
 
     for (auto & s : res) {
-        s = s.replace("%t",in);
+        if (s.find("%t") != string::npos) s.replace(s.find("%t"),2,in);
         // TODO: other reps
     }
     return res;
@@ -341,31 +316,21 @@ list<string> complete_rqp(const string& in, anna_requester& st)
 /* Back-ported from AnnaGraphica */
 list<string> detect_rqp(const string& in, anna_requester& st)
 {
-    if (!st.s) return QStringList();
-
-    st.s->endGroup();
-    st.s->beginGroup("MAIN");
-
-    QString start = st.s->value("start_tag").toString();
-    QString stop = st.s->value("stop_tag").toString();
-    if (start.isEmpty() || stop.isEmpty()) return QStringList();
-
-    bool regex = st.s->value("regex",false).toBool();
-    QStringList res;
+    list<string> res;
     int i = -1, l = 0;
     switch (st.fsm) {
     case 0:
-        if (regex) {
-            st.bex = QRegExp(start);
-            st.eex = QRegExp(stop);
-            if (st.bex.isValid()) {
-                i = st.bex.indexIn(in,st.lpos);
-                l = st.bex.matchedLength();
-            }
-        } else {
-            i = in.indexOf(start,st.lpos);
-            l = start.length();
-        }
+        //if (st.is_regex) {
+            //st.bex = QRegExp(start);
+            //st.eex = QRegExp(stop);
+            //if (st.bex.isValid()) {
+                //i = st.bex.indexIn(in,st.lpos);
+                //l = st.bex.matchedLength();
+            //}
+        //} else {
+            i = in.find(st.prefix,st.lpos);
+            l = st.prefix.length();
+        //}
         if (i >= 0) {
             st.fsm++;
             st.lpos = i + l;
@@ -373,15 +338,15 @@ list<string> detect_rqp(const string& in, anna_requester& st)
         break;
 
     case 1:
-        if (regex && st.bex.isValid()) {
-            i = st.eex.indexIn(in,st.lpos);
-            l = st.eex.matchedLength();
-        } else {
-            i = in.indexOf(stop,st.lpos);
-            l = stop.length();
-        }
+        //if (st.is_regex && st.bex.isValid()) {
+            //i = st.eex.indexIn(in,st.lpos);
+            //l = st.eex.matchedLength();
+        //} else {
+            i = in.find(st.suffix,st.lpos);
+            l = st.suffix.length();
+        //}
         if (i >= 0) {
-            res = CompleteRQP(in.mid(st.lpos,i-st.lpos),st);
+            res = complete_rqp(in.substr(st.lpos,i-st.lpos),st);
             st.fsm = 0;
             st.lpos = i + l;
         }
@@ -390,7 +355,10 @@ list<string> detect_rqp(const string& in, anna_requester& st)
 
     return res;
 }
-#endif
+
+void check_rqps(string buf)
+{
+}
 
 /* Back-ported from AnnaGraphica */
 bool generate(bool skip, bool force)
@@ -438,22 +406,124 @@ bool generate(bool skip, bool force)
             return false;
         }
 
+        string atm = g_raw_output + convo;
+
+        // check for terminate condition
+        if (atm.ends_with(g_terminator)) {
+            DBG("Terminator found, exiting...\n");
+            g_quit = true;
+            break;
+        }
+
         // now we can check the RQPs, execute stuff and inject things into LLM, all in this one convenient call
-        //CheckRQPs(raw_output + convo);
+        check_rqps(atm);
     }
 
-    //cur_chat += convo + "\n";
+    g_raw_output += convo;
     return true;
 }
 
 bool load_cache()
 {
     //TODO
+    return false;
 }
 
 bool save_cache()
 {
     //TODO
+    return false;
+}
+
+string cli(bool& skip_sampling, bool& force_prefix, bool& no_input)
+{
+    // Receive a string
+    string out_str;
+    string inp_str = get_input(&skip_sampling,&force_prefix);
+    DBG("String received: '%s', sampling skip = %d, force_prefix = %d\n",inp_str.c_str(),skip_sampling,force_prefix);
+
+    // Rudimentary internal "CLI"
+    if (inp_str.empty() || inp_str == "\n") {
+        skip_sampling = false;
+        force_prefix = false; // don't force prefix after skipped user input
+
+    } else if (inp_str == "load_file()\n") {
+        do {
+            printf("Enter text file name\n");
+            inp_str = get_input(NULL,NULL);
+            if (inp_str.empty() || inp_str == "\n") break;
+            if (inp_str.back() == '\n') inp_str.pop_back();
+            out_str = load_file(inp_str);
+        } while (out_str.empty());
+
+    } else if (inp_str == "no_input()\n") {
+        inp_str.clear();
+        skip_sampling = false;
+        no_input = true;
+
+    } else if (inp_str == "save()\n" || inp_str == "load()\n") {
+        bool load = (inp_str[0] == 'l');
+        printf("Enter state cache file name\n");
+        inp_str = get_input(NULL,NULL);
+        if (!inp_str.empty() && inp_str != "\n") {
+            if (inp_str.back() == '\n') inp_str.pop_back();
+            string tmp = g_scache;
+            g_scache = inp_str;
+            if (load) {
+                if (!load_cache())
+                    ERR("Unable to load state from '%s'\n",g_scache.c_str());
+            } else
+                save_cache();
+            g_scache = tmp;
+        }
+
+    } else if (inp_str == "add_user()\n") {
+        string uname = get_input(NULL,NULL);
+        if (uname.empty() || uname == "\n") return "";
+        if (uname.back() == '\n') uname.pop_back();
+        g_uprefix.push_back(uname);
+        DBG("User prefix '%s' added\n",uname.c_str());
+
+    } else if (inp_str == "force()\n") {
+        inp_str = get_input(NULL,NULL);
+        if (inp_str.empty() || inp_str == "\n") {
+            g_tokenf.clear();
+            DBG("Token enforcement removed\n");
+        } else {
+            if (inp_str.back() == '\n') inp_str.pop_back();
+            g_tokenf = inp_str;
+            DBG("Token enforcement: '%s' = ",inp_str.c_str());
+        }
+
+    } else if (inp_str == "image()\n") {
+        if (g_vclip.empty()) {
+            ERRS("Unable to load image file: vision projector file was not specified at startup!\n");
+        } else {
+            printf("Enter image file name\n");
+            inp_str = get_input(NULL,NULL);
+            if (!inp_str.empty() && inp_str != "\n") {
+                if (inp_str.back() == '\n') inp_str.pop_back();
+                DBG("Loading image file '%s'\n",inp_str.c_str());
+                if (!brain->EmbedImage(inp_str))
+                    ERR("Unable to load or convert image file '%s'",inp_str.c_str());
+                inp_str.clear();
+            }
+        }
+
+    } else if (inp_str == "print_context()\n") {
+        printf("\n\n***CONTEXT***\n%s\n\n",brain->PrintContext().c_str());
+
+    } else if (inp_str == "stats()\n") {
+        // TODO: extend this
+        printf("n_past = %d\n",brain->getTokensUsed());
+
+    } else if (inp_str == "quit()\n") {
+        g_quit = true;
+
+    } else
+        return inp_str;
+
+    return out_str;
 }
 
 int main(int argc, char* argv[])
@@ -523,150 +593,63 @@ int main(int argc, char* argv[])
 
         if (!generate(skip_sampling,force_prefix)) {
             ERR("Error: %s\n",brain->getError().c_str());
+            g_quit = true;
             break;
         }
 
-        if (!no_input) {
-            skip_sampling = true;
-            DBG("Waiting for input (%d tokens consumed so far)\n",brain->getTokensUsed());
+        if (no_input) continue;
 
-            // Input next string or use next secondary prompt
-            string inp_str;
-            if (!g_sprompts.empty()) {
-                inp_str = g_sprompts.front();
-                g_sprompts.pop_front();
-                DBG("Using secondary prompt '%s'\n",inp_str.c_str());
-                if (inp_str.starts_with("::")) {
-                    // image embedding requested
-                    inp_str.erase(0,2);
-                    DBG("Loading image file '%s'\n",inp_str.c_str());
-                    if (!brain->EmbedImage(inp_str))
-                        ERR("Unable to load or convert image file '%s'",inp_str.c_str());
-                    inp_str.clear();
+        skip_sampling = true;
+        DBG("Waiting for input (%d tokens consumed so far)\n",brain->getTokensUsed());
 
-                } else if (inp_str.ends_with("\n")) {
-                    DBG("Newline token at the end of a secondary prompt, skipping sampling for the first round...\n");
-                }
-            } else {
-                if (!g_last_username) {
-                    printf("%s",g_uprefix.at(0).c_str());
-                    fflush(stdout);
-                }
-                skip_sampling = false;
-                inp_str = get_input(&skip_sampling,&force_prefix);
-            }
-
-            DBG("String received: '%s', sampling skip = %d, force_prefix = %d\n",inp_str.c_str(),skip_sampling,force_prefix);
-            if (g_pipemode && !skip_sampling) {
-                DBG("Going to no-input mode automatically.\n");
-                no_input = true; // ignore anything past EOF in pipe mode
-            }
-
-            // Rudimentary internal "CLI"
-            if (inp_str.empty() || inp_str == "\n") {
-                skip_sampling = false;
-                force_prefix = false; // don't force prefix after skipped user input
-                continue;
-
-            } else if (inp_str == "load_file()\n") {
-                do {
-                    printf("Enter text file name\n");
-                    inp_str = get_input(NULL,NULL);
-                    if (inp_str.empty() || inp_str == "\n") break;
-                    if (inp_str.back() == '\n') inp_str.pop_back();
-                    inp_str = load_file(inp_str);
-                } while (inp_str.empty());
-
-            } else if (inp_str == "no_input()\n") {
+        // Input next string or use next secondary prompt
+        string inp_str;
+        if (!g_sprompts.empty()) {
+            inp_str = g_sprompts.front();
+            g_sprompts.pop_front();
+            DBG("Using secondary prompt '%s'\n",inp_str.c_str());
+            if (inp_str.starts_with("::")) {
+                // image embedding requested
+                inp_str.erase(0,2);
+                DBG("Loading image file '%s'\n",inp_str.c_str());
+                if (!brain->EmbedImage(inp_str))
+                    ERR("Unable to load or convert image file '%s'",inp_str.c_str());
                 inp_str.clear();
-                skip_sampling = false;
-                no_input = true;
-                continue;
 
-            } else if (inp_str == "save()\n" || inp_str == "load()\n") {
-                bool load = (inp_str[0] == 'l');
-                printf("Enter state cache file name\n");
-                inp_str = get_input(NULL,NULL);
-                if (!inp_str.empty() && inp_str != "\n") {
-                    if (inp_str.back() == '\n') inp_str.pop_back();
-                    string tmp = g_scache;
-                    g_scache = inp_str;
-                    if (load) {
-                        if (!load_cache())
-                            ERR("Unable to load state from '%s'\n",g_scache.c_str());
-                    } else
-                        save_cache();
-                    g_scache = tmp;
-                }
-                continue;
-
-            } else if (inp_str == "add_user()\n") {
-                string uname = get_input(NULL,NULL);
-                if (uname.empty() || uname == "\n") continue;
-                if (uname.back() == '\n') uname.pop_back();
-                g_uprefix.push_back(uname);
-                DBG("User prefix '%s' added\n",uname.c_str());
-                continue;
-
-            } else if (inp_str == "force()\n") {
-                inp_str = get_input(NULL,NULL);
-                if (inp_str.empty() || inp_str == "\n") {
-                    g_tokenf.clear();
-                    DBG("Token enforcement removed\n");
-                } else {
-                    if (inp_str.back() == '\n') inp_str.pop_back();
-                    g_tokenf = inp_str;
-                    DBG("Token enforcement: '%s' = ",inp_str.c_str());
-                }
-                continue;
-
-            } else if (inp_str == "image()\n") {
-                if (g_vclip.empty()) {
-                    ERRS("Unable to load image file: vision projector file was not specified at startup!\n");
-                } else {
-                    printf("Enter image file name\n");
-                    inp_str = get_input(NULL,NULL);
-                    if (!inp_str.empty() && inp_str != "\n") {
-                        if (inp_str.back() == '\n') inp_str.pop_back();
-                        DBG("Loading image file '%s'\n",inp_str.c_str());
-                        if (!brain->EmbedImage(inp_str))
-                            ERR("Unable to load or convert image file '%s'",inp_str.c_str());
-                        inp_str.clear();
-                    }
-                }
-                continue;
-
-            } else if (inp_str == "print_context()\n") {
-                printf("\n\n***CONTEXT***\n%s\n\n",brain->PrintContext().c_str());
-                continue;
-
-            } else if (inp_str == "stats()\n") {
-                // TODO: extend this
-                printf("n_past = %d\n",brain->getTokensUsed());
-                continue;
-
-            } else if (inp_str == "quit()\n") {
-                g_quit = true;
-                break;
+            } else if (inp_str.ends_with("\n")) {
+                DBG("Newline token at the end of a secondary prompt, skipping sampling for the first round...\n");
             }
-
-            // don't run on empty
-            if (inp_str.empty() || inp_str == "\n") continue;
-
-            if (cfg.params.prompt[0] == 0) {
-                // first input will be considered prompt now
-                strncpy(cfg.params.prompt,inp_str.c_str(),sizeof(cfg.params.prompt)-1);
-            } else {
-                if (!g_last_username) inp_str = g_uprefix.at(0) + inp_str;
+        } else {
+            if (!g_last_username) {
+                printf("%s",g_uprefix.at(0).c_str());
+                fflush(stdout);
             }
+            skip_sampling = false;
+        }
 
-            // apply input
-            DBG("Actual input string: '%s'\n",inp_str.c_str());
-            brain->setInput(inp_str);
-            if (brain->getState() == ANNA_ERROR) {
-                ERR("Unable to process input: %s\n",brain->getError().c_str());
-                return 11;
-            }
+        if (g_pipemode && !skip_sampling) {
+            DBG("Going to no-input mode automatically.\n");
+            no_input = true; // ignore anything past EOF in pipe mode
+        }
+
+        inp_str = cli(skip_sampling,force_prefix,no_input);
+
+        // don't run on empty
+        if (inp_str.empty() || inp_str == "\n") continue;
+
+        if (cfg.params.prompt[0] == 0) {
+            // first input will be considered prompt now
+            strncpy(cfg.params.prompt,inp_str.c_str(),sizeof(cfg.params.prompt)-1);
+        } else {
+            if (!g_last_username) inp_str = g_uprefix.at(0) + inp_str;
+        }
+
+        // apply input
+        DBG("Actual input string: '%s'\n",inp_str.c_str());
+        brain->setInput(inp_str);
+        if (brain->getState() == ANNA_ERROR) {
+            ERR("Unable to process input: %s\n",brain->getError().c_str());
+            return 11;
         }
     }
     puts("");

@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include "brain.h"
 
-#define CLI_VERSION "0.6.0"
+#define CLI_VERSION "0.6.1"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -33,6 +33,7 @@
 #define DEFAULT_CONTEXT 4096
 #define DEFAULT_BATCH 512
 #define DEFAULT_TEMP 0.4
+#define MAX_CONVO_LEN (2UL * 1024UL * 1024UL)
 
 using namespace std;
 
@@ -446,16 +447,34 @@ bool generate(bool skip, bool force)
 
 bool load_cache()
 {
-    //TODO: load state
-    // replace g_raw_output
-    return false;
+    string tmp(MAX_CONVO_LEN,0);
+    size_t len = tmp.size();
+    bool ok = brain->LoadState(g_scache,(void*)tmp.data(),&len);
+    if (ok) {
+        // restore the text history
+        tmp.resize(len);
+        g_raw_output = std::move(tmp);
+
+        // and don't forget to update RQPs so they won't re-fire
+        for (auto &i : g_requesters) {
+            i.fsm = 0;
+            i.lpos = g_raw_output.length();
+        }
+        DBG("Success!\n");
+    } else
+        ERR("Unable to load state: %s\n",brain->getError().c_str());
+
+    return ok;
 }
 
 bool save_cache()
 {
-    //TODO: save state
-    // then save g_raw_output
-    return false;
+    bool ok = brain->SaveState(g_scache,(void*)g_raw_output.data(),g_raw_output.size());
+    if (!ok)
+        ERR("Unable to save state: %s\n",brain->getError().c_str());
+    else
+        DBG("Success!\n");
+    return ok;
 }
 
 string cli(bool& skip_sampling, bool& force_prefix, bool& no_input)

@@ -35,8 +35,8 @@
 using namespace std;
 
 struct anna_requester {
-    string prefix,suffix;
-    string command, args;
+    string prefix, suffix;
+    string command;
     int fsm, lpos;
     //bool is_regex;
     //regex bex, eex;
@@ -148,7 +148,6 @@ int set_params(AnnaConfig& cfg, int argc, char* argv[])
                 ar.prefix = argv[optind-1];
                 ar.suffix = argv[optind++];
                 ar.command = argv[optind++];
-                ar.args = "\"test %t\"";
                 g_requesters.push_back(ar);
                 DBG("Requester added: ['%s' / '%s'] -> '%s'\n",ar.prefix.c_str(),ar.suffix.c_str(),ar.command.c_str());
             }
@@ -289,8 +288,8 @@ list<string> complete_rqp(const string& in, anna_requester& st)
     list<string> res;
     int fsm = 0;
     string acc;
-    for (int i = 0; i < (int)st.args.length(); i++) {
-        char c = st.args[i];
+    for (int i = 0; i < (int)st.command.length(); i++) {
+        char c = st.command[i];
         switch (c) {
         case ' ':
         case '\t':
@@ -300,10 +299,10 @@ list<string> complete_rqp(const string& in, anna_requester& st)
                 acc.clear();
             }
             if (c == '\"') fsm = 1 - fsm;
-            else if (fsm) acc += st.args[i];
+            else if (fsm) acc += st.command[i];
             break;
         default:
-            acc += st.args[i];
+            acc += st.command[i];
         }
     }
     if (!acc.empty()) res.push_back(acc);
@@ -364,11 +363,16 @@ void check_rqps(string buf)
         auto lst = detect_rqp(buf,i);
         if (lst.empty()) continue;
 
-        string cmd = i.command;
-        for (auto &j : lst) cmd += " " + j;
+        string cmd;
+        for (auto &j : lst) {
+            if (cmd.empty()) cmd = j;
+            else cmd += " \"" + j + "\"";
+        }
         DBG("RQP compiled: '%s'\n",cmd.c_str());
         string out = run_request(cmd);
         DBG("Output: '%s'\n",out.c_str());
+        brain->setInput(out);
+        while (brain->Processing(true) == ANNA_PROCESSING) ;
     }
 }
 
@@ -439,7 +443,8 @@ bool generate(bool skip, bool force)
 
 bool load_cache()
 {
-    //TODO
+    //TODO: load state
+    // replace g_raw_output
     return false;
 }
 
@@ -639,7 +644,7 @@ int main(int argc, char* argv[])
                 DBG("Newline token at the end of a secondary prompt, skipping sampling for the first round...\n");
             }
         } else {
-            if (!g_last_username) {
+            if (!g_last_username && g_uprefix.size() == 1) {
                 printf("%s",g_uprefix.at(0).c_str());
                 fflush(stdout);
             }
@@ -660,7 +665,8 @@ int main(int argc, char* argv[])
             // first input will be considered prompt now
             strncpy(cfg.params.prompt,inp_str.c_str(),sizeof(cfg.params.prompt)-1);
         } else {
-            if (!g_last_username) inp_str = g_uprefix.at(0) + inp_str;
+            if (!g_last_username && g_uprefix.size() == 1)
+                inp_str = g_uprefix.at(0) + inp_str;
         }
 
         // apply input

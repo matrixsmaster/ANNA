@@ -9,11 +9,11 @@
 #include "lfs.h"
 #include "md5calc.h"
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 #define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
-//#else
-//#define DBG(...)
-//#endif
+#else
+#define DBG(...)
+#endif
 
 using namespace std;
 using namespace httplib;

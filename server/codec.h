@@ -14,19 +14,19 @@
 
 #define ERR(...) do { fprintf(stderr,"[CODEC] ERROR: " __VA_ARGS__); fflush(stderr); } while (0)
 
-uint32_t make_clid()
+static uint32_t make_clid()
 {
     auto rng = std::mt19937(time(NULL));
     uint32_t clid = (uint32_t)rng() & ANNA_CLIENT_MASK;
     return clid;
 }
 
-void reclaim_clid(uint32_t /*clid*/)
+static void reclaim_clid(uint32_t /*clid*/)
 {
     // TODO
 }
 
-void codec_infill_str(char* str, size_t len)
+static void codec_infill_str(char* str, size_t len)
 {
     if (!str || !len) return;
     size_t l = strlen(str);
@@ -34,12 +34,12 @@ void codec_infill_str(char* str, size_t len)
         str[i] = rand();
 }
 
-void codec_forward(uint32_t /*clid*/, void* /*data*/, size_t /*len*/)
+static void codec_forward(uint32_t /*clid*/, void* /*data*/, size_t /*len*/)
 {
     // TODO
 }
 
-void codec_backward(uint32_t /*clid*/, void* /*data*/, size_t /*len*/)
+static void codec_backward(uint32_t /*clid*/, void* /*data*/, size_t /*len*/)
 {
     // TODO
 }

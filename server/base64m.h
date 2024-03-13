@@ -19,7 +19,7 @@
 #endif
 
 
-size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
+static size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
 {
     if (!in || !out || !inlen || !maxlen) return 0;
 
@@ -48,7 +48,7 @@ size_t encode(char* out, size_t maxlen, const void* in, size_t inlen)
 }
 
 #ifndef BASE64M_LIGHT
-void base64_mktab()
+static void base64_mktab()
 {
     if (base64_decode_lut) return;
     base64_decode_lut = (int*)malloc(128*sizeof(int));
@@ -61,7 +61,7 @@ void base64_mktab()
 }
 #endif
 
-size_t decode(void* out, size_t maxlen, const char* in)
+static size_t decode(void* out, size_t maxlen, const char* in)
 {
     if (!in || !out || !maxlen) return 0;
 

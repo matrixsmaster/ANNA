@@ -5,7 +5,6 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++20
 
 SOURCES += \
-    ../netclient.cpp \
     aboutbox.cpp \
     busybox.cpp \
     helpbox.cpp \
@@ -54,6 +53,7 @@ win32 {
         ../ggml-quants.c \
         ../grammar-parser.cpp \
         ../llama.cpp \
+        ../netclient.cpp \
         ../sampling.cpp
 
     HEADERS += \

@@ -16,8 +16,9 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include "brain.h"
+#include "netclient.h"
 
-#define CLI_VERSION "0.6.2"
+#define CLI_VERSION "0.7.0"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -68,13 +69,14 @@ const char* argstrings[] = {
     "[-V vision_projector]",
     "[-i image_file]",
     "[-g group_attn_n:group_attn_w]",
+    "[-R server_URL]",
     NULL
 };
 
 AnnaBrain* brain = nullptr;
 bool g_once = false, g_quit = false, g_pipemode = false;
 int g_first = 0;
-string g_inbuf, g_tokenf, g_scache, g_terminator, g_vclip, g_raw_output;
+string g_inbuf, g_tokenf, g_scache, g_terminator, g_vclip, g_raw_output, g_server;
 vector<string> g_uprefix;
 deque<string> g_sprompts;
 vector<anna_requester> g_requesters;
@@ -108,7 +110,7 @@ int set_params(AnnaConfig& cfg, int argc, char* argv[])
     gpt_params* p = &cfg.params;
     llama_sampling_params* sp = &p->sparams;
 
-    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:vT:PSNG:F:M:V:i:g:")) != -1) {
+    while ((opt = getopt(argc,argv,"m:s:t:p:f:c:n:e:u:x:r:vT:PSNG:F:M:V:i:g:R:")) != -1) {
         switch (opt) {
         case 'm':
             strncpy(p->model,optarg,sizeof(p->model)-1);
@@ -188,6 +190,9 @@ int set_params(AnnaConfig& cfg, int argc, char* argv[])
             break;
         case 'g':
             sscanf(optarg,"%d:%d",&p->grp_attn_n,&p->grp_attn_w);
+            break;
+        case 'R':
+            g_server = optarg;
             break;
         default:
             usage(argv[0]);
@@ -596,10 +601,11 @@ int main(int argc, char* argv[])
     }
     if (set_params(cfg,argc,argv)) return -1;
 
-    // load the model
-    brain = new AnnaBrain(&cfg);
+    // create new brain or brain connector
+    if (g_server.empty()) brain = new AnnaBrain(&cfg);
+    else brain = dynamic_cast<AnnaBrain*>(new AnnaClient(&cfg,g_server,false,nullptr));
     if (brain->getState() == ANNA_ERROR) {
-        ERR("Unable to load AnnaBrain: %s\n",brain->getError().c_str());
+        ERR("Unable to create brain: %s\n",brain->getError().c_str());
         return 10;
     }
 

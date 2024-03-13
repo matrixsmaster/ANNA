@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.3.4c"
+#define SERVER_VERSION "0.3.5"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -81,6 +81,7 @@ const char* allowed_versions[] = {
     "0.3.3",
     "0.3.4",
     "0.3.5",
+    "0.3.6",
     NULL
 };
 

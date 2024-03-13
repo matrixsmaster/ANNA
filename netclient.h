@@ -5,7 +5,7 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.3.5"
+#define ANNA_CLIENT_VERSION "0.3.6"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (8ULL * 1024ULL * 1024ULL)

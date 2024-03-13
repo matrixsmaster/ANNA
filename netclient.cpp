@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <chrono>
 #include <future>
+#include <memory>
 #include "netclient.h"
 #include "httplib.h"
 #include "base64m.h"
@@ -45,6 +46,7 @@ AnnaClient::AnnaClient(AnnaConfig* cfg, string server, bool mk_dummy, waitfuncti
     config = *cfg;
     state = ANNA_READY;
     fixConfig(); // this changes internal config
+    if (state == ANNA_ERROR) return;
 
     // begin the session
     if (request(true,"/sessionStart",ANNA_CLIENT_VERSION).empty()) {
@@ -163,7 +165,73 @@ string AnnaClient::PrintContext()
 
 bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size)
 {
-    return false;
+    // open new file
+    FILE* f = fopen(fname.c_str(),"w+b");
+    if (!f) {
+        internal_error = myformat("Unable to open file '%s' for writing",fname.c_str());
+        return false;
+    }
+
+    // start requesting the state info
+    string dwq = request(false,"/downloadState");
+    if (dwq.substr(0,2) != "OK") {
+        internal_error = "Error requesting state data: " + dwq;
+        return false;
+    }
+
+    // get the size
+    dwq.erase(0,2);
+    size_t sz = atoll(dwq.c_str());
+    if (!sz) {
+        internal_error = "Zero size received";
+        return false;
+    }
+
+    // try to transfer the body
+    DBG("Downloading started...");
+    bool r = downloadFile(f,sz);
+    DBG("Download complete\n");
+
+    // close the transfer on the server side
+    request(true,"/endTransfer");
+    if (wait_callback) wait_callback(-1,false,"");
+
+    // check the result and attempt to append the user data if needed
+    if (r && user_data && user_size) {
+        // retrieve the header
+        size_t left = mtell(f);
+        mseek(f,0,SEEK_SET);
+        AnnaSave hdr;
+        if (!fread(&hdr,sizeof(hdr),1,f)) {
+            internal_error = "Couldn't read the header from the state file";
+            fclose(f);
+            return false;
+        }
+
+        // edit and replace the header
+        string tmp = hdr.cfg.params.model;
+        while (tmp.find('/') != string::npos) tmp.erase(0,tmp.find('/')+1); // remove any path
+        memset(hdr.cfg.params.model,0,sizeof(hdr.cfg.params.model));
+        memcpy(hdr.cfg.params.model,tmp.c_str(),tmp.length());
+        hdr.user_size = user_size;
+        mseek(f,0,SEEK_SET);
+        if (!fwrite(&hdr,sizeof(hdr),1,f)) {
+            internal_error = "Couldn't overwrite the header in the state file";
+            fclose(f);
+            return false;
+        }
+
+        // write the user data at the end
+        mseek(f,left,SEEK_SET);
+        if (!fwrite(user_data,user_size,1,f)) {
+            internal_error = "Couldn't append user data to the state file";
+            fclose(f);
+            return false;
+        }
+    }
+
+    fclose(f);
+    return r;
 }
 
 bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
@@ -175,6 +243,7 @@ bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
     }
 
     // read the header and extract user data
+    //FIXME: replace model file in the header with its hash?
     AnnaSave hdr;
     if (!fread(&hdr,sizeof(hdr),1,f)) {
         internal_error = "Couldn't read the header from the state file";
@@ -182,11 +251,14 @@ bool AnnaClient::LoadState(string fname, void* user_data, size_t* user_size)
         return false;
     }
     if (user_data && user_size) {
+        // check the size requirements
         if (hdr.user_size > (*user_size)) {
             internal_error = myformat("Not enough space for the user data buffer: %zu in file, %zu given",hdr.user_size,*user_size);
             fclose(f);
             return false;
         }
+
+        // jump to the start of user data and read it
         size_t off = sizeof(hdr) + hdr.data_size + hdr.vector_size;
         DBG("Offset calculated: %zu\n",off);
         fseek(f,off,SEEK_SET);
@@ -466,8 +538,63 @@ bool AnnaClient::uploadFile(FILE* f, size_t sz)
 
 bool AnnaClient::downloadFile(FILE* f, size_t sz)
 {
-    // TODO
-    return false;
+    uint8_t* buf = (uint8_t*)malloc(ANNA_CLIENT_CHUNK);
+    if (!buf) {
+        internal_error = "Unable to allocate buffer in downloadFile()";
+        return false;
+    }
+
+    // temporarily substitute the waiting function to prevent generating "end-of-progress" events from request(true,...)
+    waitfunction wcb = wait_callback;
+    wait_callback = nullptr;
+    internal_error.clear();
+
+    // retrieve the file chunk by chunk
+    size_t rd = 0, n = 0;
+    while (rd < sz) {
+        // make it appear responsive
+        float prg = (float)n / (float)(sz / ANNA_CLIENT_CHUNK) * 100.f;
+        if (wcb) wcb(ceil(prg),false,"Downloading file...");
+
+        // attempt to receive
+        string dat;
+        bool flag = false;
+        AnnaState oldst = state;
+        for (int retry = 0; !flag && retry < ANNA_TRANSFER_RETRIES; retry++) {
+            dat = request(false,"/getChunk","",myformat("%zu",n));
+            if (dat.empty()) {
+                state = oldst; // we know we'll be in ERROR state due to failed transfer, so restore what we knew before
+                if (wcb) wcb(ceil(prg),true,myformat("Retrying download %d/%d...",retry+1,ANNA_TRANSFER_RETRIES));
+                else usleep(1000UL * ANNA_RETRY_WAIT_MS);
+            } else
+                flag = true;
+        }
+
+        if (!flag) {
+            internal_error = myformat("Error retrieving chunk %zu",n);
+            break;
+        }
+
+        // attempt to decode
+        size_t cv = fromBase64(buf,ANNA_CLIENT_CHUNK,dat);
+        if (!cv) {
+            internal_error = myformat("Error decoding chunk %zu of %zu bytes",n,dat.size());
+            break;
+        }
+
+        // finally write it down
+        if (!fwrite(buf,cv,1,f)) {
+            internal_error = myformat("Error writing to file at offset %zu",mtell(f));
+            break;
+        }
+
+        n++;
+        rd += cv;
+    }
+
+    free(buf);
+    wait_callback = wcb;
+    return internal_error.empty();
 }
 
 string AnnaClient::hashFile(const std::string fn)

@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include "brain.h"
 
-#define CLI_VERSION "0.6.1b"
+#define CLI_VERSION "0.6.2"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -163,12 +163,13 @@ int set_params(AnnaConfig& cfg, int argc, char* argv[])
             break;
         case 'P':
             g_pipemode = true;
+            cfg.nl_to_turnover = false;
             break;
         case 'S':
             cfg.convert_eos_to_nl = false;
             break;
         case 'N':
-            cfg.nl_to_turnover = true;
+            cfg.nl_to_turnover = false;
             break;
         case 'G':
             p->n_gpu_layers = atoi(optarg);
@@ -245,7 +246,11 @@ string get_input(bool* skip_next, bool* force_prefix)
         }
     }
 
-    if (skip_next && g_pipemode && n) *skip_next = true; // always skip sampling until EOF in pipe mode
+    if (g_pipemode) {
+        if (n && skip_next) *skip_next = true; // always skip sampling until EOF in pipe mode
+        else if (n <= 0 && force_prefix) *force_prefix = true; // add prefix after EOF
+    }
+
     return s;
 }
 
@@ -269,7 +274,7 @@ string run_request(string cmd)
 void default_config(AnnaConfig& cfg)
 {
     cfg.convert_eos_to_nl = true;
-    cfg.nl_to_turnover = false;
+    cfg.nl_to_turnover = true;
     cfg.verbose_level = 0;
 
     gpt_params* p = &cfg.params;
@@ -385,7 +390,11 @@ bool generate(bool skip, bool force)
     AnnaState s = ANNA_NOT_INITIALIZED;
     string str,convo;
 
-    if (force) brain->setPrefix(g_tokenf);
+    if (force) {
+        string tmp = " " + g_tokenf;
+        tmp[0] = ANNA_NO_SPACE_MARK; // inject no-space marker to make strict prefix
+        brain->setPrefix(tmp);
+    }
     g_last_username = false;
 
     // main LLM generation loop
@@ -487,7 +496,7 @@ string cli(bool& skip_sampling, bool& force_prefix, bool& no_input)
     // Rudimentary internal "CLI"
     bool old_samp = skip_sampling;
     skip_sampling = true;
-    if (inp_str.empty() || inp_str == "\n") {
+    if ((inp_str.empty() || inp_str == "\n") && !g_pipemode) {
         skip_sampling = false;
         force_prefix = false; // don't force prefix after skipped user input
 
@@ -630,6 +639,7 @@ int main(int argc, char* argv[])
     }*/
 
     while (!g_quit) {
+        DBG("loop start: skip=%d; force=%d; noin=%d\n",skip_sampling,force_prefix,no_input);
 
         // FIXME: return auto-cache functionality some day soon
         // The model is ready now, so we can process one-shot actions
@@ -638,13 +648,21 @@ int main(int argc, char* argv[])
             if (populate_cache) save_cache(ctx,n_past,ctx_sampling->prev);
         }*/
 
+        size_t pre_gen = g_raw_output.length();
         if (!generate(skip_sampling,force_prefix)) {
             ERR("Error: %s\n",brain->getError().c_str());
             g_quit = true;
             break;
         }
 
-        if (no_input) continue;
+        if (no_input) {
+            if (g_raw_output.length() == pre_gen) {
+                DBG("Nothing has been generated, shutting down...\n");
+                g_quit = true;
+                break;
+            } else
+                continue;
+        }
 
         skip_sampling = true;
         DBG("Waiting for input (%d tokens consumed so far)\n",brain->getTokensUsed());
@@ -672,14 +690,15 @@ int main(int argc, char* argv[])
                 fflush(stdout);
             }
             skip_sampling = false;
+            force_prefix = true;
         }
+
+        inp_str = cli(skip_sampling,force_prefix,no_input);
 
         if (g_pipemode && !skip_sampling) {
             DBG("Going to no-input mode automatically.\n");
             no_input = true; // ignore anything past EOF in pipe mode
         }
-
-        inp_str = cli(skip_sampling,force_prefix,no_input);
 
         // don't run on empty
         if (inp_str.empty() || inp_str == "\n") continue;

@@ -3,6 +3,8 @@
 #include "mainwnd.h"
 #include "rqpeditor.h"
 
+int SettingsDialog::tab_idx = -1;
+
 SettingsDialog::SettingsDialog(QWidget *parent) :
     QDialog(parent),
     pconfig(nullptr),
@@ -81,6 +83,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
     }
 
     ui->gaWidth->setSingleStep(1);
+    ui->tabWidget->setCurrentIndex(tab_idx);
     QDialog::showEvent(event);
 }
 
@@ -203,6 +206,8 @@ void SettingsDialog::on_buttonBox_accepted()
         r.enabled = ui->rqpList->item(i)->checkState();
         gs->rqps.push_back(r);
     }
+
+    tab_idx = ui->tabWidget->currentIndex();
 }
 
 void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)

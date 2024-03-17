@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.9.3"
+#define AG_VERSION "0.9.4"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -114,7 +114,7 @@ private slots:
 
     void on_actionAbout_triggered();
 
-    void on_pushButton_clicked();
+    void on_stopButton_clicked();
 
     void on_actionHTML_triggered();
 
@@ -143,6 +143,12 @@ private slots:
     void on_actionReset_prompt_to_default_triggered();
 
     void on_actionUndo_triggered();
+
+    void on_actionStop_triggered();
+
+    void on_actionContinue_triggered();
+
+    void on_actionRequester_plugins_triggered();
 
 private:
     Ui::MainWnd *ui;

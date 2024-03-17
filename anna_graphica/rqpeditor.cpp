@@ -26,7 +26,7 @@ void RQPEditor::showEvent(QShowEvent* event)
     ui->startTag->setText(sets->value("start_tag",QString()).toString());
     ui->stopTag->setText(sets->value("stop_tag",QString()).toString());
     ui->command->setText(sets->value("command",QString()).toString());
-    ui->filter->setText(sets->value("filter",QString()).toString());
+    //ui->filter->setText(sets->value("filter",QString()).toString());
     ui->args->setText(sets->value("args",QString()).toString());
 
     QDialog::showEvent(event);
@@ -155,7 +155,7 @@ void RQPEditor::sync()
     sets->setValue("start_tag",ui->startTag->text());
     sets->setValue("stop_tag",ui->stopTag->text());
     sets->setValue("command",ui->command->text());
-    sets->setValue("filter",ui->filter->text());
+    //sets->setValue("filter",ui->filter->text());
     sets->setValue("args",ui->args->text());
 
     //sets->sync();

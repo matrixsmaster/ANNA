@@ -11,6 +11,7 @@ ANNA server is quite unique, as it allows you to host a multi-mod**a**l, multi-m
 ## ANNA CLI
 
 Supported command line arguments:
+* `quit()` - **gracefully quit from the program** - using this instead of hitting Ctrl-C is **HIGHLY** recommended in order to avoid all sorts of issues
 * `-m` `<model_file>` - mandatory argument, loads the model file
 * `-s` `<seed_value>` - sets seed value for internal RNG used for sampling
 * `-t` `<number_of_threads>` - sets the number of CPU threads to be used

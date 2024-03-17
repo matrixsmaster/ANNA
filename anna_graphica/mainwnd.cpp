@@ -45,10 +45,12 @@ static const char* md_fix_tab[] = {
     "([^\\n])\\n([^\\n])", "\\1\n\n\\2",
     "([^\\\\])#", "\\1\\#",
     "\\n\\*\\*[ \t]+", "\n**",
-    "([^\\\\])<", "\\1\\<",
+    "([^\\\\]|^)<", "\\1\\<",
     "\\n[*]{4}\\n", "\n\n",
     NULL, NULL // terminator
 };
+
+#define AG_TAG_FIX_REPLACE QRegExp("([^\\\\]|^)<"), "\\1\\<"
 
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
@@ -389,7 +391,9 @@ void MainWnd::Generate()
 
         // set a temporary UI state to interactively "stream" the tokens which are being generated
         ui->statusbar->showMessage("Brain state: thinking...");
-        ui->ChatLog->setMarkdown(cur_chat + convo);
+        QString str = cur_chat + convo;
+        str.replace(AG_TAG_FIX_REPLACE);
+        ui->ChatLog->setMarkdown(str);
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
         ui->ContextFull->setMaximum(config.params.n_ctx);
@@ -807,7 +811,7 @@ void MainWnd::on_actionAbout_triggered()
     box.exec();
 }
 
-void MainWnd::on_pushButton_clicked()
+void MainWnd::on_stopButton_clicked()
 {
     stop = true;
     ui->statusbar->showMessage("Brain: stopped");
@@ -970,7 +974,9 @@ void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
 
 void MainWnd::on_actionRefresh_chat_box_triggered()
 {
-    ui->ChatLog->setMarkdown(cur_chat);
+    QString s = cur_chat;
+    s.replace(AG_TAG_FIX_REPLACE);
+    ui->ChatLog->setMarkdown(s);
     ui->ChatLog->moveCursor(QTextCursor::End);
     ui->ChatLog->ensureCursorVisible();
 }
@@ -1081,4 +1087,24 @@ void MainWnd::on_actionUndo_triggered()
     if (block || !brain) return;
     brain->Undo();
     // TODO: revert chat log as well
+}
+
+void MainWnd::on_actionStop_triggered()
+{
+    on_stopButton_clicked();
+}
+
+void MainWnd::on_actionContinue_triggered()
+{
+    ForceAIName("");
+    ui->SamplingCheck->setChecked(false);
+    Generate();
+}
+
+void MainWnd::on_actionRequester_plugins_triggered()
+{
+    int old = SettingsDialog::tab_idx;
+    SettingsDialog::tab_idx = AG_SETS_RQP_TAB;
+    on_actionSettings_triggered();
+    SettingsDialog::tab_idx = old;
 }

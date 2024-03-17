@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>672</width>
-    <height>550</height>
+    <height>578</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,28 +20,27 @@
   <layout class="QVBoxLayout" name="verticalLayout_3">
    <item>
     <widget class="QGroupBox" name="groupBox_9">
-     <property name="minimumSize">
-      <size>
-       <width>360</width>
-       <height>323</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>16777215</width>
-       <height>323</height>
-      </size>
-     </property>
      <property name="title">
       <string>Edit</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="QCheckBox" name="useRegEx">
-        <property name="text">
-         <string>Use regular expressions</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QCheckBox" name="useRegEx">
+          <property name="text">
+           <string>Use regular expressions</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_3">
+          <property name="text">
+           <string>Remove RQP body from chat log</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_7">
@@ -117,7 +116,11 @@
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="command"/>
+         <widget class="QLineEdit" name="command">
+          <property name="toolTip">
+           <string>Put only executable's path and name here. Do not put arguments in this field!</string>
+          </property>
+         </widget>
         </item>
         <item>
          <widget class="QPushButton" name="pushButton">
@@ -135,36 +138,6 @@
           </property>
           <property name="text">
            <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_10">
-        <item>
-         <widget class="QLabel" name="label_12">
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>28</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Filter</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="filter">
-          <property name="enabled">
-           <bool>false</bool>
           </property>
          </widget>
         </item>
@@ -194,74 +167,58 @@
         <item>
          <widget class="QLineEdit" name="args">
           <property name="toolTip">
-           <string>Use &quot;%t&quot; to include selected text</string>
+           <string>Use &quot;%t&quot; to include selected text; use &quot;%bN&quot; to include capture group N from start tag; use &quot;%eN&quot; for stop tag captures</string>
           </property>
          </widget>
         </item>
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_12">
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
         <item>
-         <widget class="QLabel" name="label_14">
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>28</height>
-           </size>
+         <widget class="QGroupBox" name="groupBox_2">
+          <property name="title">
+           <string>stdout</string>
           </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Prefix</string>
-          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_4">
+           <item>
+            <widget class="QPlainTextEdit" name="plainTextEdit">
+             <property name="toolTip">
+              <string>Use &quot;%t&quot; to insert stdout contents; use &quot;%b&quot; and &quot;%e&quot; to insert BoS and EoS tokens respectively.</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="checkBox">
+             <property name="text">
+              <string>Hide stdout if stderr isn't empty</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="prefix">
-          <property name="enabled">
-           <bool>false</bool>
+         <widget class="QGroupBox" name="groupBox_3">
+          <property name="title">
+           <string>stderr</string>
           </property>
-          <property name="toolTip">
-           <string>Use &quot;\n&quot; to insert newline</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_13">
-        <item>
-         <widget class="QLabel" name="label_15">
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>28</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Suffix</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="suffix">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="toolTip">
-           <string>Use &quot;\n&quot; to insert newline</string>
-          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_5">
+           <item>
+            <widget class="QPlainTextEdit" name="plainTextEdit_2">
+             <property name="toolTip">
+              <string>Use &quot;%t&quot; to insert stdout contents; use &quot;%b&quot; and &quot;%e&quot; to insert BoS and EoS tokens respectively.</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="checkBox_2">
+             <property name="text">
+              <string>Include stderr</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </widget>
         </item>
        </layout>
@@ -280,8 +237,15 @@
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
-        <widget class="QPlainTextEdit" name="testEdit"/>
+        <widget class="QPlainTextEdit" name="testEdit">
+         <property name="toolTip">
+          <string>Write your test input here. This text will be treated the same way as if it was generated by LLM.</string>
+         </property>
+        </widget>
         <widget class="QPlainTextEdit" name="testOut">
+         <property name="toolTip">
+          <string>This box contains read-only text which is generated as a result of executing your test sample from the left. This shows how LLM would see the result.</string>
+         </property>
          <property name="readOnly">
           <bool>true</bool>
          </property>
@@ -292,6 +256,9 @@
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
          <widget class="QLineEdit" name="testResult">
+          <property name="toolTip">
+           <string>This box shows the final arguments list compiled using the settings above</string>
+          </property>
           <property name="readOnly">
            <bool>true</bool>
           </property>

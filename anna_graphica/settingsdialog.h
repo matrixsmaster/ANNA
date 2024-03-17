@@ -6,6 +6,8 @@
 #include <QFontDialog>
 #include "../brain.h"
 
+#define AG_SETS_RQP_TAB 5
+
 namespace Ui {
 class SettingsDialog;
 }
@@ -19,6 +21,7 @@ public:
     ~SettingsDialog();
 
     AnnaConfig* pconfig;
+    static int tab_idx;
 
     static void LoadSettings(AnnaConfig* cfg, QSettings* sets);
     static void SaveSettings(AnnaConfig* cfg, QSettings* sets);

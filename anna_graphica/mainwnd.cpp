@@ -8,51 +8,7 @@
 #include "settingsdialog.h"
 #include "aboutbox.h"
 #include "helpbox.h"
-
-static const char* filetype_names[ANNA_NUM_FILETYPES] = {
-    "LLM",
-    "prompt",
-    "dialog as text",
-    "dialog as MD",
-    "dialog as HTML",
-    "model state",
-    "CLiP encoder",
-    "attachment"
-};
-
-static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
-    "Supported files (*.gguf *.dummy);;GGUF files (*.gguf);;Dummy files (*.dummy);;All files (*.*)",
-    "Text files (*.txt);;All files (*.*)",
-    "Text files (*.txt)",
-    "Markdown files (*.md);;Text files (*.txt)",
-    "HTML files (*.html *.htm)",
-    "ANNA save states (*.anna);;All files (*.*)",
-    "GGUF files (*.gguf);;All files (*.*)",
-    "Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm);;Text files (*.txt);;All files (*.*)",
-};
-
-static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
-    ".gguf",
-    ".txt",
-    ".txt",
-    ".md",
-    ".html",
-    ".anna",
-    ".gguf",
-    ".txt",
-};
-
-static const char* md_fix_tab[] = {
-    "\\n\\*\\*([^*\\n]+\\s?)\\n", "\n**\\1**\n**",
-    "([^\\n])\\n([^\\n])", "\\1\n\n\\2",
-    "([^\\\\])#", "\\1\\#",
-    "\\n\\*\\*[ \t]+", "\n**",
-    "([^\\\\]|^)<", "\\1\\<",
-    "\\n[*]{4}\\n", "\n\n",
-    NULL, NULL // terminator
-};
-
-#define AG_TAG_FIX_REPLACE QRegExp("([^\\\\]|^)<"), "\\1\\<"
+#include "mainwnd_tabs.h"
 
 using namespace std;
 
@@ -102,6 +58,7 @@ void MainWnd::DefaultConfig()
 {
     config.convert_eos_to_nl = true;
     config.nl_to_turnover = false;
+    config.no_pad_in_prefix = false;
     config.verbose_level = 1;
 
     gpt_params* p = &config.params;
@@ -242,8 +199,14 @@ bool MainWnd::NewBrain()
         brain = dynamic_cast<AnnaBrain*>(ptr);
     }
 
+    // re-initialize related state variables
+    last_username = false;
+    tokens_cnt = 0;
+
+    // if all is good, we can exit
     if (brain->getState() == ANNA_READY) return true;
 
+    // error handling
     ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
     delete brain;
     brain = nullptr;

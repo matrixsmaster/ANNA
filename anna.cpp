@@ -18,7 +18,7 @@
 #include "brain.h"
 #include "netclient.h"
 
-#define CLI_VERSION "0.7.0"
+#define CLI_VERSION "0.8.0"
 
 #define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
@@ -280,6 +280,7 @@ void default_config(AnnaConfig& cfg)
 {
     cfg.convert_eos_to_nl = true;
     cfg.nl_to_turnover = true;
+    cfg.no_pad_in_prefix = true;
     cfg.verbose_level = 0;
 
     gpt_params* p = &cfg.params;
@@ -395,11 +396,7 @@ bool generate(bool skip, bool force)
     AnnaState s = ANNA_NOT_INITIALIZED;
     string str,convo;
 
-    if (force) {
-        string tmp = " " + g_tokenf;
-        tmp[0] = ANNA_NO_SPACE_MARK; // inject no-space marker to make strict prefix
-        brain->setPrefix(tmp);
-    }
+    if (force) brain->setPrefix(g_tokenf);
     g_last_username = false;
 
     // main LLM generation loop

@@ -597,6 +597,9 @@
    </property>
   </action>
   <action name="actionOffline_help">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Offline help</string>
    </property>

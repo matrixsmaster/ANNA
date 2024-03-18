@@ -9,12 +9,11 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.9.4"
+#define ANNA_VERSION "0.10.0"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
 #define ANNA_STATE_MAGIC "ANNA"
-#define ANNA_NO_SPACE_MARK 1
 
 enum AnnaState
 {
@@ -31,6 +30,7 @@ struct __attribute__((packed)) AnnaConfig
     int verbose_level;
     bool convert_eos_to_nl;
     bool nl_to_turnover;
+    bool no_pad_in_prefix;
     gpt_params params;
     void* user;
 };

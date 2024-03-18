@@ -25,6 +25,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
     if (pconfig) {
         ui->eosToNL->setChecked(pconfig->convert_eos_to_nl);
         ui->NLtoTurn->setChecked(pconfig->nl_to_turnover);
+        ui->noPrefixPad->setChecked(pconfig->no_pad_in_prefix);
 
         gpt_params* p = &(pconfig->params);
         ui->Seed->setValue(p->seed);
@@ -94,6 +95,7 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->beginGroup("Global");
     sets->setValue("eos_to_nl",cfg->convert_eos_to_nl);
     sets->setValue("nl_to_turnover",cfg->nl_to_turnover);
+    sets->setValue("no_pad_prefix",cfg->no_pad_in_prefix);
 
     gpt_params* p = &(cfg->params);
     sets->setValue("seed",p->seed);
@@ -151,6 +153,7 @@ void SettingsDialog::on_buttonBox_accepted()
 {
     pconfig->convert_eos_to_nl = ui->eosToNL->isChecked();
     pconfig->nl_to_turnover = ui->NLtoTurn->isChecked();
+    pconfig->no_pad_in_prefix = ui->noPrefixPad->isChecked();
 
     gpt_params* p = &(pconfig->params);
     p->seed = ui->Seed->value();
@@ -217,6 +220,7 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     sets->beginGroup("Global");
     cfg->convert_eos_to_nl = sets->value("eos_to_nl",cfg->convert_eos_to_nl).toBool();
     cfg->nl_to_turnover = sets->value("nl_to_turnover",cfg->nl_to_turnover).toBool();
+    cfg->no_pad_in_prefix = sets->value("no_pad_prefix",cfg->no_pad_in_prefix).toBool();
 
     gpt_params* p = &(cfg->params);
     p->seed = sets->value("seed",p->seed).toUInt();

@@ -24,6 +24,7 @@ HEADERS += \
     busybox.h \
     helpbox.h \
     mainwnd.h \
+    mainwnd_tabs.h \
     rqpeditor.h \
     settingsdialog.h
 

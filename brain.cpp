@@ -331,15 +331,8 @@ void AnnaBrain::setPrefix(string str)
         return;
     }
 
-    bool no_space = false;
-    if (str[0] == ANNA_NO_SPACE_MARK) {
-        str.erase(0,1);
-        no_space = true;
-        DBG("Strict prefix set\n");
-    }
-
     DBG("Token enforcement: '%s' = ",str.c_str());
-    auto tmp = ::llama_tokenize(ctx,str,false,true,no_space);
+    auto tmp = ::llama_tokenize(ctx,str,false,true,config.no_pad_in_prefix);
     for (auto &i : tmp) {
         forced_start.push_back(i);
         DBG("%d (%s) ",i,TokenToStr(i));

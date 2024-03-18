@@ -126,6 +126,9 @@
           </item>
           <item>
            <widget class="QCheckBox" name="autoGPU">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>Automatic GPU offload</string>
             </property>

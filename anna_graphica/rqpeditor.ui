@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>672</width>
-    <height>578</height>
+    <height>580</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -35,6 +35,9 @@
         </item>
         <item>
          <widget class="QCheckBox" name="checkBox_3">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>Remove RQP body from chat log</string>
           </property>
@@ -182,14 +185,14 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_4">
            <item>
-            <widget class="QPlainTextEdit" name="plainTextEdit">
+            <widget class="QPlainTextEdit" name="stdoutTemplate">
              <property name="toolTip">
               <string>Use &quot;%t&quot; to insert stdout contents; use &quot;%b&quot; and &quot;%e&quot; to insert BoS and EoS tokens respectively.</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="checkBox">
+            <widget class="QCheckBox" name="hideStdout">
              <property name="text">
               <string>Hide stdout if stderr isn't empty</string>
              </property>
@@ -205,14 +208,14 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_5">
            <item>
-            <widget class="QPlainTextEdit" name="plainTextEdit_2">
+            <widget class="QPlainTextEdit" name="stderrTemplate">
              <property name="toolTip">
               <string>Use &quot;%t&quot; to insert stdout contents; use &quot;%b&quot; and &quot;%e&quot; to insert BoS and EoS tokens respectively.</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="checkBox_2">
+            <widget class="QCheckBox" name="useStderr">
              <property name="text">
               <string>Include stderr</string>
              </property>

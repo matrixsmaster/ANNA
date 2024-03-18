@@ -7,7 +7,7 @@
 #include <QSettings>
 #include <QProcess>
 
-#define AG_PROCESS_IO_BUFLEN 1024
+#define AG_PROCESS_WAIT_US 10000UL
 #define AG_ARGPARSE_FAILSAFE 100
 
 namespace Ui {
@@ -56,6 +56,8 @@ private:
 
     void rescan();
     void sync();
+
+    static void replacer(QString& str, const QString& tag, const QString& in);
 
     static QStringList CompleteRQP(const QString& in, AnnaRQPState& st);
 };

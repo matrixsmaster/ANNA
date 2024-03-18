@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <QFileDialog>
 #include "rqpeditor.h"
 #include "ui_rqpeditor.h"
@@ -26,8 +27,11 @@ void RQPEditor::showEvent(QShowEvent* event)
     ui->startTag->setText(sets->value("start_tag",QString()).toString());
     ui->stopTag->setText(sets->value("stop_tag",QString()).toString());
     ui->command->setText(sets->value("command",QString()).toString());
-    //ui->filter->setText(sets->value("filter",QString()).toString());
     ui->args->setText(sets->value("args",QString()).toString());
+    ui->stdoutTemplate->setPlainText(sets->value("stdout",QString()).toString().replace("\\n","\n"));
+    ui->stderrTemplate->setPlainText(sets->value("stderr",QString()).toString().replace("\\n","\n"));
+    ui->hideStdout->setChecked(sets->value("hide_stdout",false).toBool());
+    ui->useStderr->setChecked(sets->value("use_stderr",false).toBool());
 
     QDialog::showEvent(event);
 }
@@ -118,7 +122,7 @@ QStringList RQPEditor::CompleteRQP(const QString &in, AnnaRQPState& st)
     if (!acc.isEmpty()) res.append(acc);
 
     for (auto & s : res) {
-        s = s.replace("%t",in);
+        replacer(s,"t",in);
         // TODO: other reps
     }
     return res;
@@ -155,10 +159,18 @@ void RQPEditor::sync()
     sets->setValue("start_tag",ui->startTag->text());
     sets->setValue("stop_tag",ui->stopTag->text());
     sets->setValue("command",ui->command->text());
-    //sets->setValue("filter",ui->filter->text());
     sets->setValue("args",ui->args->text());
+    sets->setValue("stdout",ui->stdoutTemplate->toPlainText().replace("\\n","\n"));
+    sets->setValue("stderr",ui->stderrTemplate->toPlainText().replace("\\n","\n"));
+    sets->setValue("hide_stdout",ui->hideStdout->isChecked());
+    sets->setValue("use_stderr",ui->useStderr->isChecked());
+}
 
-    //sets->sync();
+void RQPEditor::replacer(QString& str, const QString& tag, const QString& in)
+{
+    str.replace(QRegExp("([^%]|^)%"+tag),"\\1\x1"); // don't replace with 'in' directly!
+    str.replace("%%"+tag,"%"+tag);
+    str.replace("\x1",in);
 }
 
 void RQPEditor::on_pushButton_clicked()
@@ -191,20 +203,29 @@ QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_even
         return "";
     }
 
-    // collect process' output and hand it over to the brain
-    QString out;
-    char buf[AG_PROCESS_IO_BUFLEN] = {0};
+    // wait until the process has terminated
     while (p.state() == QProcess::Running) {
-        auto ri = p.read(buf,sizeof(buf)-1);
-        if (ri < 0) {
-            qDebug("Warning: Reading past EOF of process output\n");
-            break;
-        } else
-            buf[ri] = 0; // make sure it's terminated
-        out += buf;
         if (do_events) qApp->processEvents();
+        usleep(AG_PROCESS_WAIT_US);
     }
     qDebug("External process finished\n");
+
+    // collect process' output and apply the decorations
+    QString sout = QString::fromLocal8Bit(p.readAllStandardOutput());
+    QString serr = QString::fromLocal8Bit(p.readAllStandardError());
+    QString tout = rqp.s->value("stdout",QString()).toString().replace("\\n","\n");
+    QString terr = rqp.s->value("stderr",QString()).toString().replace("\\n","\n");
+
+    QString out;
+    if (!rqp.s->value("hide_stdout").toBool() || serr.isEmpty()) {
+        out = tout;
+        replacer(out,"t",sout);
+    }
+    if (rqp.s->value("use_stderr").toBool() && !serr.isEmpty()) {
+        replacer(terr,"t",serr);
+        out += terr;
+    }
+
     return out;
 }
 

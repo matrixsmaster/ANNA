@@ -1,4 +1,6 @@
 #include <thread>
+#include <future>
+#include <chrono>
 #include <string.h>
 #include <unistd.h>
 #include "mainwnd.h"
@@ -52,6 +54,8 @@ static const char* md_fix_tab[] = {
 
 #define AG_TAG_FIX_REPLACE QRegExp("([^\\\\]|^)<"), "\\1\\<"
 
+using namespace std;
+
 MainWnd::MainWnd(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWnd)
@@ -77,6 +81,7 @@ MainWnd::MainWnd(QWidget *parent)
     next_attach = nullptr;
     last_username = false;
     nowait = false;
+    tokens_cnt = 0;
 
     ui->statusbar->showMessage("ANNA ver. " ANNA_VERSION " GUI ver. " AG_VERSION " NC ver. " ANNA_CLIENT_VERSION);
 }
@@ -101,7 +106,7 @@ void MainWnd::DefaultConfig()
 
     gpt_params* p = &config.params;
     p->seed = 0;
-    p->n_threads = std::thread::hardware_concurrency();
+    p->n_threads = thread::hardware_concurrency();
     if (p->n_threads < 1) p->n_threads = 1;
     p->n_predict = -1;
     p->n_ctx = AG_DEFAULT_CONTEXT;
@@ -283,7 +288,7 @@ void MainWnd::ForceAIName(const QString &nm)
 {
     if (!brain) return;
 
-    brain->setPrefix(std::string()); // erase any existing prefix first, to prevent accumulation
+    brain->setPrefix(string()); // erase any existing prefix first, to prevent accumulation
     if (nm.isEmpty() || nm == "<none>") {
         //qDebug("AI prefix removed");
         return;
@@ -294,30 +299,28 @@ void MainWnd::ForceAIName(const QString &nm)
     //qDebug("AI prefix set to %s",nm.toLatin1().data());
 }
 
-void MainWnd::ProcessInput(std::string str)
+void MainWnd::ProcessInput(string str)
 {
     if (!brain) return;
     block = true; // block out sync-only UI functions
 
     // detach potentially long process into separate thread
-    volatile bool signal = false;
-    std::thread pt([&]() {
+    auto th = async(launch::async,[&] {
         brain->setInput(str);
-        while (brain->Processing(true) == ANNA_PROCESSING) {
-            ui->ContextFull->setMaximum(config.params.n_ctx);
-            ui->ContextFull->setValue(brain->getTokensUsed());
-        }
-        signal = true;
+        while (brain->Processing(true) == ANNA_PROCESSING)
+            tokens_cnt = brain->getTokensUsed(); // the GUI will be updated in the main thread
     });
 
-    while (!signal) WaitingFun(0,true,"Processing text...");
-    pt.join();
+    //use wait function while async object is busy
+    while (th.wait_for(AG_STRPROCESS_WAIT) != future_status::ready)
+        WaitingFun(0,true,"Processing text...");
     WaitingFun(-1,false);
 
+    // don't forget to indicate any error
     if (brain->getState() == ANNA_ERROR)
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 
-    block = false;
+    block = false; // UI can be used again
 }
 
 bool MainWnd::EmbedImage(const QString& fn)
@@ -349,7 +352,7 @@ bool MainWnd::EmbedImage(const QString& fn)
 void MainWnd::Generate()
 {
     AnnaState s = ANNA_NOT_INITIALIZED;
-    std::string str;
+    string str;
     QString convo;
     stop = false;
     block = true;
@@ -397,7 +400,8 @@ void MainWnd::Generate()
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
         ui->ContextFull->setMaximum(config.params.n_ctx);
-        ui->ContextFull->setValue(brain->getTokensUsed());
+        tokens_cnt = brain->getTokensUsed();
+        ui->ContextFull->setValue(tokens_cnt);
 
         // now we can check the RQPs, execute stuff and inject things into LLM, all in this one convenient call
         CheckRQPs(raw_output + convo);
@@ -833,7 +837,7 @@ void MainWnd::on_actionSave_state_triggered()
     if (!brain) return;
     QString fn = GetSaveFileName(ANNA_FILE_MODEL_STATE);
     if (fn.isEmpty()) return;
-    std::string dlg = cur_chat.toStdString();
+    string dlg = cur_chat.toStdString();
     if (brain->SaveState(fn.toStdString(),(void*)dlg.data(),dlg.size()))
         ui->statusbar->showMessage("Model state has been saved to "+fn);
     else
@@ -875,7 +879,7 @@ bool MainWnd::LoadLLMState(const QString& fn)
     }
 
     // normal stuff now - load the state using existing model
-    std::string dlg(AG_MAXTEXT,'\0');
+    string dlg(AG_MAXTEXT,'\0');
     size_t usrlen = AG_MAXTEXT;
     if (!brain->LoadState(fn.toStdString(),(void*)dlg.data(),&usrlen)) {
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
@@ -965,7 +969,7 @@ void MainWnd::CheckRQPs(const QString& inp)
 
 void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
 {
-    auto it = std::find_if(attachs.begin(),attachs.end(),[item] (auto & o) { return o.itm == item; });
+    auto it = find_if(attachs.begin(),attachs.end(),[item] (auto & o) { return o.itm == item; });
     if (it != attachs.end()) {
         next_attach = &(*it);
         ui->statusbar->showMessage(it->shrt + " will be attached to your message");
@@ -990,7 +994,7 @@ void MainWnd::on_actionQuick_save_triggered()
 {
     if (!brain) return;
     QString fn = qApp->applicationDirPath() + "/" + AG_QUICK_FILE;
-    std::string dlg = cur_chat.toStdString();
+    string dlg = cur_chat.toStdString();
     if (brain->SaveState(fn.toStdString(),dlg.data(),dlg.size()))
         ui->statusbar->showMessage("Quicksave point saved");
     else
@@ -1052,7 +1056,7 @@ void MainWnd::on_actionReset_prompt_to_default_triggered()
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }
 
-bool MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
+bool MainWnd::WaitingFun(int prog, bool wait, const string& text)
 {
     if (nowait) return false; // is waiting temporarily prohibited?
     if (!busybox_lock.try_lock()) return false; // this might signal to other threads that waiting is already happening
@@ -1062,6 +1066,7 @@ bool MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
     block = true;
 
     if (prog >= 0) {
+        // Some process is happening
         ui->statusbar->showMessage(QString::fromStdString(text));
 
         // this cycle allows for a more "interactive" waiting with multiple calls to processEvents()
@@ -1073,8 +1078,13 @@ bool MainWnd::WaitingFun(int prog, bool wait, const std::string& text)
         }
 
     } else {
+        // Process has finished
         if (guiconfig.use_busybox) busy_box->close();
     }
+
+    // keep UI updated with asynchronously received values
+    ui->ContextFull->setMaximum(config.params.n_ctx);
+    ui->ContextFull->setValue(tokens_cnt);
 
     // restore the block state, unlock and move along
     block = prev_block;

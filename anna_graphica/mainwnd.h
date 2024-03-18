@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.9.5"
+#define AG_VERSION "0.9.5b"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -32,6 +32,7 @@
 #define AG_DEFAULT_SERVER "127.0.0.1:8080"
 #define AG_SERVER_WAIT_MS 50
 #define AG_SERVER_WAIT_CYCLES 20
+#define AG_STRPROCESS_WAIT 50ms
 
 struct AnnaAttachment {
     QString fn;
@@ -170,6 +171,7 @@ private:
     std::vector<AnnaRQPState> rqps;
     std::mutex busybox_lock;
     bool nowait;
+    int tokens_cnt;
 
     void DefaultConfig();
     void LoadSettings();

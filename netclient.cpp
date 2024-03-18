@@ -450,7 +450,7 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
         if (wait_callback && dowait)
             dowait = wait_callback(0,true,"Waiting for server response...");
     }
-    if (wait_callback) wait_callback(-1,false,"");
+    if (wait_callback && dowait) wait_callback(-1,false,"");
 
     // finally we can acquire the request result
     Result r = rhnd.get();
@@ -464,7 +464,7 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
     DBG("status = %d\n",r->status);
     switch (r->status) {
     case OK_200:
-        if (wait_callback) wait_callback(-1,false,"");
+        //if (wait_callback) wait_callback(-1,false,"");
         return post? "OK" : r->body;
 
     case ServiceUnavailable_503:
@@ -475,7 +475,7 @@ string AnnaClient::request(bool post, const string cmd, const string arg, const 
 
     default:
         state = ANNA_ERROR;
-        if (wait_callback) wait_callback(-1,false,"");
+        //if (wait_callback) wait_callback(-1,false,"");
         internal_error = myformat("Remote rejected request %s: %d",fcmd.c_str(),r->status);
         if (r->status == ImATeapot_418) internal_error += " " + r->body;
         return "";

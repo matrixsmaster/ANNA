@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>672</width>
-    <height>580</height>
+    <height>611</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -175,6 +175,13 @@
          </widget>
         </item>
        </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="splitArgs">
+        <property name="text">
+         <string>Split &quot;%t&quot; by space, creating multiple arguments</string>
+        </property>
+       </widget>
       </item>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_4">

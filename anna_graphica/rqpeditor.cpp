@@ -28,6 +28,7 @@ void RQPEditor::showEvent(QShowEvent* event)
     ui->stopTag->setText(sets->value("stop_tag",QString()).toString());
     ui->command->setText(sets->value("command",QString()).toString());
     ui->args->setText(sets->value("args",QString()).toString());
+    ui->splitArgs->setChecked(sets->value("split_args",false).toBool());
     ui->stdoutTemplate->setPlainText(sets->value("stdout",QString()).toString().replace("\\n","\n"));
     ui->stderrTemplate->setPlainText(sets->value("stderr",QString()).toString().replace("\\n","\n"));
     ui->hideStdout->setChecked(sets->value("hide_stdout",false).toBool());
@@ -96,36 +97,37 @@ QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState &st)
     return res;
 }
 
-QStringList RQPEditor::CompleteRQP(const QString &in, AnnaRQPState& st)
+QStringList RQPEditor::CompleteRQP(const QString& in, AnnaRQPState& st)
 {
-    QStringList res;
-    QString arg = st.s->value("args").toString();
-    int fsm = 0;
-    QString acc;
-    for (int i = 0; i < arg.length(); i++) {
-        char c = arg[i].toLatin1();
-        switch (c) {
-        case ' ':
-        case '\t':
-        case '\"':
-            if (!acc.isEmpty() && ((!fsm) || (fsm && c == '\"'))) {
-                res.append(acc);
-                acc.clear();
-            }
-            if (c == '\"') fsm = 1 - fsm;
-            else if (fsm) acc += arg[i];
-            break;
-        default:
-            acc += arg[i];
+    bool regex = st.s->value("regex",false).toBool();
+    bool split = st.s->value("split_args",false).toBool();
+
+    // split arguments string honoring the double quotes
+    auto res = splitter(st.s->value("args").toString());
+
+    // check, replace and reinterpret argument fields
+    for (auto it = res.begin(); it != res.end(); ++it) {
+        // if needed, re-compile the input string as well
+        if (*it == "%t" && split) {
+            auto tmp = splitter(in);
+            it = res.erase(it);
+            it = res.insert(it,tmp.begin(),tmp.end());
+
+        } else {
+            // otherwise, replace %t in the usual way
+            replacer(*it,"t",in);
+        }
+
+        // replace captures if needed
+        if (regex) {
+            for (int i = 1; i <= st.bex.captureCount(); i++)
+                replacer(*it,QString::asprintf("b%d",i),st.bex.cap(i));
+            for (int i = 1; i <= st.eex.captureCount(); i++)
+                replacer(*it,QString::asprintf("e%d",i),st.eex.cap(i));
         }
     }
-    if (!acc.isEmpty()) res.append(acc);
 
-    for (auto & s : res) {
-        replacer(s,"t",in);
-        // TODO: other reps
-    }
-    return res;
+    return QStringList(res.begin(),res.end());
 }
 
 void RQPEditor::on_testEdit_textChanged()
@@ -160,10 +162,39 @@ void RQPEditor::sync()
     sets->setValue("stop_tag",ui->stopTag->text());
     sets->setValue("command",ui->command->text());
     sets->setValue("args",ui->args->text());
+    sets->setValue("split_args",ui->splitArgs->isChecked());
     sets->setValue("stdout",ui->stdoutTemplate->toPlainText().replace("\\n","\n"));
     sets->setValue("stderr",ui->stderrTemplate->toPlainText().replace("\\n","\n"));
     sets->setValue("hide_stdout",ui->hideStdout->isChecked());
     sets->setValue("use_stderr",ui->useStderr->isChecked());
+}
+
+std::list<QString> RQPEditor::splitter(const QString &str)
+{
+    int fsm = 0;
+    std::list<QString> res;
+    QString acc;
+
+    for (int i = 0; i < str.length(); i++) {
+        char c = str[i].toLatin1();
+        switch (c) {
+        case ' ':
+        case '\t':
+        case '\"':
+            if (!acc.isEmpty() && ((!fsm) || (fsm && c == '\"'))) {
+                res.push_back(acc);
+                acc.clear();
+            }
+            if (c == '\"') fsm = 1 - fsm;
+            else if (fsm) acc += str[i];
+            break;
+        default:
+            acc += str[i];
+        }
+    }
+    if (!acc.isEmpty()) res.push_back(acc);
+
+    return res;
 }
 
 void RQPEditor::replacer(QString& str, const QString& tag, const QString& in)

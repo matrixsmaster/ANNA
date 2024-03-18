@@ -57,6 +57,7 @@ private:
     void rescan();
     void sync();
 
+    static std::list<QString> splitter(const QString& str);
     static void replacer(QString& str, const QString& tag, const QString& in);
 
     static QStringList CompleteRQP(const QString& in, AnnaRQPState& st);

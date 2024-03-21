@@ -35,7 +35,7 @@ static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
     ".txt",
 };
 
-static const char* md_fix_tab[] = {
+static const char* md_fix_in_tab[] = {
     "\\n\\*\\*([^*\\n]+\\s?)\\n", "\n**\\1**\n**",
     "([^\\n])\\n([^\\n])", "\\1\n\n\\2",
     "([^\\\\])#", "\\1\\#",
@@ -45,4 +45,8 @@ static const char* md_fix_tab[] = {
     NULL, NULL // terminator
 };
 
-#define AG_TAG_FIX_REPLACE QRegExp("([^\\\\]|^)<"), "\\1\\<"
+static const char* md_fix_out_tab[] = {
+    "([^\\n])\\n([^\\n])", "\\1\n\n\\2",
+    "([^\\\\]|^)<", "\\1\\<",
+    NULL, NULL // terminator
+};

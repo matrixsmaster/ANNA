@@ -356,15 +356,15 @@ void MainWnd::Generate()
         }
 
         // set a temporary UI state to interactively "stream" the tokens which are being generated
-        ui->statusbar->showMessage("Brain state: thinking...");
-        QString str = cur_chat + convo;
-        str.replace(AG_TAG_FIX_REPLACE);
-        ui->ChatLog->setMarkdown(str);
+        QString curout = cur_chat + convo;
+        if (guiconfig.md_fix) FixMarkdown(curout,md_fix_out_tab);
+        ui->ChatLog->setMarkdown(curout);
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
         ui->ContextFull->setMaximum(config.params.n_ctx);
         tokens_cnt = brain->getTokensUsed();
         ui->ContextFull->setValue(tokens_cnt);
+        ui->statusbar->showMessage("Brain state: thinking...");
 
         // now we can check the RQPs, execute stuff and inject things into LLM, all in this one convenient call
         CheckRQPs(raw_output + convo);
@@ -508,7 +508,7 @@ void MainWnd::on_SendButton_clicked()
         line = ui->UserNameBox->currentText() + " ";
 
     line += ui->UserInput->toPlainText();
-    if (guiconfig.md_fix) FixMarkdown(line);
+    if (guiconfig.md_fix) FixMarkdown(line,md_fix_in_tab);
     usr += line;
     log += line;
 
@@ -563,7 +563,7 @@ void MainWnd::on_SendButton_clicked()
     //qDebug("usr = '%s'\n",usr.toStdString().c_str());
     //qDebug("log = '%s'\n",log.toStdString().c_str());
 
-    if (guiconfig.md_fix) FixMarkdown(log);
+    if (guiconfig.md_fix) FixMarkdown(log,md_fix_in_tab);
     cur_chat += log;
     on_actionRefresh_chat_box_triggered();
     ui->statusbar->showMessage("Processing...");
@@ -869,21 +869,21 @@ void MainWnd::on_actionLoad_state_triggered()
 void MainWnd::on_actionShow_prompt_triggered()
 {
     QString r = QString(config.params.prompt);
-    if (guiconfig.md_fix) FixMarkdown(r);
+    if (guiconfig.md_fix) FixMarkdown(r,md_fix_in_tab);
     if (!cur_chat.startsWith(r)) {
         cur_chat = r + "\n\n" + cur_chat;
         on_actionRefresh_chat_box_triggered();
     }
 }
 
-void MainWnd::FixMarkdown(QString& s)
+void MainWnd::FixMarkdown(QString& s, const char** tab)
 {
-    for (int i = 0; md_fix_tab[i]; i+=2) {
+    for (int i = 0; tab[i]; i+=2) {
         //qDebug("Filter %d before: '%s'\n",i,s.toStdString().c_str());
-        QRegExp ex(md_fix_tab[i]);
+        QRegExp ex(tab[i]);
         for (int n = 0; n < AG_MDFIX_FAILSAFE && ex.indexIn(s) != -1; n++) {
             //qDebug("%d %d %d\n",i,ex.indexIn(s),ex.matchedLength());
-            s.replace(ex,md_fix_tab[i+1]);
+            s.replace(ex,tab[i+1]);
             if (s.length() > AG_MAXTEXT) break;
         }
         //qDebug("Filter %d after: '%s'\n",i,s.toStdString().c_str());
@@ -920,7 +920,7 @@ void MainWnd::CheckRQPs(const QString& inp)
             ui->statusbar->showMessage("Finished running external command");
             ProcessInput(out.toStdString());
             if (ui->actionShow_RQP_output->isChecked()) {
-                FixMarkdown(out);
+                FixMarkdown(out,md_fix_in_tab);
                 cur_chat += "\n\n### RQP output:\n\n" + out + "\n\n### End of RQP output\n\n";
                 on_actionRefresh_chat_box_triggered();
             }
@@ -942,7 +942,7 @@ void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
 void MainWnd::on_actionRefresh_chat_box_triggered()
 {
     QString s = cur_chat;
-    s.replace(AG_TAG_FIX_REPLACE);
+    FixMarkdown(s,md_fix_out_tab);
     ui->ChatLog->setMarkdown(s);
     ui->ChatLog->moveCursor(QTextCursor::End);
     ui->ChatLog->ensureCursorVisible();

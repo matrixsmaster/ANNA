@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.10.1"
+#define AG_VERSION "0.10.2"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -181,7 +181,7 @@ private:
     bool NewBrain();
     void LoadLLM(const QString& fn);
     bool LoadLLMState(const QString& fn);
-    void FixMarkdown(QString& s);
+    void FixMarkdown(QString& s, const char** tab);
     void UpdateRQPs();
     void CheckRQPs(const QString& inp);
     void ForceAIName(const QString& nm);

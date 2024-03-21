@@ -228,13 +228,14 @@
       <widget class="QLabel" name="label_3">
        <property name="font">
         <font>
-         <pointsize>12</pointsize>
+         <family>FreeSerif</family>
+         <pointsize>14</pointsize>
          <weight>50</weight>
          <bold>false</bold>
         </font>
        </property>
        <property name="text">
-        <string>This software allows you to run LLM inference locally and privately, using an intuitive GUI in a standalone program. Or, if you really want it, you can use remote offloading as well.</string>
+        <string>This software allows you to run LLM inference locally and privately, using very intuitive GUI in a standalone program. You can use remote offloading onto your own ANNA server as well.</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>

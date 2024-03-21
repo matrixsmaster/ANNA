@@ -54,7 +54,7 @@ QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState &st)
 
     QString start = st.s->value("start_tag").toString();
     QString stop = st.s->value("stop_tag").toString();
-    if (start.isEmpty() || stop.isEmpty()) return QStringList();
+    if (start.isEmpty()) return QStringList();
 
     bool regex = st.s->value("regex",false).toBool();
     QStringList res;
@@ -75,6 +75,10 @@ QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState &st)
         if (i >= 0) {
             st.fsm++;
             st.lpos = i + l;
+            if (stop.isEmpty()) {
+                st.fsm = 0;
+                res = CompleteRQP("",st);
+            }
         }
         break;
 
@@ -132,8 +136,10 @@ QStringList RQPEditor::CompleteRQP(const QString& in, AnnaRQPState& st)
 
 void RQPEditor::on_testEdit_textChanged()
 {
+    if (prev_test == ui->testEdit->toPlainText()) return;
     sync();
     rescan();
+    prev_test = ui->testEdit->toPlainText();
 }
 
 void RQPEditor::rescan()

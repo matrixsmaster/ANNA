@@ -53,6 +53,7 @@ private slots:
 private:
     Ui::RQPEditor *ui;
     QSettings *sets;
+    QString prev_test;
 
     void rescan();
     void sync();

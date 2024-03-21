@@ -6,7 +6,8 @@
 RQPEditor::RQPEditor(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::RQPEditor),
-    sets(nullptr)
+    sets(nullptr),
+    backup(nullptr)
 {
     ui->setupUi(this);
 }
@@ -21,6 +22,8 @@ void RQPEditor::showEvent(QShowEvent* event)
 {
     if (sets) delete sets;
     sets = new QSettings(filename,QSettings::IniFormat);
+    backup = new QSettings(filename,QSettings::IniFormat);
+    backup->allKeys(); // ignore result
 
     sets->beginGroup("MAIN");
     ui->useRegEx->setChecked(sets->value("regex",false).toBool());
@@ -37,12 +40,30 @@ void RQPEditor::showEvent(QShowEvent* event)
     QDialog::showEvent(event);
 }
 
-void RQPEditor::on_buttonBox_accepted()
+void RQPEditor::on_RQPEditor_accepted()
 {
-    if (!sets) return;
-    sync();
-    delete sets;
-    sets = nullptr;
+    if (sets) {
+        sync();
+        delete sets;
+        sets = nullptr;
+    }
+    if (backup) {
+        delete backup;
+        backup = nullptr;
+    }
+}
+
+void RQPEditor::on_RQPEditor_rejected()
+{
+    if (sets) {
+        delete sets;
+        sets = nullptr;
+    }
+    if (backup) {
+        backup->sync();
+        delete backup;
+        backup = nullptr;
+    }
 }
 
 QStringList RQPEditor::DetectRQP(const QString &in, AnnaRQPState &st)

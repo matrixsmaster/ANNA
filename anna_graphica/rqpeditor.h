@@ -44,7 +44,9 @@ protected:
 private slots:
     void on_testEdit_textChanged();
 
-    void on_buttonBox_accepted();
+    void on_RQPEditor_accepted();
+
+    void on_RQPEditor_rejected();
 
     void on_pushButton_clicked();
 
@@ -52,7 +54,7 @@ private slots:
 
 private:
     Ui::RQPEditor *ui;
-    QSettings *sets;
+    QSettings *sets, *backup;
     QString prev_test;
 
     void rescan();

@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.4.0"
+#define SERVER_VERSION "0.4.1"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -88,6 +88,7 @@ int active_user = -1;
 mutex usermap_mtx, q_lock;
 bool quit = false;
 bool g_lock = false;
+string gip_lock;
 
 #ifdef SERVER_DEBUG
 
@@ -365,6 +366,11 @@ int check_request(const Request& req, Response& res, const string funame)
     if (id_addr != req.remote_addr) {
         ERROR("Request %s() for user %d came from wrong IP (%s expected, got %s)!\n",funame.c_str(),id,id_addr.c_str(),req.remote_addr.c_str());
         res.status = Forbidden_403;
+        return 0;
+    }
+    if (!gip_lock.empty() && gip_lock != req.remote_addr) {
+        INFO("Rejecting request from %s due to global IP lock (%s) being active\n",req.remote_addr.c_str(),gip_lock.c_str());
+        res.status = ServiceUnavailable_503; // make client aware that it's temporary
         return 0;
     }
 
@@ -1217,6 +1223,10 @@ void cli()
     } else if (c == "lock" || c == "unlock") {
         g_lock = (c[0] == 'l');
         WARN("Server scheduling %s\n",(g_lock? "locked":"unlocked"));
+
+    } else if (c == "iplock") {
+        gip_lock = get_input("Enter IP (or empty string to unlock): ");
+        WARN("Global IP lock set to '%s'\n",gip_lock.c_str());
     }
 }
 

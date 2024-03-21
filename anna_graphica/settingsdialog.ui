@@ -35,8 +35,8 @@
   <property name="modal">
    <bool>true</bool>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
-   <item>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
       <number>0</number>
@@ -45,7 +45,7 @@
       <attribute name="title">
        <string>Main</string>
       </attribute>
-      <layout class="QGridLayout" name="gridLayout">
+      <layout class="QGridLayout" name="gridLayout_2">
        <item row="0" column="0">
         <widget class="QGroupBox" name="groupBox_6">
          <property name="title">
@@ -138,11 +138,22 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QCheckBox" name="stateReload">
-         <property name="text">
-          <string>Reload model on state load</string>
-         </property>
-        </widget>
+        <layout class="QVBoxLayout" name="verticalLayout_13">
+         <item>
+          <widget class="QCheckBox" name="stateReload">
+           <property name="text">
+            <string>Reload model on state load</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="newReload">
+           <property name="text">
+            <string>Reload model on new dialog</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item row="1" column="0">
         <widget class="QGroupBox" name="groupBox_7">
@@ -892,7 +903,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <property name="geometry">
         <rect>
          <x>390</x>
@@ -904,6 +915,12 @@
        <layout class="QHBoxLayout" name="horizontalLayout_12">
         <item>
          <widget class="QCheckBox" name="noPrefixPad">
+          <property name="maximumSize">
+           <size>
+            <width>24</width>
+            <height>24</height>
+           </size>
+          </property>
           <property name="text">
            <string/>
           </property>
@@ -913,6 +930,9 @@
          <widget class="QLabel" name="label_11">
           <property name="text">
            <string>Don't pad forced prefix</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="wordWrap">
            <bool>true</bool>
@@ -1078,6 +1098,16 @@
          <widget class="QCheckBox" name="useBusyBox">
           <property name="text">
            <string>Use stand-by splash screen while waiting</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="allowMultiUsr">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Allow multiple user prefixes via &quot;|&quot; symbol</string>
           </property>
          </widget>
         </item>
@@ -1330,7 +1360,7 @@
      </widget>
     </widget>
    </item>
-   <item>
+   <item row="1" column="0">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>

@@ -425,6 +425,7 @@
     <addaction name="actionRefresh_chat_box"/>
     <addaction name="actionShow_context_tokens"/>
     <addaction name="actionClear_chat_log"/>
+    <addaction name="actionReview_RQP"/>
     <addaction name="actionShow_RQP_output"/>
    </widget>
    <widget class="QMenu" name="menuTools">
@@ -660,6 +661,17 @@
   <action name="actionRequester_plugins">
    <property name="text">
     <string>Requester plugins</string>
+   </property>
+  </action>
+  <action name="actionReview_RQP">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Review RQP</string>
    </property>
   </action>
  </widget>

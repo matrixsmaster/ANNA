@@ -27,6 +27,7 @@ void RQPEditor::showEvent(QShowEvent* event)
 
     sets->beginGroup("MAIN");
     ui->useRegEx->setChecked(sets->value("regex",false).toBool());
+    ui->hideBody->setChecked(sets->value("hide_body",false).toBool());
     ui->startTag->setText(sets->value("start_tag",QString()).toString());
     ui->stopTag->setText(sets->value("stop_tag",QString()).toString());
     ui->command->setText(sets->value("command",QString()).toString());
@@ -185,6 +186,7 @@ void RQPEditor::sync()
     sets->beginGroup("MAIN");
 
     sets->setValue("regex",ui->useRegEx->isChecked());
+    sets->setValue("hide_body",ui->hideBody->isChecked());
     sets->setValue("start_tag",ui->startTag->text());
     sets->setValue("stop_tag",ui->stopTag->text());
     sets->setValue("command",ui->command->text());

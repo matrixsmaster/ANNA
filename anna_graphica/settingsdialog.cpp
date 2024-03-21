@@ -65,6 +65,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->enterButn->setCurrentIndex(gs->enter_key);
         ui->autoGPU->setChecked(gs->auto_gpu);
         ui->stateReload->setChecked(gs->full_reload);
+        ui->newReload->setChecked(gs->new_reload);
         ui->fixMD->setChecked(gs->md_fix);
         ui->savePrompt->setChecked(gs->save_prompt);
         ui->clearLog->setChecked(gs->clear_log);
@@ -75,6 +76,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->userInExample->setFont(gs->usr_fnt);
         ui->aaUsePrefix->setChecked(gs->use_attprefix);
         ui->mkDummy->setChecked(gs->mk_dummy);
+        ui->allowMultiUsr->setChecked(gs->multi_usr);
         ui->aaPrefix->setText(gs->att_prefix);
         ui->taPrefix->setText(gs->txt_prefix);
         ui->taSuffix->setText(gs->txt_suffix);
@@ -126,6 +128,7 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("enter_key",gs->enter_key);
     sets->setValue("auto_gpu",gs->auto_gpu);
     sets->setValue("full_reload",gs->full_reload);
+    sets->setValue("new_reload",gs->new_reload);
     sets->setValue("md_fix",gs->md_fix);
     sets->setValue("save_prompt",gs->save_prompt);
     sets->setValue("clear_log",gs->clear_log);
@@ -136,6 +139,7 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("user_font",gs->usr_fnt.toString());
     sets->setValue("use_attprefix",gs->use_attprefix);
     sets->setValue("mk_dummy",gs->mk_dummy);
+    sets->setValue("multi_usr",gs->multi_usr);
     sets->setValue("att_prefix",gs->att_prefix);
     sets->setValue("txt_prefix",gs->txt_prefix);
     sets->setValue("txt_suffix",gs->txt_suffix);
@@ -188,6 +192,7 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->enter_key = ui->enterButn->currentIndex();
     gs->auto_gpu = ui->autoGPU->isChecked();
     gs->full_reload = ui->stateReload->isChecked();
+    gs->new_reload = ui->newReload->isChecked();
     gs->md_fix = ui->fixMD->isChecked();
     gs->save_prompt = ui->savePrompt->isChecked();
     gs->clear_log = ui->clearLog->isChecked();
@@ -198,6 +203,7 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->usr_fnt = ui->userInExample->font();
     gs->use_attprefix = ui->aaUsePrefix->isChecked();
     gs->mk_dummy = ui->mkDummy->isChecked();
+    gs->multi_usr = ui->allowMultiUsr->isChecked();
     gs->att_prefix = ui->aaPrefix->text();
     gs->txt_prefix = ui->taPrefix->text();
     gs->txt_suffix = ui->taSuffix->text();
@@ -251,6 +257,7 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->enter_key = sets->value("enter_key",gs->enter_key).toInt();
     gs->auto_gpu = sets->value("auto_gpu",gs->auto_gpu).toBool();
     gs->full_reload = sets->value("full_reload",gs->full_reload).toBool();
+    gs->new_reload = sets->value("new_reload",gs->new_reload).toBool();
     gs->md_fix = sets->value("md_fix",gs->md_fix).toBool();
     gs->save_prompt = sets->value("save_prompt",gs->save_prompt).toBool();
     gs->clear_log = sets->value("clear_log",gs->clear_log).toBool();
@@ -261,6 +268,7 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->usr_fnt = LoadFont(sets,"user_font",gs->usr_fnt);
     gs->use_attprefix = sets->value("use_attprefix",gs->use_attprefix).toBool();
     gs->mk_dummy = sets->value("mk_dummy",gs->mk_dummy).toBool();
+    gs->multi_usr = sets->value("multi_usr",gs->multi_usr).toBool();
     gs->att_prefix = sets->value("att_prefix",gs->att_prefix).toString();
     gs->txt_prefix = sets->value("txt_prefix",gs->txt_prefix).toString();
     gs->txt_suffix = sets->value("txt_suffix",gs->txt_suffix).toString();

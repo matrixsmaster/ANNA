@@ -667,13 +667,19 @@ void MainWnd::on_actionNew_dialog_triggered()
             return;
     }
 
-    if (brain) {
+    if (guiconfig.new_reload) {
+        LoadLLM(ui->ModelPath->text());
+        if (brain && brain->getState() != ANNA_ERROR)
+            ui->statusbar->showMessage("Brain has been reloaded and ready for new dialog.");
+
+    } else if (brain) {
         brain->Reset();
         ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
         qApp->processEvents();
 
         ProcessInput(config.params.prompt);
-        ui->statusbar->showMessage("Brain has been reset and is now ready.");
+        if (brain->getState() != ANNA_ERROR)
+            ui->statusbar->showMessage("Brain has been reset and ready for new dialog.");
     }
 
     if (guiconfig.clear_log) {

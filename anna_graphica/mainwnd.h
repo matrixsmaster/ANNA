@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.10.2"
+#define AG_VERSION "0.10.3"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -44,9 +44,9 @@ struct AnnaAttachment {
 
 struct AnnaGuiSettings {
     int enter_key;
-    bool auto_gpu, full_reload;
+    bool auto_gpu, full_reload, new_reload;
     bool md_fix, save_prompt, clear_log;
-    bool use_server, use_busybox, use_attprefix, mk_dummy;
+    bool use_server, use_busybox, use_attprefix, mk_dummy, multi_usr;
     QString server;
     QFont log_fnt, usr_fnt;
     QString att_prefix, txt_prefix, txt_suffix;

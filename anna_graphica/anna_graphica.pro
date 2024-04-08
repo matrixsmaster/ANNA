@@ -5,6 +5,8 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++20
 
 SOURCES += \
+    ../aria.cpp \
+    ../lscs.cpp \
     aboutbox.cpp \
     busybox.cpp \
     helpbox.cpp \
@@ -14,7 +16,10 @@ SOURCES += \
     settingsdialog.cpp
 
 HEADERS += \
+    ../aria.h \
+    ../aria_binds.h \
     ../lfs.h \
+    ../lscs.h \
     ../md5calc.h \
     ../netclient.h \
     ../server/base64m.h \
@@ -107,7 +112,7 @@ linux {
     DEFINES += _GNU_SOURCE ANNA_USE_MMAP
     QMAKE_CFLAGS += -march=native -mtune=native
     QMAKE_CXXFLAGS += -march=native -mtune=native
-    LIBS += -L.. -lanna
+    LIBS += -L.. -lanna -L../lua -llua
 
     equals(cublas,1) {
         DEFINES += GGML_USE_CUBLAS
@@ -115,8 +120,8 @@ linux {
     }
 }
 
-INCLUDEPATH += $$PWD/.. $$PWD/../server
-DEPENDPATH += $$PWD/.. $$PWD/../server
+INCLUDEPATH += $$PWD/.. $$PWD/../server $$PWD/../lua
+DEPENDPATH += $$PWD/.. $$PWD/../server $$PWD/../lua
 
 RESOURCES += \
     resources.qrc

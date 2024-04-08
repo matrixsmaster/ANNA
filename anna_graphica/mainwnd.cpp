@@ -87,6 +87,7 @@ void MainWnd::DefaultConfig()
     guiconfig.mk_dummy = false;
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
+    guiconfig.use_lscs = false;
 }
 
 void MainWnd::LoadSettings()
@@ -187,16 +188,22 @@ bool MainWnd::SaveFile(const QString& fn, const QString& str)
 
 bool MainWnd::NewBrain()
 {
-    if (!guiconfig.use_server) {
-        // create normal brain
-        brain = new AnnaBrain(&config);
-    } else {
+    if (guiconfig.use_server) {
         // create network client instance
         AnnaClient* ptr = new AnnaClient(&config,guiconfig.server.toStdString(),guiconfig.mk_dummy,
                                          [this](int prog, bool wait, auto txt) -> bool {
             return WaitingFun(prog,wait,txt);
         });
         brain = dynamic_cast<AnnaBrain*>(ptr);
+
+    } else if (guiconfig.use_lscs) {
+        // create AnnaLSCS-based instance
+        AnnaLSCS* ptr = new AnnaLSCS(config.params.model);
+        brain = dynamic_cast<AnnaBrain*>(ptr);
+
+    } else {
+        // create normal brain
+        brain = new AnnaBrain(&config);
     }
 
     // re-initialize related state variables
@@ -481,7 +488,14 @@ void MainWnd::on_ModelFindButton_clicked()
     QString fn = GetOpenFileName(ANNA_FILE_LLM);
     if (fn.isEmpty()) return;
     ui->ModelPath->setText(fn);
+    on_ModelPath_returnPressed();
+}
 
+void MainWnd::on_ModelPath_returnPressed()
+{
+    QString fn = ui->ModelPath->text();
+
+    block = true;
     if (!config.params.prompt[0]) {
         auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
                                         QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
@@ -493,6 +507,8 @@ void MainWnd::on_ModelFindButton_clicked()
             return;
         }
     }
+    qApp->processEvents(); // make sure all dialog boxes are closed and not appeared to be frozen
+    block = false;
 
     if (guiconfig.clear_log) {
         ui->ChatLog->clear();

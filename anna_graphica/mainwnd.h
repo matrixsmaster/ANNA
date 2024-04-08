@@ -14,10 +14,11 @@
 #include <mutex>
 #include "rqpeditor.h"
 #include "busybox.h"
-#include "../brain.h"
-#include "../netclient.h"
+#include "brain.h"
+#include "netclient.h"
+#include "lscs.h"
 
-#define AG_VERSION "0.10.4"
+#define AG_VERSION "0.10.5"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -47,6 +48,7 @@ struct AnnaGuiSettings {
     bool auto_gpu, full_reload, new_reload;
     bool md_fix, save_prompt, clear_log;
     bool use_server, use_busybox, use_attprefix, mk_dummy, multi_usr;
+    bool use_lscs;
     QString server;
     QFont log_fnt, usr_fnt;
     QString att_prefix, txt_prefix, txt_suffix;
@@ -150,6 +152,8 @@ private slots:
     void on_actionContinue_triggered();
 
     void on_actionRequester_plugins_triggered();
+
+    void on_ModelPath_returnPressed();
 
 private:
     Ui::MainWnd *ui;

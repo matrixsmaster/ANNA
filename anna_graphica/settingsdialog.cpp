@@ -80,6 +80,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->aaPrefix->setText(gs->att_prefix);
         ui->taPrefix->setText(gs->txt_prefix);
         ui->taSuffix->setText(gs->txt_suffix);
+        ui->useLSCS->setChecked(gs->use_lscs);
 
         ui->rqpList->clear();
         for (auto & i : gs->rqps) addRQPfile(i.fn,i.enabled);
@@ -143,6 +144,7 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("att_prefix",gs->att_prefix);
     sets->setValue("txt_prefix",gs->txt_prefix);
     sets->setValue("txt_suffix",gs->txt_suffix);
+    sets->setValue("use_lscs",gs->use_lscs);
 
     sets->beginWriteArray("RQP");
     for (int i = 0; i < (int)gs->rqps.size(); i++) {
@@ -207,6 +209,7 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->att_prefix = ui->aaPrefix->text();
     gs->txt_prefix = ui->taPrefix->text();
     gs->txt_suffix = ui->taSuffix->text();
+    gs->use_lscs = ui->useLSCS->isChecked();
 
     gs->rqps.clear();
     for (int i = 0; i < ui->rqpList->count(); i++) {
@@ -272,6 +275,7 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->att_prefix = sets->value("att_prefix",gs->att_prefix).toString();
     gs->txt_prefix = sets->value("txt_prefix",gs->txt_prefix).toString();
     gs->txt_suffix = sets->value("txt_suffix",gs->txt_suffix).toString();
+    gs->use_lscs = sets->value("use_lscs",gs->use_lscs).toBool();
 
     int n_rqps = sets->beginReadArray("RQP");
     gs->rqps.clear();

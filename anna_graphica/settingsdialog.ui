@@ -1227,13 +1227,38 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="tab_7">
+      <attribute name="title">
+       <string>LSCS</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QCheckBox" name="useLSCS">
+         <property name="text">
+          <string>Use Lightweight Scripted Consciousness Simulation</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
      <widget class="QWidget" name="tab_5">
       <attribute name="title">
        <string>RQPs</string>
       </attribute>
       <layout class="QHBoxLayout" name="horizontalLayout_7">
        <item>
-        <widget class="QListWidget" name="rqpList"/>
+        <layout class="QVBoxLayout" name="verticalLayout_14">
+         <item>
+          <widget class="QLabel" name="label_12">
+           <property name="text">
+            <string>Requester plugins</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QListWidget" name="rqpList"/>
+         </item>
+        </layout>
        </item>
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_9">

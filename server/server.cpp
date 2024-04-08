@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.4.1"
+#define SERVER_VERSION "0.4.1b"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -29,6 +29,7 @@
 #define SERVER_CLIENT_TIMEOUT 5
 #define SERVER_CLIENT_MAXTIME 30
 #define SERVER_CLIENT_DEAD_TO (2*60)
+#define SERVER_CLIENT_GLOCK_WAIT 1000000UL
 
 #define SERVER_CLIENT_CHUNK (8ULL * 1024ULL * 1024ULL)
 #define SERVER_CLIENT_MINLLMSIZE (1024ULL * 1024ULL)
@@ -371,6 +372,7 @@ int check_request(const Request& req, Response& res, const string funame)
     if (!gip_lock.empty() && gip_lock != req.remote_addr) {
         INFO("Rejecting request from %s due to global IP lock (%s) being active\n",req.remote_addr.c_str(),gip_lock.c_str());
         res.status = ServiceUnavailable_503; // make client aware that it's temporary
+        usleep(SERVER_CLIENT_GLOCK_WAIT);
         return 0;
     }
 

@@ -17,7 +17,7 @@
 #include "../brain.h"
 #include "../netclient.h"
 
-#define AG_VERSION "0.10.3"
+#define AG_VERSION "0.10.4"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -187,6 +187,7 @@ private:
     void ForceAIName(const QString& nm);
     void ProcessInput(std::string str);
     bool EmbedImage(const QString& fn);
+    bool CheckUsrPrefix(QString& convo);
     void Generate();
 
     QString GetSaveFileName(const AnnaFileDialogType tp);

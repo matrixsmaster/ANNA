@@ -312,6 +312,27 @@ bool MainWnd::EmbedImage(const QString& fn)
     return res;
 }
 
+bool MainWnd::CheckUsrPrefix(QString& convo)
+{
+    QString usrbox = ui->UserNameBox->currentText();
+    if (!guiconfig.multi_usr) {
+        if (convo.endsWith(usrbox)) {
+            convo.chop(usrbox.length());
+            return true;
+        } else
+            return false;
+    }
+
+    QStringList pfx = usrbox.split('|');
+    for (auto &i : pfx) {
+        if (convo.endsWith(i)) {
+            convo.chop(i.length());
+            return true;
+        }
+    }
+    return false;
+}
+
 void MainWnd::Generate()
 {
     AnnaState s = ANNA_NOT_INITIALIZED;
@@ -334,13 +355,10 @@ void MainWnd::Generate()
             // fall-thru
         case ANNA_TURNOVER:
             str = brain->getOutput();
-            //qDebug("str = %s\n",str.c_str());
             convo += QString::fromStdString(str);
-            if (!ui->UserNameBox->currentText().isEmpty() && convo.endsWith(ui->UserNameBox->currentText())) {
+            if (CheckUsrPrefix(convo)) {
                 last_username = true;
                 s = ANNA_TURNOVER;
-                convo.chop(ui->UserNameBox->currentText().length());
-                //qDebug("convo = %s\n",convo.toStdString().c_str());
             }
             break;
         case ANNA_PROCESSING:
@@ -500,12 +518,14 @@ void MainWnd::on_SendButton_clicked()
     }
     log += "\n**";
 
+    QString usrbox = ui->UserNameBox->currentText();
     if (last_username) {
         usr.clear(); // no need for initial newline
-        log += ui->UserNameBox->currentText() + " "; // we still need to put it into the log
+        log += usrbox + " "; // we still need to put it into the log
         last_username = false;
-    } else
-        line = ui->UserNameBox->currentText() + " ";
+
+    } else if (!(guiconfig.multi_usr && usrbox.contains('|')))
+        line = usrbox + " ";
 
     line += ui->UserInput->toPlainText();
     if (guiconfig.md_fix) FixMarkdown(line,md_fix_in_tab);

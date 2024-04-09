@@ -6,7 +6,7 @@
 #include <QFontDialog>
 #include "../brain.h"
 
-#define AG_SETS_RQP_TAB 5
+#define AG_SETS_RQP_TAB 6
 
 namespace Ui {
 class SettingsDialog;

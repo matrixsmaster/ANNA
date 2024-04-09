@@ -18,13 +18,13 @@
 #include "brain.h"
 #include "netclient.h"
 
-#define CLI_VERSION "0.8.0"
+#define CLI_VERSION "0.8.1"
 
-#define ERR(X,...) fprintf(stderr, "ERROR: " X "\n", __VA_ARGS__)
-#define ERRS(...) fprintf(stderr, "ERROR: " __VA_ARGS__)
+#define ERR(X,...) fprintf(stderr, "[ANNA] ERROR: " X "\n", __VA_ARGS__)
+#define ERRS(...) fprintf(stderr, "[ANNA] ERROR: " __VA_ARGS__)
 
 #ifndef NDEBUG
-#define DBG(...) do { fprintf(stderr,"[DBG] " __VA_ARGS__); fflush(stderr); } while (0)
+#define DBG(...) do { fprintf(stderr,"[ANNA DBG] " __VA_ARGS__); fflush(stderr); } while (0)
 #else
 #define DBG(...)
 #endif

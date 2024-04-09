@@ -4,9 +4,8 @@
 
 #define LBIND(X,N) lua_pushcfunction(luavm,X); lua_setglobal(luavm,N);
 #define LFUNC(N,X) static int N(lua_State* L) { \
-        SGUI* pb; \
         lua_getglobal(L,"thisptr"); \
-        pb = (SGUI*)lua_touserdata(L,-1); \
+        Aria* pb = (Aria*)lua_touserdata(L,-1); \
         if (pb) return (pb->X()); \
         else return 0; /* we did nothing, so no values pushed */ \
         }
@@ -16,11 +15,13 @@
 #ifdef ARIA_BINDS_FUNCTIONS
 
 LFUNC(bind_GetVersion,scriptGetVersion)
+LFUNC(bind_PrintOut,scriptPrintOut)
 
 #endif // ARIA_BINDS_FUNCTIONS
 
 #ifdef ARIA_BINDS_NAMES
 
 LBIND(bind_GetVersion,"getversion");
+LBIND(bind_PrintOut,"printout");
 
 #endif // ARIA_BINDS_NAMES

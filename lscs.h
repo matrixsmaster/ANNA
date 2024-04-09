@@ -21,7 +21,7 @@ public:
     void setConfig(const AnnaConfig& cfg) override;
 
     //std::string getOutput() override;
-    //void setInput(std::string inp) override;
+    void setInput(std::string inp) override;
     void setPrefix(std::string str) override                    {}
     void addEmbeddings(const std::vector<float>& emb) override  {}
 
@@ -40,7 +40,9 @@ public:
 
 private:
     std::string config_fn;
+    std::map<std::string,std::string> cfgmap;
     std::map<std::string,Aria*> pods;
 
     bool ParseConfig();
+    bool CreatePods();
 };

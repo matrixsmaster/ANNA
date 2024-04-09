@@ -14,7 +14,7 @@ static const char* filetype_names[ANNA_NUM_FILETYPES] = {
 };
 
 static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
-    "Supported files (*.gguf *.dummy);;GGUF files (*.gguf);;Dummy files (*.dummy);;All files (*.*)",
+    "Supported files (*.gguf *.dummy *.lscs);;GGUF files (*.gguf);;Dummy files (*.dummy);;LSCS files (*.lscs);;All files (*.*)",
     "Text files (*.txt);;All files (*.*)",
     "Text files (*.txt)",
     "Markdown files (*.md);;Text files (*.txt)",

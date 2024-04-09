@@ -20,8 +20,11 @@ public:
     Aria(std::string scriptfile);
     virtual ~Aria();
 
-    AriaState getState();
-    std::string getError();
+    AriaState getState()            { return state; }
+    std::string getError()          { return merror; }
+
+    bool setInput(std::string in);
+    std::string getOutput();
 
     int scriptGetVersion();
     int scriptPrintOut();
@@ -34,6 +37,8 @@ private:
     AriaState state = ARIA_NOT_INITIALIZED;
     std::string scriptfn;
     std::string merror;
+    std::string output;
 
     bool StartVM();
+    void ErrorVM();
 };

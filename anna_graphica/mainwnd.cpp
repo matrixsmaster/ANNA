@@ -1,4 +1,4 @@
-#include <thread>
+﻿#include <thread>
 #include <future>
 #include <chrono>
 #include <string.h>
@@ -29,7 +29,7 @@ MainWnd::MainWnd(QWidget *parent)
     ui->AINameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
     ui->UserNameBox->completer()->setCaseSensitivity(Qt::CaseSensitive);
 
-    block = false;
+    block = 0;
     on_actionSimple_view_triggered();
     DefaultConfig();
     LoadSettings();
@@ -217,7 +217,7 @@ bool MainWnd::NewBrain()
     ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
     delete brain;
     brain = nullptr;
-    block = false; // nothing to block anymore
+    block = 0; // nothing to block anymore
     return false;
 }
 
@@ -234,17 +234,21 @@ void MainWnd::LoadLLM(const QString &fn)
     }
 
     // Actual loading
-    block = true;
+    ++block;
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
     strncpy(config.params.model,fn.toStdString().c_str(),sizeof(config.params.model)-1);
     if (!NewBrain()) return;
     ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
     qApp->processEvents();
-    block = false;
+    --block;
 
     // Process initial prompt
     ProcessInput(config.params.prompt);
+
+    // Display whatever initial output we might have already
+    cur_chat += QString::fromStdString(brain->getOutput()) + "\n";
+    UpdateChatLogFrom(cur_chat);
 
     // Display the seed value
     uint32_t seed = brain->getConfig().params.seed;
@@ -272,7 +276,7 @@ void MainWnd::ForceAIName(const QString &nm)
 void MainWnd::ProcessInput(string str)
 {
     if (!brain) return;
-    block = true; // block out sync-only UI functions
+    ++block; // block out sync-only UI functions
 
     // detach potentially long process into separate thread
     auto th = async(launch::async,[&] {
@@ -290,15 +294,13 @@ void MainWnd::ProcessInput(string str)
     if (brain->getState() == ANNA_ERROR)
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
 
-    block = false; // UI can be used again
+    --block; // UI can be used again
 }
 
 bool MainWnd::EmbedImage(const QString& fn)
 {
     if (!brain) return false;
-
-    bool oldblock = block;
-    block = true; // block out sync-only UI functions
+    ++block; // block out sync-only UI functions
 
     // detach long process into separate thread
     volatile bool signal = false;
@@ -315,7 +317,7 @@ bool MainWnd::EmbedImage(const QString& fn)
     if (!res)
         QMessageBox::critical(this,"ANNA",QString::fromStdString("Unable to embed image: "+brain->getError()));
 
-    block = oldblock;
+    --block; // UI can be used again
     return res;
 }
 
@@ -346,7 +348,7 @@ void MainWnd::Generate()
     string str;
     QString convo;
     stop = false;
-    block = true;
+    ++block;
 
     // main LLM generation loop - continues until brain is deleted (in processEvents()), or turnover, or error
     while (brain && !stop) {
@@ -382,10 +384,7 @@ void MainWnd::Generate()
 
         // set a temporary UI state to interactively "stream" the tokens which are being generated
         QString curout = cur_chat + convo;
-        if (guiconfig.md_fix) FixMarkdown(curout,md_fix_out_tab);
-        ui->ChatLog->setMarkdown(curout);
-        ui->ChatLog->moveCursor(QTextCursor::End);
-        ui->ChatLog->ensureCursorVisible();
+        UpdateChatLogFrom(curout);
         ui->ContextFull->setMaximum(config.params.n_ctx);
         tokens_cnt = brain->getTokensUsed();
         ui->ContextFull->setValue(tokens_cnt);
@@ -404,11 +403,11 @@ void MainWnd::Generate()
 
     // restore the global state and update the text widgets
     nowait = false;
-    block = false;
+    --block;
     cur_chat += convo + "\n";
     raw_output += convo + "\n";
     ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
-    on_actionRefresh_chat_box_triggered();
+    UpdateChatLogFrom(cur_chat);
 }
 
 QString MainWnd::GetSaveFileName(const AnnaFileDialogType tp)
@@ -495,7 +494,7 @@ void MainWnd::on_ModelPath_returnPressed()
 {
     QString fn = ui->ModelPath->text();
 
-    block = true;
+    ++block;
     if (!config.params.prompt[0]) {
         auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
                                         QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
@@ -508,15 +507,16 @@ void MainWnd::on_ModelPath_returnPressed()
         }
     }
     qApp->processEvents(); // make sure all dialog boxes are closed and not appeared to be frozen
-    block = false;
+    --block;
 
     if (guiconfig.clear_log) {
         ui->ChatLog->clear();
         cur_chat.clear();
         raw_output.clear();
+
     } else if (!cur_chat.isEmpty()) {
         cur_chat += "### New model loaded: " + fn + "\n\n\n\n";
-        on_actionRefresh_chat_box_triggered();
+        UpdateChatLogFrom(cur_chat);
     }
 
     LoadLLM(fn);
@@ -599,16 +599,19 @@ void MainWnd::on_SendButton_clicked()
     //qDebug("usr = '%s'\n",usr.toStdString().c_str());
     //qDebug("log = '%s'\n",log.toStdString().c_str());
 
-    if (guiconfig.md_fix) FixMarkdown(log,md_fix_in_tab);
+    //if (guiconfig.md_fix) FixMarkdown(log,md_fix_in_tab);
     cur_chat += log;
-    on_actionRefresh_chat_box_triggered();
+    UpdateChatLogFrom(cur_chat);
     ui->statusbar->showMessage("Processing...");
-    block = true;
-    qApp->processEvents();
 
+    // update the UI state and send the final form of the input to the brain
+    ++block;
+    qApp->processEvents();
     brain->setInput(usr.toStdString());
+    --block;
+
+    // now just casually generate a response :)
     Generate();
-    block = false;
 }
 
 void MainWnd::closeEvent(QCloseEvent* event)
@@ -723,7 +726,7 @@ void MainWnd::on_actionNew_dialog_triggered()
         cur_chat.clear();
     } else if (!cur_chat.isEmpty()) {
         cur_chat += "### New chat started\n\n\n\n";
-        on_actionRefresh_chat_box_triggered();
+        UpdateChatLogFrom(cur_chat);
     }
 
     UpdateRQPs();
@@ -864,7 +867,7 @@ bool MainWnd::LoadLLMState(const QString& fn)
         AnnaBrain br; // an "empty" brain (no model loaded)
         if (br.LoadState(fn.toStdString(),nullptr,nullptr)) {
             // now we can construct the real brain with the config extracted
-            block = true;
+            ++block;
             ui->statusbar->showMessage("Loading LLM file... Please wait!");
             qApp->processEvents();
 
@@ -875,7 +878,7 @@ bool MainWnd::LoadLLMState(const QString& fn)
             ui->ModelPath->setText(config.params.model);
             ui->statusbar->showMessage("LLM file loaded. Loading state...");
             qApp->processEvents();
-            block = false;
+            --block;
 
         } else {
             ui->statusbar->showMessage("Error: "+QString::fromStdString(br.getError()));
@@ -893,7 +896,7 @@ bool MainWnd::LoadLLMState(const QString& fn)
 
     dlg.resize(usrlen);
     cur_chat = QString::fromStdString(dlg);
-    on_actionRefresh_chat_box_triggered();
+    UpdateChatLogFrom(cur_chat);
     raw_output.clear();
     UpdateRQPs();
 
@@ -914,7 +917,7 @@ void MainWnd::on_actionShow_prompt_triggered()
     if (guiconfig.md_fix) FixMarkdown(r,md_fix_in_tab);
     if (!cur_chat.startsWith(r)) {
         cur_chat = r + "\n\n" + cur_chat;
-        on_actionRefresh_chat_box_triggered();
+        UpdateChatLogFrom(cur_chat);
     }
 }
 
@@ -951,9 +954,7 @@ void MainWnd::UpdateRQPs()
 
 void MainWnd::CheckRQPs(const QString& inp)
 {
-    bool pre_block = block;
-    block = true;
-
+    ++block; // lock out the UI while processing RQPs
     for (auto & i : rqps) {
         QString out = RQPEditor::DoRequest(i,inp,true,[&](QString& fn) {
             ui->statusbar->showMessage("Running external command "+fn);
@@ -964,12 +965,11 @@ void MainWnd::CheckRQPs(const QString& inp)
             if (ui->actionShow_RQP_output->isChecked()) {
                 FixMarkdown(out,md_fix_in_tab);
                 cur_chat += "\n\n### RQP output:\n\n" + out + "\n\n### End of RQP output\n\n";
-                on_actionRefresh_chat_box_triggered();
+                UpdateChatLogFrom(cur_chat);
             }
         }
     }
-
-    block = pre_block;
+    --block;
 }
 
 void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
@@ -983,7 +983,11 @@ void MainWnd::on_AttachmentsList_itemDoubleClicked(QListWidgetItem *item)
 
 void MainWnd::on_actionRefresh_chat_box_triggered()
 {
-    QString s = cur_chat;
+    UpdateChatLogFrom(cur_chat);
+}
+
+void MainWnd::UpdateChatLogFrom(QString s)
+{
     FixMarkdown(s,md_fix_out_tab);
     ui->ChatLog->setMarkdown(s);
     ui->ChatLog->moveCursor(QTextCursor::End);
@@ -1065,10 +1069,7 @@ bool MainWnd::WaitingFun(int prog, bool wait, const string& text)
 {
     if (nowait) return false; // is waiting temporarily prohibited?
     if (!busybox_lock.try_lock()) return false; // this might signal to other threads that waiting is already happening
-
-    // save previous block state and block the UI
-    bool prev_block = block;
-    block = true;
+    ++block; // block the UI
 
     if (prog >= 0) {
         // Some process is happening
@@ -1091,8 +1092,8 @@ bool MainWnd::WaitingFun(int prog, bool wait, const string& text)
     ui->ContextFull->setMaximum(config.params.n_ctx);
     ui->ContextFull->setValue(tokens_cnt);
 
-    // restore the block state, unlock and move along
-    block = prev_block;
+    // unlock and move along
+    --block;
     busybox_lock.unlock();
     return true;
 }

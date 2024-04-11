@@ -12,13 +12,14 @@
 #include <QSettings>
 #include <QCompleter>
 #include <mutex>
+#include <atomic>
 #include "rqpeditor.h"
 #include "busybox.h"
 #include "brain.h"
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.11.0pre"
+#define AG_VERSION "0.11.0-p2"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -170,7 +171,7 @@ private:
     AnnaAttachment* next_attach;
     bool last_username;
     bool stop;
-    bool block;
+    std::atomic_int block;
     QString filedlg_cache[ANNA_NUM_FILETYPES];
     std::vector<AnnaRQPState> rqps;
     std::mutex busybox_lock;
@@ -186,6 +187,7 @@ private:
     void LoadLLM(const QString& fn);
     bool LoadLLMState(const QString& fn);
     void FixMarkdown(QString& s, const char** tab);
+    void UpdateChatLogFrom(QString s);
     void UpdateRQPs();
     void CheckRQPs(const QString& inp);
     void ForceAIName(const QString& nm);

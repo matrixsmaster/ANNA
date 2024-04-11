@@ -10,6 +10,7 @@ enum AriaState {
     ARIA_NOT_INITIALIZED,
     ARIA_ERROR,
     ARIA_LOADED,
+    ARIA_READY,
     ARIA_RUNNING,
     ARIA_NUMSTATES
 };
@@ -26,8 +27,11 @@ public:
     bool setInput(std::string in);
     std::string getOutput();
 
+    AriaState Processing();
+
     int scriptGetVersion();
     int scriptPrintOut();
+    int scriptGetInput();
     int scriptCreateBrain();
     int scriptDeleteBrain();
 
@@ -38,7 +42,9 @@ private:
     std::string scriptfn;
     std::string merror;
     std::string output;
+    std::string last_input;
 
     bool StartVM();
     void ErrorVM();
+    bool LuaCall(std::string f, const char* args, ...);
 };

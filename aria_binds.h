@@ -16,6 +16,7 @@
 
 LFUNC(bind_GetVersion,scriptGetVersion)
 LFUNC(bind_PrintOut,scriptPrintOut)
+LFUNC(bind_GetInput,scriptGetInput)
 
 #endif // ARIA_BINDS_FUNCTIONS
 
@@ -23,5 +24,6 @@ LFUNC(bind_PrintOut,scriptPrintOut)
 
 LBIND(bind_GetVersion,"getversion");
 LBIND(bind_PrintOut,"printout");
+LBIND(bind_GetInput,"getinput");
 
 #endif // ARIA_BINDS_NAMES

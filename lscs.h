@@ -22,8 +22,8 @@ public:
 
     //std::string getOutput() override;
     void setInput(std::string inp) override;
-    void setPrefix(std::string str) override                    {}
-    void addEmbeddings(const std::vector<float>& emb) override  {}
+    void setPrefix(std::string) override                        {}
+    void addEmbeddings(const std::vector<float>&) override      {}
 
     std::string PrintContext() override                         { return ""; }
 

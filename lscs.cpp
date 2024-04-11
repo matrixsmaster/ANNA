@@ -37,7 +37,15 @@ void AnnaLSCS::setConfig(const AnnaConfig &cfg)
 
 void AnnaLSCS::setInput(std::string inp)
 {
-    //TODO
+    for (auto &i : pods) {
+        if (!i.second) continue;
+        if (i.second->getState() == ARIA_ERROR) continue;
+        if (!i.second->setInput(inp) && i.second->getState() == ARIA_ERROR) {
+            state = ANNA_ERROR;
+            internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second->getError().c_str());
+            break;
+        }
+    }
 }
 
 bool AnnaLSCS::SaveState(std::string fname, const void *user_data, size_t user_size)
@@ -63,7 +71,7 @@ AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)
     state = ANNA_TURNOVER;
     for (auto &i : pods) {
         if (!i.second) continue;
-        if (i.second->getState() == ARIA_ERROR) {
+        if (i.second->Processing() == ARIA_ERROR) {
             state = ANNA_ERROR;
             internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second->getError().c_str());
             break;

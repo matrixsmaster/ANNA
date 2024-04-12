@@ -38,11 +38,11 @@ void AnnaLSCS::setConfig(const AnnaConfig &cfg)
 void AnnaLSCS::setInput(std::string inp)
 {
     for (auto &i : pods) {
-        if (!i.second) continue;
-        if (i.second->getState() == ARIA_ERROR) continue;
-        if (!i.second->setInput(inp) && i.second->getState() == ARIA_ERROR) {
+        if (!i.second.ptr) continue;
+        if (i.second.ptr->getState() == ARIA_ERROR) continue;
+        if (!i.second.ptr->setInput(inp) && i.second.ptr->getState() == ARIA_ERROR) {
             state = ANNA_ERROR;
-            internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second->getError().c_str());
+            internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second.ptr->getError().c_str());
             break;
         }
     }
@@ -70,14 +70,14 @@ AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)
 {
     state = ANNA_TURNOVER;
     for (auto &i : pods) {
-        if (!i.second) continue;
-        if (i.second->Processing() == ARIA_ERROR) {
+        if (!i.second.ptr) continue;
+        if (i.second.ptr->Processing() == ARIA_ERROR) {
             state = ANNA_ERROR;
-            internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second->getError().c_str());
+            internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second.ptr->getError().c_str());
             break;
         }
 
-        string tmp = i.second->getOutput();
+        string tmp = i.second.ptr->getOutput();
         if (tmp.empty()) continue;
         accumulator += tmp;
         state = ANNA_READY;
@@ -96,7 +96,7 @@ void AnnaLSCS::Reset()
 void AnnaLSCS::Clear()
 {
     for (auto &i : pods) {
-        if (i.second) delete i.second;
+        if (i.second.ptr) delete i.second.ptr;
     }
     pods.clear();
     cfgmap.clear();
@@ -135,6 +135,7 @@ bool AnnaLSCS::CreatePods()
         return false;
     }
 
+    // create pods first
     for (int i = 0; i < npods; i++) {
         string pnm = cfgmap[myformat("pod%dname",i)];
         if (pnm.empty()) {
@@ -151,13 +152,35 @@ bool AnnaLSCS::CreatePods()
             return false;
         }
 
-        Aria* pod = new Aria(pscr);
-        if (pod->getState() != ARIA_LOADED) {
-            internal_error = myformat("Unable to start pod: %s",pod->getError().c_str());
-            delete pod;
+        AriaPod pod;
+        pod.ptr = new Aria(pscr,pnm);
+        if (pod.ptr->getState() != ARIA_LOADED) {
+            internal_error = myformat("Unable to start pod: %s",pod.ptr->getError().c_str());
+            delete pod.ptr;
             return false;
         }
         pods[pnm] = pod;
+    }
+
+    // now check and create connections
+    for (int i = 0; i < npods; i++) {
+        string pnm = cfgmap[myformat("pod%dname",i)];
+        string pconns = cfgmap[myformat("pod%doutputs",i)];
+
+        while (!pconns.empty()) {
+            auto pos = pconns.find(' ');
+            string to = pconns.substr(0,pos);
+            if (pos != string::npos) pconns.erase(0,pos+1);
+            else pconns.clear();
+
+            if (!pods.count(to)) {
+                internal_error = myformat("Pod %d (%s) trying to connect to '%s', but it's not registered",i,pnm.c_str(),to.c_str());
+                return false;
+            }
+
+            pods[pnm].outs.push_back(to);
+            DBG("Pod %s now outputs to %s\n",pnm.c_str(),to.c_str());
+        }
     }
 
     return true;

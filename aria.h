@@ -4,7 +4,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.1"
+#define ARIA_VERSION "0.0.2"
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -18,7 +18,7 @@ enum AriaState {
 class Aria
 {
 public:
-    Aria(std::string scriptfile);
+    Aria(std::string scriptfile, std::string name);
     virtual ~Aria();
 
     AriaState getState()            { return state; }
@@ -39,7 +39,7 @@ private:
     lua_State* luavm = nullptr;
     AnnaBrain* brain = nullptr;
     AriaState state = ARIA_NOT_INITIALIZED;
-    std::string scriptfn;
+    std::string scriptfn, mname;
     std::string merror;
     std::string output;
     std::string last_input;

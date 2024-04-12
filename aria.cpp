@@ -23,9 +23,10 @@ using namespace std;
 #include "aria_binds.h"
 #undef ARIA_BINDS_FUNCTIONS
 
-Aria::Aria(string scriptfile)
+Aria::Aria(string scriptfile, std::string name)
 {
     scriptfn = scriptfile;
+    mname = name;
     if (!StartVM()) return;
     state = ARIA_LOADED;
 }
@@ -153,7 +154,7 @@ bool Aria::LuaCall(std::string f, const char* args, ...)
 
     //now call the target
     r = lua_pcall(luavm,num,1,0);
-    DBG("pod %s called %s, result = %d",scriptfn.c_str(),f.c_str(),r);
+    DBG("pod %s called %s, result = %d\n",scriptfn.c_str(),f.c_str(),r);
     res = true;
 
     //check the results

@@ -6,7 +6,12 @@
 #include "brain.h"
 #include "aria.h"
 
-#define AnnaLSCS_VERSION "0.0.1"
+#define AnnaLSCS_VERSION "0.0.2"
+
+struct AriaPod {
+    Aria* ptr;
+    std::vector<std::string> outs;
+};
 
 class AnnaLSCS : public AnnaBrain
 {
@@ -41,7 +46,7 @@ public:
 private:
     std::string config_fn;
     std::map<std::string,std::string> cfgmap;
-    std::map<std::string,Aria*> pods;
+    std::map<std::string,AriaPod> pods;
 
     bool ParseConfig();
     bool CreatePods();

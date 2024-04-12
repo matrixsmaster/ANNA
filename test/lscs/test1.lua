@@ -1,12 +1,18 @@
 lastin = ""
 
 function processing()
-    if getinput() == lastin then return end
     lastin = getinput()
     print(lastin)
     printout("You've entered '" .. lastin .. "'")
 end
 
-local s = "hello from Aria pod ver." .. getversion()
+function outpin(pin)
+    print(pin)
+    printout("Sending data from " .. getname() .. " pin " .. pin .. ": " .. lastin)
+    return lastin
+end
+
+local s = "Hello from Aria pod ver." .. getversion() .. " named " .. getname()
 print(s)
 printout(s)
+setiocount(0,1)

@@ -39,12 +39,8 @@ void AnnaLSCS::setInput(std::string inp)
 {
     for (auto &i : pods) {
         if (!i.second.ptr) continue;
-        if (i.second.ptr->getState() == ARIA_ERROR) continue;
-        if (!i.second.ptr->setInput(inp) && i.second.ptr->getState() == ARIA_ERROR) {
-            state = ANNA_ERROR;
-            internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second.ptr->getError().c_str());
-            break;
-        }
+        if (i.second.ptr->getState() != ARIA_READY) continue;
+        i.second.ptr->setGlobalInput(inp);
     }
 }
 
@@ -68,20 +64,64 @@ bool AnnaLSCS::EmbedImage(std::string imgfile)
 
 AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)
 {
-    state = ANNA_TURNOVER;
-    for (auto &i : pods) {
-        if (!i.second.ptr) continue;
-        if (i.second.ptr->Processing() == ARIA_ERROR) {
-            state = ANNA_ERROR;
-            internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second.ptr->getError().c_str());
-            break;
-        }
+    string tmp;
+    AnnaState next = ANNA_TURNOVER;
 
-        string tmp = i.second.ptr->getOutput();
-        if (tmp.empty()) continue;
-        accumulator += tmp;
+    switch (state) {
+    case ANNA_ERROR:
+    case ANNA_NOT_INITIALIZED:
+        return state;
+
+    case ANNA_READY:
+        // prepare and run the pods asynchronously
+        for (auto &i : pods) {
+            i.second.mark = false;
+            if (i.second.ptr) {
+                // if pod is immediately available, then we can mark it right now
+                if (i.second.ptr->Processing() == ARIA_READY) i.second.mark = true;
+                else next = ANNA_PROCESSING; // this means we have more cycles to do in the future
+            }
+        }
+        state = next;
+        break;
+
+    case ANNA_PROCESSING:
+        // check that all pods have joined their threads
+        for (auto &i : pods) {
+            if (!i.second.ptr) continue;
+            if (i.second.mark) continue; // has already been processed
+
+            switch (i.second.ptr->Processing()) {
+            case ARIA_ERROR:
+                state = ANNA_ERROR;
+                internal_error = myformat("pod %s error: %s",i.first.c_str(),i.second.ptr->getError().c_str());
+                return state;
+
+            case ARIA_READY:
+                // grab whatever global output which has been produced
+                tmp = i.second.ptr->getGlobalOutput();
+                if (!tmp.empty()) accumulator += tmp;
+                // propagate output signals
+                FanOut(i.first);
+
+            case ARIA_RUNNING:
+                // normal situation, waiting
+                break;
+
+            default:
+                // wrong situation, stop
+                state = ANNA_ERROR;
+                internal_error = myformat("pod %s in in wrong state for processing() call: %d",i.first.c_str(),i.second.ptr->getState());
+                return state;
+            }
+        }
         state = ANNA_READY;
+        break;
+
+    default:
+        break;
     }
+
     return state;
 }
 
@@ -100,6 +140,7 @@ void AnnaLSCS::Clear()
     }
     pods.clear();
     cfgmap.clear();
+    links.clear();
 }
 
 bool AnnaLSCS::ParseConfig()
@@ -110,13 +151,53 @@ bool AnnaLSCS::ParseConfig()
         return false;
     }
 
+    int r,fsm = 0;
     char key[256],val[2048];
+    AriaLink lnk;
     while (!feof(f)) {
-        if (fscanf(f,"%255s = %2047[^\n]",key,val) != 2) break;
-        for (size_t i = 0; i < sizeof(key) && key[i]; i++) key[i] = tolower(key[i]);
-        cfgmap[key] = val;
-        DBG("key/val read: '%s' / '%s'\n",key,val);
+        switch (fsm) {
+        case 0:
+            r = fscanf(f,"%255s = %2047[^\n]",key,val);
+            switch (r) {
+            case 0: goto endparse;
+            case 1:
+                if (!strcasecmp(key,"connections")) ++fsm;
+                else {
+                    internal_error = myformat("Unrecognized section name '%s'",key);
+                    fclose(f);
+                    return false;
+                }
+                break;
+            case 2:
+                for (size_t i = 0; i < sizeof(key) && key[i]; i++) key[i] = tolower(key[i]);
+                cfgmap[key] = val;
+                DBG("key/val read: '%s' / '%s'\n",key,val);
+                break;
+            }
+            break;
+
+        case 1:
+            r = fscanf(f,"%255[^.].%255s",key,val);
+            if (r == 2) {
+                lnk.from = key;
+                lnk.pin_from = atoi(val);
+                r = fscanf(f," -> %255[^.].%255s\n",key,val);
+                if (r == 2) {
+                    lnk.to = key;
+                    lnk.pin_to = atoi(val);
+                    links[lnk.from].push_back(lnk);
+                }
+            }
+            if (r != 2) {
+                internal_error = myformat("Can't parse link data in %s",config_fn.c_str());
+                fclose(f);
+                return false;
+            }
+            break;
+        }
     }
+
+endparse:
     fclose(f);
 
     if (cfgmap.empty()) {
@@ -154,7 +235,7 @@ bool AnnaLSCS::CreatePods()
 
         AriaPod pod;
         pod.ptr = new Aria(pscr,pnm);
-        if (pod.ptr->getState() != ARIA_LOADED) {
+        if (pod.ptr->getState() != ARIA_READY) {
             internal_error = myformat("Unable to start pod: %s",pod.ptr->getError().c_str());
             delete pod.ptr;
             return false;
@@ -162,26 +243,32 @@ bool AnnaLSCS::CreatePods()
         pods[pnm] = pod;
     }
 
-    // now check and create connections
-    for (int i = 0; i < npods; i++) {
-        string pnm = cfgmap[myformat("pod%dname",i)];
-        string pconns = cfgmap[myformat("pod%doutputs",i)];
-
-        while (!pconns.empty()) {
-            auto pos = pconns.find(' ');
-            string to = pconns.substr(0,pos);
-            if (pos != string::npos) pconns.erase(0,pos+1);
-            else pconns.clear();
-
-            if (!pods.count(to)) {
-                internal_error = myformat("Pod %d (%s) trying to connect to '%s', but it's not registered",i,pnm.c_str(),to.c_str());
+    // now check the connections
+    for (auto &&i : links) {
+        if (!pods.count(i.first)) {
+            internal_error = myformat("Can't find a pod named %s as a source pod",i.first.c_str());
+            return false;
+        }
+        for (auto &&j : i.second) {
+            if (j.pin_from < 0 || j.pin_from >= pods[i.first].ptr->getNumOutPins()) {
+                internal_error = myformat("Output pin %d doesn't exist in pod %s",j.pin_from,j.to.c_str());
                 return false;
             }
-
-            pods[pnm].outs.push_back(to);
-            DBG("Pod %s now outputs to %s\n",pnm.c_str(),to.c_str());
+            if (!pods.count(j.to)) {
+                internal_error = myformat("Can't find a pod named %s as a target pod",j.to.c_str());
+                return false;
+            }
+            if (j.pin_to < 0 || j.pin_to >= pods[j.to].ptr->getNumOutPins()) {
+                internal_error = myformat("Input pin %d doesn't exist in pod %s",j.pin_to,i.first.c_str());
+                return false;
+            }
         }
     }
 
     return true;
+}
+
+void AnnaLSCS::FanOut(std::string from)
+{
+    //TODO: send outputs
 }

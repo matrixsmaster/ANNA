@@ -28,22 +28,23 @@ Aria::Aria(string scriptfile, std::string name)
     scriptfn = scriptfile;
     mname = name;
     if (!StartVM()) return;
-    state = ARIA_LOADED;
+    state = ARIA_READY;
 }
 
 Aria::~Aria()
 {
+    StopProcessing();
     if (luavm) lua_close(luavm);
     if (brain) delete brain;
 }
 
-bool Aria::setInput(std::string in)
+bool Aria::setGlobalInput(std::string in)
 {
-    last_input = in;
+    input = in;
     return true;
 }
 
-string Aria::getOutput()
+string Aria::getGlobalOutput()
 {
     string tmp = output;
     output.clear();
@@ -53,7 +54,30 @@ string Aria::getOutput()
 AriaState Aria::Processing()
 {
     if (!luavm) return ARIA_NOT_INITIALIZED;
-    if (!LuaCall("processing",nullptr)) state = ARIA_ERROR;
+
+    switch (state) {
+    case ARIA_READY:
+        if (process_thr) StopProcessing();
+        state = ARIA_RUNNING;
+        thr_state = ARIA_THR_NOT_RUNNING;
+        process_thr = new std::thread([&] {
+            thr_state = ARIA_THR_RUNNING;
+            if (!LuaCall("processing",nullptr)) state = ARIA_ERROR;
+            thr_state = ARIA_THR_STOPPED;
+        });
+        break;
+
+    case ARIA_RUNNING:
+        if (thr_state == ARIA_THR_STOPPED) {
+            state = ARIA_READY;
+            StopProcessing();
+        }
+        break;
+
+    default:
+        break;
+    }
+
     return state;
 }
 
@@ -167,6 +191,23 @@ bool Aria::LuaCall(std::string f, const char* args, ...)
     return res;
 }
 
+void Aria::StopProcessing()
+{
+    switch (thr_state) {
+    case ARIA_THR_RUNNING:
+        thr_state = ARIA_THR_FORCE_STOP;
+        // fall-through
+    case ARIA_THR_STOPPED:
+    case ARIA_THR_FORCE_STOP:
+        process_thr->join();
+        break;
+    case ARIA_THR_NOT_RUNNING:
+        break;
+    }
+    if (process_thr) delete process_thr;
+    process_thr = nullptr;
+}
+
 int Aria::scriptGetVersion()
 {
     ARIA_BIND_HEADER("getversion",0);
@@ -186,6 +227,8 @@ int Aria::scriptPrintOut()
 int Aria::scriptGetInput()
 {
     ARIA_BIND_HEADER("getinput",0);
+    last_input = input;
+    input.clear();
     lua_pushstring(R,last_input.c_str());
     return 1;
 }

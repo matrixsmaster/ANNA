@@ -6,11 +6,16 @@
 #include "brain.h"
 #include "aria.h"
 
-#define LSCS_VERSION "0.0.2"
+#define LSCS_VERSION "0.0.3"
 
 struct AriaPod {
     Aria* ptr;
-    std::vector<std::string> outs;
+    bool mark;
+};
+
+struct AriaLink {
+    std::string from, to;
+    int pin_from, pin_to;
 };
 
 class AnnaLSCS : public AnnaBrain
@@ -47,7 +52,9 @@ private:
     std::string config_fn;
     std::map<std::string,std::string> cfgmap;
     std::map<std::string,AriaPod> pods;
+    std::map<std::string,std::vector<AriaLink> > links;
 
     bool ParseConfig();
     bool CreatePods();
+    void FanOut(std::string from);
 };

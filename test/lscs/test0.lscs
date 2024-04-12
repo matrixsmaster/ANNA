@@ -1,0 +1,10 @@
+NPods = 2
+
+Pod0Name = master
+Pod0Script = test1.lua
+Pod0Outputs = slave
+
+Pod1Name = slave
+Pod1Script = test2.lua
+
+Pod2Script = User Data/testing long path/script.lua

@@ -10,5 +10,4 @@ Pod2Script = User Data/testing long path/script.lua
 
 Connections
 
-master.0 -> slave.1
-slave.2 -> master.1
+master.0 -> slave.0

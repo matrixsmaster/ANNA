@@ -1,6 +1,7 @@
 lastin = ""
 
 function processing()
+    if lastin == "" then return end
     print(lastin)
     printout("We've received '" .. lastin .. "'")
 end

@@ -2,6 +2,7 @@ lastin = ""
 
 function processing()
     lastin = getinput()
+    if lastin == "" then return end
     print(lastin)
     printout("You've entered '" .. lastin .. "'")
 end

@@ -193,19 +193,22 @@ bool Aria::LuaCall(std::string f, const char* args, ...)
 
 void Aria::StopProcessing()
 {
-    switch (thr_state) {
-    case ARIA_THR_RUNNING:
-        thr_state = ARIA_THR_FORCE_STOP;
-        // fall-through
-    case ARIA_THR_STOPPED:
-    case ARIA_THR_FORCE_STOP:
-        process_thr->join();
-        break;
-    case ARIA_THR_NOT_RUNNING:
-        break;
+    if (process_thr) {
+        switch (thr_state) {
+        case ARIA_THR_RUNNING:
+            thr_state = ARIA_THR_FORCE_STOP;
+            // fall-through
+        case ARIA_THR_STOPPED:
+        case ARIA_THR_FORCE_STOP:
+            process_thr->join();
+            break;
+        case ARIA_THR_NOT_RUNNING:
+            break;
+        }
+        if (process_thr) delete process_thr;
+        process_thr = nullptr;
     }
-    if (process_thr) delete process_thr;
-    process_thr = nullptr;
+    thr_state = ARIA_THR_NOT_RUNNING;
 }
 
 int Aria::scriptGetVersion()
@@ -231,6 +234,21 @@ int Aria::scriptGetInput()
     input.clear();
     lua_pushstring(R,last_input.c_str());
     return 1;
+}
+
+int Aria::scriptGetName()
+{
+    ARIA_BIND_HEADER("getinput",0);
+    lua_pushstring(R,mname.c_str());
+    return 1;
+}
+
+int Aria::scriptSetIOCount()
+{
+    ARIA_BIND_HEADER("setiocount",2);
+    pins = luaL_checknumber(R,1);
+    pouts = luaL_checknumber(R,2);
+    return 0;
 }
 
 int Aria::scriptCreateBrain()

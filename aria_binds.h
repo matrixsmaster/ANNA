@@ -17,6 +17,8 @@
 LFUNC(bind_GetVersion,scriptGetVersion)
 LFUNC(bind_PrintOut,scriptPrintOut)
 LFUNC(bind_GetInput,scriptGetInput)
+LFUNC(bind_GetName,scriptGetName)
+LFUNC(bind_SetIOCount,scriptSetIOCount)
 
 #endif // ARIA_BINDS_FUNCTIONS
 
@@ -25,5 +27,7 @@ LFUNC(bind_GetInput,scriptGetInput)
 LBIND(bind_GetVersion,"getversion");
 LBIND(bind_PrintOut,"printout");
 LBIND(bind_GetInput,"getinput");
+LBIND(bind_GetName,"getname");
+LBIND(bind_SetIOCount,"setiocount");
 
 #endif // ARIA_BINDS_NAMES

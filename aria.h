@@ -46,6 +46,8 @@ public:
     int scriptGetVersion();
     int scriptPrintOut();
     int scriptGetInput();
+    int scriptGetName();
+    int scriptSetIOCount();
     int scriptCreateBrain();
     int scriptDeleteBrain();
 
@@ -54,7 +56,7 @@ private:
     AnnaBrain* brain = nullptr;
     AriaState state = ARIA_NOT_INITIALIZED;
     std::thread* process_thr = nullptr;
-    std::atomic<AriaThreadSem> thr_state;
+    std::atomic<AriaThreadSem> thr_state = ARIA_THR_NOT_RUNNING;
     std::string scriptfn, mname;
     std::string merror;
     std::string output;

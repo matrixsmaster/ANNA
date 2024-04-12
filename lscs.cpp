@@ -72,6 +72,7 @@ AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)
     case ANNA_NOT_INITIALIZED:
         return state;
 
+    case ANNA_TURNOVER:
     case ANNA_READY:
         // prepare and run the pods asynchronously
         for (auto &i : pods) {
@@ -98,14 +99,17 @@ AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)
                 return state;
 
             case ARIA_READY:
+                i.second.mark = true;
                 // grab whatever global output which has been produced
                 tmp = i.second.ptr->getGlobalOutput();
                 if (!tmp.empty()) accumulator += tmp;
                 // propagate output signals
                 FanOut(i.first);
+                break;
 
             case ARIA_RUNNING:
-                // normal situation, waiting
+                // normal situation, processing
+                next = ANNA_PROCESSING;
                 break;
 
             default:
@@ -115,7 +119,7 @@ AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)
                 return state;
             }
         }
-        state = ANNA_READY;
+        state = next;
         break;
 
     default:
@@ -218,21 +222,39 @@ bool AnnaLSCS::CreatePods()
 
     // create pods first
     for (int i = 0; i < npods; i++) {
+        // extract and check pod's name
         string pnm = cfgmap[myformat("pod%dname",i)];
         if (pnm.empty()) {
             internal_error = myformat("No name (alias) provided for pod %d",i);
             return false;
         }
+        // should be unique
         if (pods.count(pnm)) {
             internal_error = myformat("Duplicate pod name for pod %d",i);
             return false;
         }
+
+        // extract pod's script
         string pscr = cfgmap[myformat("pod%dscript",i)];
         if (pscr.empty()) {
             internal_error = myformat("No script provided for pod %d",i);
             return false;
         }
+        // and fix its path
+#ifdef _WIN32
+        char delim = '\\';
+        if (!(pscr.length() > 3 && pscr.at(1) == ':' && pscr.at(2) == delim)) {
+#else
+        char delim = '/';
+        if (pscr.at(0) != delim) { // don't do anything to an absolute path
+#endif
+            auto pos = config_fn.rfind(delim);
+            if (pos != string::npos) {
+                pscr = config_fn.substr(0,pos) + delim + pscr;
+            }
+        }
 
+        // actually create and register the pod
         AriaPod pod;
         pod.ptr = new Aria(pscr,pnm);
         if (pod.ptr->getState() != ARIA_READY) {
@@ -251,15 +273,15 @@ bool AnnaLSCS::CreatePods()
         }
         for (auto &&j : i.second) {
             if (j.pin_from < 0 || j.pin_from >= pods[i.first].ptr->getNumOutPins()) {
-                internal_error = myformat("Output pin %d doesn't exist in pod %s",j.pin_from,j.to.c_str());
+                internal_error = myformat("Output pin %d doesn't exist in pod %s",j.pin_from,i.first.c_str());
                 return false;
             }
             if (!pods.count(j.to)) {
                 internal_error = myformat("Can't find a pod named %s as a target pod",j.to.c_str());
                 return false;
             }
-            if (j.pin_to < 0 || j.pin_to >= pods[j.to].ptr->getNumOutPins()) {
-                internal_error = myformat("Input pin %d doesn't exist in pod %s",j.pin_to,i.first.c_str());
+            if (j.pin_to < 0 || j.pin_to >= pods[j.to].ptr->getNumInPins()) {
+                internal_error = myformat("Input pin %d doesn't exist in pod %s",j.pin_to,j.to.c_str());
                 return false;
             }
         }

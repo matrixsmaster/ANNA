@@ -4,6 +4,7 @@ function processing()
     if lastin == "" then return end
     print(lastin)
     printout("We've received '" .. lastin .. "'")
+    lastin = ""
 end
 
 function inpin(pin,msg)

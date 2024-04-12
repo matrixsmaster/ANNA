@@ -51,6 +51,19 @@ string Aria::getGlobalOutput()
     return tmp;
 }
 
+void Aria::setInPin(int pin, std::string str)
+{
+    if (pin < 0 || pin >= pins) return;
+    LuaCall("inpin","is",pin,str.c_str());
+}
+
+string Aria::getOutPin(int pin)
+{
+    if (pin < 0 || pin >= pouts) return "";
+    if (LuaCall("outpin","i",pin)) return LuaGetString();
+    return "";
+}
+
 AriaState Aria::Processing()
 {
     if (!luavm) return ARIA_NOT_INITIALIZED;
@@ -185,10 +198,18 @@ bool Aria::LuaCall(std::string f, const char* args, ...)
     if (r != LUA_OK) { //in case of errors, remove values from stack
         res = false;
         ErrorVM();
-
     }
 
     return res;
+}
+
+string Aria::LuaGetString()
+{
+    if (!luavm) return "";
+    if (!lua_isstring(luavm,-1)) return "";
+    string r = lua_tostring(luavm,-1);
+    DBG("string returned: '%s'\n",r.c_str());
+    return r;
 }
 
 void Aria::StopProcessing()

@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.3"
+#define ARIA_VERSION "0.0.4"
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -67,5 +67,6 @@ private:
     bool StartVM();
     void ErrorVM();
     bool LuaCall(std::string f, const char* args, ...);
+    std::string LuaGetString();
     void StopProcessing();
 };

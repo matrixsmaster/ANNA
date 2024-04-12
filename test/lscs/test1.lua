@@ -5,6 +5,7 @@ function processing()
     if lastin == "" then return end
     print(lastin)
     printout("You've entered '" .. lastin .. "'")
+    --lastin = ""
 end
 
 function outpin(pin)

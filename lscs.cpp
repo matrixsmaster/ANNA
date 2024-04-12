@@ -292,5 +292,20 @@ bool AnnaLSCS::CreatePods()
 
 void AnnaLSCS::FanOut(std::string from)
 {
-    //TODO: send outputs
+    if (!pods.count(from) || !links.count(from)) return;
+    Aria* pod = pods[from].ptr;
+    if (!pod) return;
+
+    map<int,string> outs;
+    for (auto &&i : links[from]) {
+        if (!outs.count(i.pin_from))
+            outs[i.pin_from] = pod->getOutPin(i.pin_from);
+
+        Aria* recv = pods[i.to].ptr;
+        if (!recv) {
+            internal_error = myformat("Receiver pod %s doesn't exist",i.to.c_str());
+            return;
+        }
+        recv->setInPin(i.pin_to,outs[i.pin_from]);
+    }
 }

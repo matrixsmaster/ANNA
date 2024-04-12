@@ -10,9 +10,8 @@
 #define AG_PROCESS_WAIT_US 10000UL
 #define AG_ARGPARSE_FAILSAFE 100
 
-namespace Ui {
-class RQPEditor;
-}
+typedef std::function<void(QString&)> AnnaRQPNotify;
+typedef std::function<bool(QString&,QStringList&)> AnnaRQPFilter;
 
 struct AnnaRQPFile {
     QString fn;
@@ -25,6 +24,10 @@ struct AnnaRQPState {
     QRegExp bex, eex;
 };
 
+namespace Ui {
+class RQPEditor;
+}
+
 class RQPEditor : public QDialog
 {
     Q_OBJECT
@@ -34,7 +37,7 @@ public:
     ~RQPEditor();
 
     static QStringList DetectRQP(const QString& in, AnnaRQPState& st);
-    static QString DoRequest(AnnaRQPState& rqp, const QString& inp, bool do_events, std::function<void(QString&)> notify);
+    static QString DoRequest(AnnaRQPState& rqp, const QString& inp, bool do_events, AnnaRQPFilter filter, AnnaRQPNotify notify);
 
     QString filename;
 

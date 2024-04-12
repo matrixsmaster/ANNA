@@ -12,6 +12,7 @@ SOURCES += \
     helpbox.cpp \
     main.cpp \
     mainwnd.cpp \
+    revrqpdialog.cpp \
     rqpeditor.cpp \
     settingsdialog.cpp
 
@@ -30,6 +31,7 @@ HEADERS += \
     helpbox.h \
     mainwnd.h \
     mainwnd_tabs.h \
+    revrqpdialog.h \
     rqpeditor.h \
     settingsdialog.h
 
@@ -38,6 +40,7 @@ FORMS += \
     busybox.ui \
     helpbox.ui \
     mainwnd.ui \
+    revrqpdialog.ui \
     rqpeditor.ui \
     settingsdialog.ui
 

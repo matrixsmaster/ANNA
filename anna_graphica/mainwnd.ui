@@ -667,9 +667,6 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
    <property name="text">
     <string>Review RQP</string>
    </property>

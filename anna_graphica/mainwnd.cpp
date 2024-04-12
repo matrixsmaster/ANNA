@@ -8,6 +8,7 @@
 #include "settingsdialog.h"
 #include "aboutbox.h"
 #include "helpbox.h"
+#include "revrqpdialog.h"
 #include "mainwnd_tabs.h"
 
 using namespace std;
@@ -956,9 +957,19 @@ void MainWnd::CheckRQPs(const QString& inp)
 {
     ++block; // lock out the UI while processing RQPs
     for (auto & i : rqps) {
-        QString out = RQPEditor::DoRequest(i,inp,true,[&](QString& fn) {
+        QString out = RQPEditor::DoRequest(i,inp,true,[&](QString& fn, QStringList& args) -> bool {
+            if (!ui->actionReview_RQP->isChecked()) return true;
+            RevRQPDialog dlg;
+            dlg.setCode(fn,args);
+            if (dlg.exec() == QDialog::Accepted) {
+                dlg.getCode(fn,args);
+                return true;
+            } else
+                return false;
+        },[&](QString& fn) {
             ui->statusbar->showMessage("Running external command "+fn);
         });
+
         if (!out.isEmpty()) {
             ui->statusbar->showMessage("Finished running external command");
             ProcessInput(out.toStdString());

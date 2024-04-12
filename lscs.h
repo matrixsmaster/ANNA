@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "aria.h"
 
-#define AnnaLSCS_VERSION "0.0.2"
+#define LSCS_VERSION "0.0.2"
 
 struct AriaPod {
     Aria* ptr;

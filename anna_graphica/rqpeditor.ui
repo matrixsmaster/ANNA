@@ -217,7 +217,7 @@
            <item>
             <widget class="QPlainTextEdit" name="stderrTemplate">
              <property name="toolTip">
-              <string>Use &quot;%t&quot; to insert stdout contents; use &quot;%b&quot; and &quot;%e&quot; to insert BoS and EoS tokens respectively.</string>
+              <string>Use &quot;%t&quot; to insert stderr contents; use &quot;%b&quot; and &quot;%e&quot; to insert BoS and EoS tokens respectively.</string>
              </property>
             </widget>
            </item>

@@ -239,7 +239,7 @@ void RQPEditor::on_pushButton_clicked()
     if (!fn.isEmpty()) ui->command->setText(fn);
 }
 
-QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_events, std::function<void(QString&)> notify)
+QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_events, AnnaRQPFilter filter, AnnaRQPNotify notify)
 {
     if (!rqp.s) return "";
 
@@ -252,6 +252,11 @@ QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_even
     rqp.s->beginGroup("MAIN");
     QString fn = rqp.s->value("command").toString();
     if (fn.isEmpty()) return "";
+
+    // double-check (and potentially change) the final form before execution
+    if (filter) {
+        if (!filter(fn,r)) return ""; // was aborted by the filter function
+    }
 
     // start the process and wait until it's actually started
     QProcess p;
@@ -297,7 +302,7 @@ void RQPEditor::on_pushButton_2_clicked()
     s.s = sets;
 
     for (int i = 0; i < AG_ARGPARSE_FAILSAFE; i++) {
-        QString out = DoRequest(s,ui->testEdit->toPlainText(),true,nullptr);
+        QString out = DoRequest(s,ui->testEdit->toPlainText(),true,nullptr,nullptr);
         if (!out.isEmpty()) {
             ui->testOut->setPlainText(out);
             break;

@@ -433,6 +433,7 @@
      <string>Tools</string>
     </property>
     <addaction name="actionRequester_plugins"/>
+    <addaction name="actionLSCS_editor"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuModel"/>
@@ -669,6 +670,14 @@
    </property>
    <property name="text">
     <string>Review RQP</string>
+   </property>
+  </action>
+  <action name="actionLSCS_editor">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>LSCS editor</string>
    </property>
   </action>
  </widget>

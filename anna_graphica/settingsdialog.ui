@@ -971,12 +971,12 @@
         <rect>
          <x>10</x>
          <y>20</y>
-         <width>181</width>
+         <width>261</width>
          <height>19</height>
         </rect>
        </property>
        <property name="text">
-        <string>Enter button behavior</string>
+        <string>[Enter] button behavior</string>
        </property>
       </widget>
       <widget class="QLabel" name="label_5">
@@ -1206,6 +1206,12 @@
        </property>
        <item>
         <widget class="QCheckBox" name="useServer">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
          <property name="text">
           <string>Use remote server for inference</string>
          </property>
@@ -1234,8 +1240,24 @@
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
         <widget class="QCheckBox" name="useLSCS">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
          <property name="text">
           <string>Use Lightweight Scripted Consciousness Simulation</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="checkBox">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>Allow continous generation</string>
          </property>
         </widget>
        </item>

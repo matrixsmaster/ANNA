@@ -19,6 +19,12 @@ LFUNC(bind_PrintOut,scriptPrintOut)
 LFUNC(bind_GetInput,scriptGetInput)
 LFUNC(bind_GetName,scriptGetName)
 LFUNC(bind_SetIOCount,scriptSetIOCount)
+LFUNC(bind_BrainStart,scriptBrainStart)
+LFUNC(bind_BrainStop,scriptBrainStop)
+LFUNC(bind_BrainIn,scriptBrainIn)
+LFUNC(bind_BrainOut,scriptBrainOut)
+LFUNC(bind_BrainPrefix,scriptBrainPrefix)
+LFUNC(bind_BrainProcess,scriptBrainProcess)
 
 #endif // ARIA_BINDS_FUNCTIONS
 
@@ -29,5 +35,11 @@ LBIND(bind_PrintOut,"printout");
 LBIND(bind_GetInput,"getinput");
 LBIND(bind_GetName,"getname");
 LBIND(bind_SetIOCount,"setiocount");
+LBIND(bind_BrainStart,"brainstart");
+LBIND(bind_BrainStop,"brainstop");
+LBIND(bind_BrainIn,"brainin");
+LBIND(bind_BrainOut,"brainout");
+LBIND(bind_BrainPrefix,"brainprefix");
+LBIND(bind_BrainProcess,"brainprocess");
 
 #endif // ARIA_BINDS_NAMES

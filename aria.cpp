@@ -1,4 +1,7 @@
 /* This code uses parts of the ARIA library (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2024 */
+#include <string.h>
+#include "brain.h"
+#include "netclient.h"
 #include "aria.h"
 
 #define ERR(X,...) fprintf(stderr, "[ARIA] ERROR: " X "\n", __VA_ARGS__)
@@ -272,12 +275,76 @@ int Aria::scriptSetIOCount()
     return 0;
 }
 
-int Aria::scriptCreateBrain()
+int Aria::scriptBrainStart()
 {
+    ARIA_BIND_HEADER("brainstart",2);
+    string mod = luaL_checkstring(R,1);
+    string srv = luaL_checkstring(R,2);
+    strncpy(bconfig.params.model,mod.c_str(),sizeof(bconfig.params.model));
+
+    if (brain) {
+        ERR("Brain has already been created, refusing to create another one for model %s\n",mod.c_str());
+        lua_pushboolean(R,false);
+
+    } else {
+        if (srv.empty()) {
+            // normal offline instance
+            brain = new AnnaBrain(&bconfig);
+            DBG("Normal brain created\n");
+
+        } else {
+            // offloaded instance
+            brain = new AnnaClient(&bconfig,srv,false,nullptr);
+            DBG("Net client created\n");
+        }
+
+        lua_pushboolean(R,(brain->getState() == ANNA_READY));
+    }
+    return 1;
+}
+
+int Aria::scriptBrainStop()
+{
+    ARIA_BIND_HEADER("brainstop",0);
+    if (brain) delete brain;
+    brain = nullptr;
     return 0;
 }
 
-int Aria::scriptDeleteBrain()
+int Aria::scriptBrainIn()
 {
+    ARIA_BIND_HEADER("brainin",1);
+    string in = luaL_checkstring(R,1);
+    if (brain && !in.empty()) brain->setInput(in);
     return 0;
+}
+
+int Aria::scriptBrainOut()
+{
+    ARIA_BIND_HEADER("brainout",0);
+    string r;
+    if (brain) r = brain->getOutput();
+    lua_pushstring(R,r.c_str());
+    return 1;
+}
+
+int Aria::scriptBrainPrefix()
+{
+    ARIA_BIND_HEADER("brainprefix",1);
+    string in = luaL_checkstring(R,1);
+    if (brain) brain->setPrefix(in);
+    return 0;
+}
+
+int Aria::scriptBrainProcess()
+{
+    ARIA_BIND_HEADER("brainprocess",1);
+    bool skip = lua_toboolean(R,1);
+    // we'll return true in case of errors to prevent potential infinite loops in scripts
+    if (brain) {
+        AnnaState s = brain->Processing(skip);
+        lua_pushboolean(R,(s != ANNA_PROCESSING));
+    } else
+        lua_pushboolean(R,true);
+    return 1;
 }

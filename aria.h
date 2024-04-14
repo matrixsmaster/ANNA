@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.4"
+#define ARIA_VERSION "0.0.5"
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -48,12 +48,17 @@ public:
     int scriptGetInput();
     int scriptGetName();
     int scriptSetIOCount();
-    int scriptCreateBrain();
-    int scriptDeleteBrain();
+    int scriptBrainStart();
+    int scriptBrainStop();
+    int scriptBrainIn();
+    int scriptBrainOut();
+    int scriptBrainPrefix();
+    int scriptBrainProcess();
 
 private:
     lua_State* luavm = nullptr;
     AnnaBrain* brain = nullptr;
+    AnnaConfig bconfig;
     AriaState state = ARIA_NOT_INITIALIZED;
     std::thread* process_thr = nullptr;
     std::atomic<AriaThreadSem> thr_state = ARIA_THR_NOT_RUNNING;

@@ -41,6 +41,23 @@ Aria::~Aria()
     if (brain) delete brain;
 }
 
+string Aria::FixPath(string parent, string fn)
+{
+#ifdef _WIN32
+    char delim = '\\';
+    if (!(fn.length() > 3 && fn.at(1) == ':' && fn.at(2) == delim)) {
+#else
+    char delim = '/';
+    if (fn.at(0) != delim) { // don't do anything to an absolute path
+#endif
+        auto pos = parent.rfind(delim);
+        if (pos != string::npos) {
+            fn = parent.substr(0,pos) + delim + fn;
+        }
+    }
+    return fn;
+}
+
 bool Aria::setGlobalInput(std::string in)
 {
     input = in;
@@ -280,6 +297,8 @@ int Aria::scriptBrainStart()
     ARIA_BIND_HEADER("brainstart",2);
     string mod = luaL_checkstring(R,1);
     string srv = luaL_checkstring(R,2);
+
+    mod = FixPath(scriptfn,mod);
     strncpy(bconfig.params.model,mod.c_str(),sizeof(bconfig.params.model));
 
     if (brain) {

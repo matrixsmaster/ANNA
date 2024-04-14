@@ -241,18 +241,7 @@ bool AnnaLSCS::CreatePods()
             return false;
         }
         // and fix its path
-#ifdef _WIN32
-        char delim = '\\';
-        if (!(pscr.length() > 3 && pscr.at(1) == ':' && pscr.at(2) == delim)) {
-#else
-        char delim = '/';
-        if (pscr.at(0) != delim) { // don't do anything to an absolute path
-#endif
-            auto pos = config_fn.rfind(delim);
-            if (pos != string::npos) {
-                pscr = config_fn.substr(0,pos) + delim + pscr;
-            }
-        }
+        pscr = Aria::FixPath(config_fn,pscr);
 
         // actually create and register the pod
         AriaPod pod;

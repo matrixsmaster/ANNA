@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.5"
+#define ARIA_VERSION "0.0.6"
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -34,6 +34,8 @@ public:
     std::string getError()          const   { return merror; }
     int getNumInPins()              const   { return pins; }
     int getNumOutPins()             const   { return pouts; }
+
+    static std::string FixPath(std::string parent, std::string fn);
 
     bool setGlobalInput(std::string in);
     std::string getGlobalOutput();

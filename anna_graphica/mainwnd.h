@@ -19,18 +19,16 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.11.0-p6"
+#define AG_VERSION "0.11.0"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
 #define AG_ICON_H 48
-#define AG_DEFAULT_CONTEXT 4096
-#define AG_DEFAULT_BATCH 512
-#define AG_DEFAULT_TEMP 0.3
 #define AG_DEFAULT_PROMPT "SYSTEM: You're a helpful AI assistant named Anna. You're helping your user with their daily tasks.\n"
 #define AG_CONFIG_FILE "anna.cfg"
 #define AG_QUICK_FILE "quicksave.anna"
 #define AG_MDFIX_FAILSAFE 100000
+#define AG_VERBOSE 1
 #define AG_DEFAULT_SERVER "127.0.0.1:8080"
 #define AG_SERVER_WAIT_MS 50
 #define AG_SERVER_WAIT_CYCLES 20

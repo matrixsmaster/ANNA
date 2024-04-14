@@ -18,7 +18,7 @@
 #include "brain.h"
 #include "netclient.h"
 
-#define CLI_VERSION "0.8.1"
+#define CLI_VERSION "0.8.2"
 
 #define ERR(X,...) fprintf(stderr, "[ANNA] ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "[ANNA] ERROR: " __VA_ARGS__)
@@ -31,9 +31,6 @@
 
 #define MAX_INPUT_LEN 2048
 #define MAX_INPUT_WAIT_MS 250
-#define DEFAULT_CONTEXT 4096
-#define DEFAULT_BATCH 512
-#define DEFAULT_TEMP 0.4
 #define MAX_CONVO_LEN (2UL * 1024UL * 1024UL)
 
 using namespace std;
@@ -275,25 +272,11 @@ string run_request(string cmd)
     return res;
 }
 
-/* Back-ported from AnnaGraphica */
 void default_config(AnnaConfig& cfg)
 {
     cfg.convert_eos_to_nl = true;
     cfg.nl_to_turnover = true;
     cfg.no_pad_in_prefix = true;
-    cfg.verbose_level = 0;
-
-    gpt_params* p = &cfg.params;
-    p->seed = 0;
-    p->n_threads = thread::hardware_concurrency();
-    if (p->n_threads < 1) p->n_threads = 1;
-    p->n_predict = -1;
-    p->n_ctx = DEFAULT_CONTEXT;
-    p->n_batch = DEFAULT_BATCH;
-    p->n_gpu_layers = 0;
-    p->model[0] = 0;
-    p->prompt[0] = 0;
-    p->sparams.temp = DEFAULT_TEMP;
 }
 
 /* Back-ported from AnnaGraphica */

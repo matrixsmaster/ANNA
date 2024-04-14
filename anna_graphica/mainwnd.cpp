@@ -60,19 +60,7 @@ void MainWnd::DefaultConfig()
     config.convert_eos_to_nl = true;
     config.nl_to_turnover = false;
     config.no_pad_in_prefix = false;
-    config.verbose_level = 1;
-
-    gpt_params* p = &config.params;
-    p->seed = 0;
-    p->n_threads = thread::hardware_concurrency();
-    if (p->n_threads < 1) p->n_threads = 1;
-    p->n_predict = -1;
-    p->n_ctx = AG_DEFAULT_CONTEXT;
-    p->n_batch = AG_DEFAULT_BATCH;
-    p->n_gpu_layers = 0;
-    p->model[0] = 0;
-    p->prompt[0] = 0;
-    p->sparams.temp = AG_DEFAULT_TEMP;
+    config.verbose_level = AG_VERBOSE;
 
     config.user = &guiconfig;
     guiconfig.enter_key = 0;

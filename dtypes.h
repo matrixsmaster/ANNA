@@ -21,18 +21,18 @@ struct __attribute__((packed)) llama_sampling_params {
     int32_t     top_k                 = 40;       // <= 0 to use vocab size
     float       top_p                 = 0.95f;    // 1.0 = disabled
     float       min_p                 = 0.05f;    // 0.0 = disabled
-    float       tfs_z                 = 1.00f;    // 1.0 = disabled
-    float       typical_p             = 1.00f;    // 1.0 = disabled
-    float       temp                  = 0.80f;    // <= 0.0 to sample greedily, 0.0 to not output probabilities
-    float       dynatemp_range        = 0.00f;    // 0.0 = disabled
-    float       dynatemp_exponent     = 1.00f;    // controls how entropy maps to temperature in dynamic temperature sampler
+    float       tfs_z                 = 1.0f;     // 1.0 = disabled
+    float       typical_p             = 1.0f;     // 1.0 = disabled
+    float       temp                  = 0.3f;     // <= 0.0 to sample greedily, 0.0 to not output probabilities
+    float       dynatemp_range        = 0.0f;     // 0.0 = disabled
+    float       dynatemp_exponent     = 1.0f;     // controls how entropy maps to temperature in dynamic temperature sampler
     int32_t     penalty_last_n        = 64;       // last n tokens to penalize (0 = disable penalty, -1 = context size)
-    float       penalty_repeat        = 1.10f;    // 1.0 = disabled
-    float       penalty_freq          = 0.00f;    // 0.0 = disabled
-    float       penalty_present       = 0.00f;    // 0.0 = disabled
+    float       penalty_repeat        = 1.1f;     // 1.0 = disabled
+    float       penalty_freq          = 0.0f;     // 0.0 = disabled
+    float       penalty_present       = 0.0f;     // 0.0 = disabled
     int32_t     mirostat              = 0;        // 0 = disabled, 1 = mirostat, 2 = mirostat 2.0
-    float       mirostat_tau          = 5.00f;    // target entropy
-    float       mirostat_eta          = 0.10f;    // learning rate
+    float       mirostat_tau          = 5.0f;     // target entropy
+    float       mirostat_eta          = 0.1f;     // learning rate
     bool        penalize_nl           = true;     // consider newlines as a repeatable token
     char        samplers_sequence[LLAMA_MAX_SAMPLER_SEQ] = "kfypmt"; // top_k, tail_free, typical_p, top_p, min_p, temp
 
@@ -51,13 +51,13 @@ struct __attribute__((packed)) llama_sampling_params {
 
 struct __attribute__((packed)) gpt_params {
     float   tensor_split[128]     = {0};   // how split tensors should be distributed across GPUs
-    uint32_t seed                 = -1;    // RNG seed
+    uint32_t seed                 = 0;     // RNG seed
     int32_t n_threads             = get_num_physical_cores();
     int32_t n_threads_draft       = -1;
     int32_t n_threads_batch       = -1;    // number of threads to use for batch processing (-1 = use n_threads)
     int32_t n_threads_batch_draft = -1;
     int32_t n_predict             = -1;    // new tokens to predict
-    int32_t n_ctx                 = 512;   // context size
+    int32_t n_ctx                 = 4096;  // context size
     int32_t n_batch               = 512;   // batch size for prompt processing (must be >=32 to use BLAS)
     int32_t n_keep                = 0;     // number of tokens to keep from initial prompt
     int32_t n_draft               = 8;     // number of tokens to draft during speculative decoding
@@ -66,7 +66,7 @@ struct __attribute__((packed)) gpt_params {
     int32_t n_sequences           = 1;     // number of sequences to decode
     float   p_accept              = 0.5f;  // speculative decoding accept probability
     float   p_split               = 0.1f;  // speculative decoding split probability
-    int32_t n_gpu_layers          = -1;    // number of layers to store in VRAM (-1 - use default)
+    int32_t n_gpu_layers          = 0;     // number of layers to store in VRAM (-1 - use default)
     int32_t n_gpu_layers_draft    = -1;    // number of layers to store in VRAM for the draft model (-1 - use default)
     llama_split_mode split_mode   = LLAMA_SPLIT_LAYER; // how to split the model across GPUs
     int32_t main_gpu              = 0;     // the GPU that is used for scratch and small tensors

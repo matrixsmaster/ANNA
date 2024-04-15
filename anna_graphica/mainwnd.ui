@@ -427,6 +427,7 @@
     <addaction name="actionClear_chat_log"/>
     <addaction name="actionReview_RQP"/>
     <addaction name="actionShow_RQP_output"/>
+    <addaction name="actionShow_lock"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -678,6 +679,11 @@
    </property>
    <property name="text">
     <string>LSCS editor</string>
+   </property>
+  </action>
+  <action name="actionShow_lock">
+   <property name="text">
+    <string>Show lock</string>
    </property>
   </action>
  </widget>

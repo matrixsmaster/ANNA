@@ -43,11 +43,13 @@ Aria::~Aria()
 
 string Aria::FixPath(string parent, string fn)
 {
+    char delim = '/';
 #ifdef _WIN32
-    char delim = '\\';
+    // in mingw the paths will be POSIX-style, but we might still need to fix user-supplied paths
+    for (auto &i : parent) i = (i == '\\')? delim : i;
+    for (auto &i : fn) i = (i == '\\')? delim : i;
     if (!(fn.length() > 3 && fn.at(1) == ':' && fn.at(2) == delim)) {
 #else
-    char delim = '/';
     if (fn.at(0) != delim) { // don't do anything to an absolute path
 #endif
         auto pos = parent.rfind(delim);

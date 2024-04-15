@@ -146,7 +146,7 @@ win32 {
     CXXWARNS = -Wall -Wextra -Wpedantic -Wcast-qual -Wmissing-declarations -Wno-unused-function -Wno-multichar -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-parameter -Wno-format-truncation -Wno-array-bounds -Wno-unused-result
 
     QMAKE_CFLAGS += $$CWARNS -mno-ms-bitfields
-    QMAKE_CXXFLAGS += $$CXXWARNS -mno-ms-bitfields
+    QMAKE_CXXFLAGS += $$CXXWARNS -mno-ms-bitfields -std=c++17
 
     QMAKE_LFLAGS_WINDOWS += -Wl,--stack,100000000
 

@@ -1123,3 +1123,8 @@ void MainWnd::on_actionRequester_plugins_triggered()
     on_actionSettings_triggered();
     SettingsDialog::tab_idx = old;
 }
+
+void MainWnd::on_actionShow_lock_triggered()
+{
+    ui->statusbar->showMessage(QString::fromStdString(AnnaBrain::myformat("lock value = %d",int(block))));
+}

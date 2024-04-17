@@ -13,6 +13,11 @@
 
 using namespace std;
 
+AnnaLSCS::AnnaLSCS()
+{
+    state = ANNA_NOT_INITIALIZED;
+}
+
 AnnaLSCS::AnnaLSCS(std::string cfgfile)
 {
     config_fn = cfgfile;

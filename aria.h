@@ -24,6 +24,7 @@ enum AriaThreadSem {
     ARIA_THR_FORCE_STOP
 };
 
+// Artificially Restricted Intelligence Agent
 class Aria
 {
 public:

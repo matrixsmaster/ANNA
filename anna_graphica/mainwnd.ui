@@ -674,9 +674,6 @@
    </property>
   </action>
   <action name="actionLSCS_editor">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
    <property name="text">
     <string>LSCS editor</string>
    </property>

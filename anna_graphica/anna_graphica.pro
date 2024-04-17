@@ -10,6 +10,7 @@ SOURCES += \
     aboutbox.cpp \
     busybox.cpp \
     helpbox.cpp \
+    lscseditor.cpp \
     main.cpp \
     mainwnd.cpp \
     revrqpdialog.cpp \
@@ -29,6 +30,7 @@ HEADERS += \
     aboutbox.h \
     busybox.h \
     helpbox.h \
+    lscseditor.h \
     mainwnd.h \
     mainwnd_tabs.h \
     revrqpdialog.h \
@@ -39,6 +41,7 @@ FORMS += \
     aboutbox.ui \
     busybox.ui \
     helpbox.ui \
+    lscseditor.ui \
     mainwnd.ui \
     revrqpdialog.ui \
     rqpeditor.ui \

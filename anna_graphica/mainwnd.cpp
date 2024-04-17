@@ -9,6 +9,7 @@
 #include "aboutbox.h"
 #include "helpbox.h"
 #include "revrqpdialog.h"
+#include "lscseditor.h"
 #include "mainwnd_tabs.h"
 
 using namespace std;
@@ -1127,4 +1128,11 @@ void MainWnd::on_actionRequester_plugins_triggered()
 void MainWnd::on_actionShow_lock_triggered()
 {
     ui->statusbar->showMessage(QString::fromStdString(AnnaBrain::myformat("lock value = %d",int(block))));
+}
+
+void MainWnd::on_actionLSCS_editor_triggered()
+{
+    LSCSEditor ed;
+    ed.exec();
+    qDebug("LSCS editor returned\n");
 }

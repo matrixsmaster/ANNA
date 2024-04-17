@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "aria.h"
 
-#define LSCS_VERSION "0.0.5"
+#define LSCS_VERSION "0.0.6"
 
 struct AriaPod {
     Aria* ptr;
@@ -21,6 +21,7 @@ struct AriaLink {
 class AnnaLSCS : public AnnaBrain
 {
 public:
+    AnnaLSCS();
     AnnaLSCS(std::string cfgfile);
     virtual ~AnnaLSCS();
 

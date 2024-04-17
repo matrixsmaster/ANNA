@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "aria.h"
 
-#define LSCS_VERSION "0.0.9"
+#define LSCS_VERSION "0.0.10"
 
 struct AriaPod {
     Aria* ptr = nullptr;
@@ -55,6 +55,8 @@ public:
     std::list<std::string> getPods();
 
     bool setPodScript(std::string name, std::string path);
+
+    std::vector<AriaLink> getLinksFrom(std::string name);
 
     bool WriteTo(std::string fn);
 

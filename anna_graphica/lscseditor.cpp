@@ -2,7 +2,6 @@
 #include <QCloseEvent>
 #include <QFileDialog>
 #include <QInputDialog>
-#include <QPainter>
 #include <QStyle>
 #include <QScrollBar>
 #include "lscseditor.h"
@@ -80,6 +79,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         for (auto &i : selection) {
             i->x += mx - ox;
             i->y += my - oy;
+            modified = true;
         }
         break;
 
@@ -126,6 +126,7 @@ void LSCSEditor::Update()
     QPainter p(&img);
     p.setBackground(QBrush(LCED_BACKGROUND));
 
+    // Draw the dotted grid
     QRgb gcol = LCED_GRID.rgb();
     for (int i = 0; i < img.height(); i += grid) {
         QRgb* line = (QRgb*)img.scanLine(i);
@@ -133,7 +134,8 @@ void LSCSEditor::Update()
             *line = gcol;
     }
 
-    p.setPen(LCED_BORDER);
+    // Draw all pods
+    bool redraw = false;
     auto lst = sys->getPods();
     for (auto &&i : lst) {
         AriaPod* pod = sys->getPod(i);
@@ -146,13 +148,55 @@ void LSCSEditor::Update()
         if (selection.contains(pod)) p.setBrush(QBrush(LCED_SELECT));
         else p.setBrush(QBrush(LCED_INFILL));
 
+        p.setPen(LCED_BORDER);
         p.drawRect(pod->x,pod->y,pod->w,pod->h);
+        p.setPen(LCED_TEXT);
         p.drawText(pod->x,pod->y-LCED_MARGIN,QString::fromStdString(i));
+
+        if (pod->ptr) {
+            p.setBrush(QBrush(LCED_INCOL));
+            int n = pod->ptr->getNumInPins();
+            if (n) DrawIO(&p,pod->x,pod->y+LCED_PIN_DIST,LCED_PIN_TXT_DX,n,LCED_INCOL);
+
+            p.setBrush(QBrush(LCED_OUTCOL));
+            n = pod->ptr->getNumOutPins();
+            if (n) DrawIO(&p,pod->x+pod->w,pod->y+LCED_PIN_DIST,-LCED_PIN_TXT_DX,n,LCED_OUTCOL);
+
+            n = LCED_PIN_DIST * (std::max(pod->ptr->getNumInPins(),pod->ptr->getNumInPins()) + 1);
+            if (pod->h < n) {
+                pod->h = n;
+                redraw = true;
+            }
+        }
 
         if (extent.width() < pod->x + pod->w) extent.setWidth(pod->x + pod->w + LCED_MARGIN);
         if (extent.height() < pod->y + pod->h) extent.setHeight(pod->y + pod->h + LCED_MARGIN);
     }
+    if (redraw) {
+        Update(); // this will draw all updated pod geometries
+        return;
+    }
 
+    // Draw connections (TODO: make them auto-routed)
+    QPen conpen(LCED_CONCOL);
+    conpen.setWidth(LCED_CON_WIDTH);
+    p.setPen(conpen);
+    for (auto &&i : lst) {
+        AriaPod* pod = sys->getPod(i);
+        int sx = pod->x + pod->w;
+        auto links = sys->getLinksFrom(i);
+        for (auto &&j : links) {
+            AriaPod* recv = sys->getPod(j.to);
+            if (!recv) continue;
+
+            int sy = pod->y + (j.pin_from + 1) * LCED_PIN_DIST;
+            int ey = recv->y + (j.pin_to + 1) * LCED_PIN_DIST;
+
+            p.drawLine(sx,sy,recv->x,ey);
+        }
+    }
+
+    // Update the form
     ui->out->setPixmap(QPixmap::fromImage(img));
 }
 
@@ -180,6 +224,7 @@ void LSCSEditor::on_actionLoad_triggered()
     } else
         ui->statusbar->showMessage(QString::asprintf("Loaded from %s",fn.c_str()));
 
+    Sanitize();
     Update();
 }
 
@@ -264,4 +309,60 @@ void LSCSEditor::on_actionAssign_script_triggered()
 
     Update();
     ui->statusbar->showMessage("Script assigned to selected pods");
+}
+
+void LSCSEditor::Sanitize()
+{
+    if (!sys) return;
+
+    auto lst = sys->getPods();
+    int minx = LCED_MARGIN, miny = LCED_MARGIN;
+
+    for (auto &&i : lst) {
+        AriaPod* pod = sys->getPod(i);
+        if (!pod) continue;
+
+        if (pod->x < 0) pod->x = 0;
+        if (pod->x > minx) minx = pod->x;
+        if (pod->y < 0) pod->y = 0;
+        if (pod->y > miny) miny = pod->y;
+
+        if (pod->w < LCED_MIN_WIDTH) pod->w = LCED_MIN_WIDTH;
+        if (pod->h < LCED_MIN_HEIGHT) pod->h = LCED_MIN_HEIGHT;
+    }
+
+    /*minx -= LCED_MARGIN;
+    miny -= LCED_MARGIN;
+    for (auto &&i : lst) {
+        AriaPod* pod = sys->getPod(i);
+        if (!pod) continue;
+        if (minx > 0) pod->x -= minx;
+        if (miny > 0) pod->y -= miny;
+    }*/
+}
+
+void LSCSEditor::on_actionSanitize_triggered()
+{
+    Sanitize();
+    Update();
+}
+
+void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int dtx, int num, QColor col)
+{
+    QPoint arr[LCED_SYM_CONNECT_N];
+    int darr[] = LCED_SYM_CONNECT;
+
+    for (int n = 0; n < num; n++) {
+        for (int i = 0; i < LCED_SYM_CONNECT_N; i++) {
+            arr[i].setX(sx + darr[i*2]);
+            arr[i].setY(sy + darr[i*2+1]);
+        }
+
+        p->setPen(col);
+        p->drawPolygon(arr,LCED_SYM_CONNECT_N);
+        p->setPen(LCED_TEXT);
+        p->drawText(sx+dtx,sy+LCED_PIN_TXT_DY,QString::asprintf("%d",n));
+
+        sy += LCED_PIN_DIST;
+    }
 }

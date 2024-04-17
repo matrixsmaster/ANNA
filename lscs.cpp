@@ -211,6 +211,12 @@ bool AnnaLSCS::setPodScript(std::string name, std::string path)
     return true;
 }
 
+vector<AriaLink> AnnaLSCS::getLinksFrom(string name)
+{
+    if (!links.count(name)) return vector<AriaLink>();
+    return links[name];
+}
+
 bool AnnaLSCS::WriteTo(string fn)
 {
     FILE* f = fopen(fn.c_str(),"w");

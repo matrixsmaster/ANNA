@@ -5,6 +5,7 @@
 #include <QPixmap>
 #include <QImage>
 #include <QColor>
+#include <QPainter>
 #include "lscs.h"
 
 #define LCED_MARGIN 8
@@ -12,11 +13,22 @@
 #define LCED_MIN_WIDTH 32
 #define LCED_MIN_HEIGHT 32
 #define LCED_DEF_GRID 8
+#define LCED_PIN_TXT_DX 8
+#define LCED_PIN_TXT_DY 4
+#define LCED_CON_WIDTH 2
+
 #define LCED_BACKGROUND QColor(0,0,0)
 #define LCED_GRID QColor(50,50,50)
+#define LCED_TEXT QColor(250,150,30)
 #define LCED_BORDER QColor(180,0,200)
 #define LCED_INFILL QColor(100,100,100)
 #define LCED_SELECT QColor(200,100,200)
+#define LCED_INCOL QColor(0,200,20)
+#define LCED_OUTCOL QColor(150,20,50)
+#define LCED_CONCOL QColor(100,100,250)
+
+#define LCED_SYM_CONNECT_N 7
+#define LCED_SYM_CONNECT { 0,0, -4,-3, 4,-3, 6,0, 4,3, -4,3, 0,0 }
 
 namespace Ui {
 class LSCSEditor;
@@ -51,6 +63,8 @@ private slots:
 
     void on_actionAssign_script_triggered();
 
+    void on_actionSanitize_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;
@@ -63,6 +77,8 @@ private:
     QList<AriaPod*> selection;
 
     AriaPod* getPodUnder(int x, int y);
+    void Sanitize();
+    void DrawIO(QPainter* p, int sx, int sy, int dtx, int num, QColor col);
 };
 
 #endif // LSCSEDITOR_H

@@ -4,6 +4,7 @@
 #include <QInputDialog>
 #include <QStyle>
 #include <QScrollBar>
+#include <QPainterPath>
 #include "lscseditor.h"
 #include "ui_lscseditor.h"
 
@@ -181,6 +182,7 @@ void LSCSEditor::Update()
     QPen conpen(LCED_CONCOL);
     conpen.setWidth(LCED_CON_WIDTH);
     p.setPen(conpen);
+    p.setBrush(QBrush(LCED_CONCOL,Qt::NoBrush));
     for (auto &&i : lst) {
         AriaPod* pod = sys->getPod(i);
         int sx = pod->x + pod->w;
@@ -192,7 +194,17 @@ void LSCSEditor::Update()
             int sy = pod->y + (j.pin_from + 1) * LCED_PIN_DIST;
             int ey = recv->y + (j.pin_to + 1) * LCED_PIN_DIST;
 
-            p.drawLine(sx,sy,recv->x,ey);
+            int ex = recv->x;
+            int dx = (ex-sx) / 2;
+            QPainterPath pth;
+            pth.moveTo(sx,sy);
+            if (ex >= sx)
+                pth.cubicTo(QPointF(sx+dx,sy),QPointF(sx+dx,ey),QPointF(ex,ey));
+            else
+                pth.cubicTo(QPointF(sx-dx,sy),QPointF(ex+dx,ey),QPointF(ex,ey));
+
+            p.drawPath(pth);
+            //p.drawLine(sx,sy,recv->x,ey);
         }
     }
 

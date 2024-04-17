@@ -19,7 +19,7 @@
 
 #define LCED_BACKGROUND QColor(0,0,0)
 #define LCED_GRID QColor(50,50,50)
-#define LCED_TEXT QColor(250,150,30)
+#define LCED_TEXT QColor(250,250,250)
 #define LCED_BORDER QColor(180,0,200)
 #define LCED_INFILL QColor(100,100,100)
 #define LCED_SELECT QColor(200,100,200)

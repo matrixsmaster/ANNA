@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.6"
+#define ARIA_VERSION "0.0.7"
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -33,6 +33,8 @@ public:
 
     AriaState getState()            const   { return state; }
     std::string getError()          const   { return merror; }
+    std::string getFName()          const   { return scriptfn; }
+    std::string getName()           const   { return mname; }
     int getNumInPins()              const   { return pins; }
     int getNumOutPins()             const   { return pouts; }
 

@@ -152,6 +152,43 @@ void AnnaLSCS::Clear()
     links.clear();
 }
 
+AriaPod* AnnaLSCS::getPod(string name)
+{
+    if (!pods.count(name)) return nullptr;
+    else return &(pods[name]);
+}
+
+bool AnnaLSCS::WriteTo(string fn)
+{
+    FILE* f = fopen(fn.c_str(),"w");
+    if (!f) {
+        internal_error = myformat("Unable to open file %s for writing",fn.c_str());
+        return false;
+    }
+
+    // write pods
+    int n = 0;
+    for (auto &&i : pods) {
+        if (!i.second.ptr) continue;
+        fprintf(f,"Pod%dName = %s\n",n,i.first.c_str());
+        fprintf(f,"Pod%dScript = %s\n",n,i.second.ptr->getFName().c_str());
+        n++;
+    }
+    fprintf(f,"NPods = %d\n",n);
+
+    // write links
+    fprintf(f,"\n\nCONNECTIONS\n\n");
+    for (auto &&i: links) {
+        for (auto &&j : i.second)
+            fprintf(f,"%s.%d -> %s.%d\n",j.from.c_str(),j.pin_from,j.to.c_str(),j.pin_to);
+    }
+
+    fclose(f);
+    cfgmap.clear(); // not needed anymore
+    config_fn = fn;
+    return true;
+}
+
 bool AnnaLSCS::ParseConfig()
 {
     FILE* f = fopen(config_fn.c_str(),"r");

@@ -1,17 +1,29 @@
 lastin = ""
 output = ""
+created = false
 
 function processing()
     lastin = getinput()
     output = ""
+    if not created then
+        if (brainstart("zephyr-7b-beta.Q3_K_M.gguf","")) then
+            printout("Brain started")
+        else
+            printout("Can't start the brain")
+        end
+        created = true
+    end
+
     if lastin ~= "" then
         printout("You've entered '" .. lastin .. "'")
         brainin(lastin)
         brainprefix("Anna:")
     end
+
     while not brainprocess(false) do
         print("processing....")
     end
+
     output = brainout()
 end
 
@@ -25,9 +37,3 @@ local s = "Hello from main Aria pod ver." .. getversion() .. " named " .. getnam
 print(s)
 printout(s)
 setiocount(0,1)
-
-if (brainstart("zephyr-7b-beta.Q3_K_M.gguf","")) then
-    printout("Brain started")
-else
-    printout("Can't start the brain")
-end

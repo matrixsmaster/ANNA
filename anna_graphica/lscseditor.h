@@ -4,7 +4,17 @@
 #include <QDialog>
 #include <QPixmap>
 #include <QImage>
+#include <QColor>
 #include "lscs.h"
+
+#define LCED_MARGIN 8
+#define LCED_PIN_DIST 16
+#define LCED_MIN_WIDTH 32
+#define LCED_MIN_HEIGHT 32
+#define LCED_BACKGROUND QColor(0,0,0)
+#define LCED_BORDER QColor(180,0,200)
+#define LCED_INFILL QColor(100,100,100)
+#define LCED_SELECT QColor(200,100,200)
 
 namespace Ui {
 class LSCSEditor;
@@ -19,6 +29,7 @@ public:
     ~LSCSEditor();
 
     void closeEvent(QCloseEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
     bool CloseIt(bool force = false);
     void Update();
@@ -32,12 +43,18 @@ private slots:
 
     void on_actionClose_triggered();
 
+    void on_actionAdd_pod_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;
     QImage img;
     QRect extent;
     bool modified = false;
+    int mx = 0, my = 0;
+    QList<AriaPod*> selection;
+
+    AriaPod* getPodUnder(int x, int y);
 };
 
 #endif // LSCSEDITOR_H

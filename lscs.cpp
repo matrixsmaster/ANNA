@@ -152,10 +152,55 @@ void AnnaLSCS::Clear()
     links.clear();
 }
 
+AriaPod* AnnaLSCS::addPod(std::string name)
+{
+    if (pods.count(name)) {
+        internal_error = myformat("Aria pod named %s already exists!",name.c_str());
+        return nullptr;
+    }
+    AriaPod npod;
+    pods[name] = npod;
+    return &(pods[name]);
+}
+
 AriaPod* AnnaLSCS::getPod(string name)
 {
-    if (!pods.count(name)) return nullptr;
-    else return &(pods[name]);
+    if (!pods.count(name)) {
+        internal_error = myformat("No Aria pod named %s",name.c_str());
+        return nullptr;
+    } else
+        return &(pods[name]);
+}
+
+list<string> AnnaLSCS::getPods()
+{
+    list<string> res;
+    for (auto &&i : pods) res.push_back(i.first);
+    return res;
+}
+
+bool AnnaLSCS::setPodScript(std::string name, std::string path)
+{
+    if (!pods.count(name)) {
+        internal_error = myformat("No Aria pod named %s",name.c_str());
+        return false;
+    }
+
+    if (pods[name].ptr) {
+        // remove old Aria first
+        delete pods[name].ptr;
+        pods[name].ptr = nullptr;
+    }
+
+    Aria* ptr = new Aria(path,name);
+    if (ptr->getState() != ARIA_READY) {
+        internal_error = myformat("Aria error: %s",ptr->getError().c_str());
+        delete ptr;
+        return false;
+    }
+
+    pods[name].ptr = ptr;
+    return true;
 }
 
 bool AnnaLSCS::WriteTo(string fn)

@@ -6,12 +6,12 @@
 #include "brain.h"
 #include "aria.h"
 
-#define LSCS_VERSION "0.0.7"
+#define LSCS_VERSION "0.0.8"
 
 struct AriaPod {
-    Aria* ptr;
-    bool mark;
-    int x,y,w,h;
+    Aria* ptr = nullptr;
+    bool mark = false;
+    int x = 0, y = 0, w = 0, h = 0;
 };
 
 struct AriaLink {
@@ -49,7 +49,11 @@ public:
     void Undo() override                                        {}
 
     void Clear();
+    AriaPod* addPod(std::string name);
     AriaPod* getPod(std::string name);
+    std::list<std::string> getPods();
+
+    bool setPodScript(std::string name, std::string path);
 
     bool WriteTo(std::string fn);
 

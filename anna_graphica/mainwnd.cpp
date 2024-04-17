@@ -1133,6 +1133,6 @@ void MainWnd::on_actionShow_lock_triggered()
 void MainWnd::on_actionLSCS_editor_triggered()
 {
     LSCSEditor ed;
-    ed.exec();
+    while (!ed.exec()) ; // work around Qt's stupid hardcoded bind for Esc key
     qDebug("LSCS editor returned\n");
 }

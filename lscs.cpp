@@ -172,6 +172,14 @@ AriaPod* AnnaLSCS::getPod(string name)
         return &(pods[name]);
 }
 
+string AnnaLSCS::getPodName(AriaPod* pod)
+{
+    for (auto &&i : pods) {
+        if (&(i.second) == pod) return i.first;
+    }
+    return "";
+}
+
 list<string> AnnaLSCS::getPods()
 {
     list<string> res;

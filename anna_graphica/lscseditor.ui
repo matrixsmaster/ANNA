@@ -54,6 +54,7 @@
       <addaction name="actionAdd_pod"/>
       <addaction name="actionDuplicate_pod"/>
       <addaction name="actionRemove_pod"/>
+      <addaction name="actionAssign_script"/>
      </widget>
      <widget class="QMenu" name="menuDebug">
       <property name="title">
@@ -65,8 +66,15 @@
        <string>Help</string>
       </property>
      </widget>
+     <widget class="QMenu" name="menuView">
+      <property name="title">
+       <string>View</string>
+      </property>
+      <addaction name="actionRedraw"/>
+     </widget>
      <addaction name="menuFile"/>
      <addaction name="menuEdit"/>
+     <addaction name="menuView"/>
      <addaction name="menuDebug"/>
      <addaction name="menuHelp"/>
     </widget>
@@ -86,6 +94,21 @@
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <property name="spacing">
+        <number>0</number>
+       </property>
        <item row="0" column="0">
         <widget class="QLabel" name="out">
          <property name="text">
@@ -160,6 +183,19 @@
    </property>
    <property name="shortcut">
     <string>Del</string>
+   </property>
+  </action>
+  <action name="actionRedraw">
+   <property name="text">
+    <string>Redraw</string>
+   </property>
+   <property name="shortcut">
+    <string>F4</string>
+   </property>
+  </action>
+  <action name="actionAssign_script">
+   <property name="text">
+    <string>Assign script</string>
    </property>
   </action>
  </widget>

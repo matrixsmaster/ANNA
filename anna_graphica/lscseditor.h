@@ -11,7 +11,9 @@
 #define LCED_PIN_DIST 16
 #define LCED_MIN_WIDTH 32
 #define LCED_MIN_HEIGHT 32
+#define LCED_DEF_GRID 8
 #define LCED_BACKGROUND QColor(0,0,0)
+#define LCED_GRID QColor(50,50,50)
 #define LCED_BORDER QColor(180,0,200)
 #define LCED_INFILL QColor(100,100,100)
 #define LCED_SELECT QColor(200,100,200)
@@ -45,6 +47,10 @@ private slots:
 
     void on_actionAdd_pod_triggered();
 
+    void on_actionRedraw_triggered();
+
+    void on_actionAssign_script_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;
@@ -52,6 +58,8 @@ private:
     QRect extent;
     bool modified = false;
     int mx = 0, my = 0;
+    int ox = 0, oy = 0;
+    int grid = LCED_DEF_GRID;
     QList<AriaPod*> selection;
 
     AriaPod* getPodUnder(int x, int y);

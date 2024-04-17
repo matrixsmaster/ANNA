@@ -53,35 +53,43 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         break;
     }
 
+    // standard event processing
+    if (!mev) return QObject::eventFilter(obj, event);
+
     // mouse processing (took code from my MILLA project)
     QRect aligned = QStyle::alignedRect(QApplication::layoutDirection(),QFlag(ui->out->alignment()),img.size(),ui->out->rect());
     QRect inter = aligned.intersected(ui->out->rect());
-    QPoint scrl_delta(0,0);
-    if (ui->scroll->horizontalScrollBar()) scrl_delta.setX(ui->scroll->horizontalScrollBar()->value());
-    if (ui->scroll->verticalScrollBar()) scrl_delta.setY(ui->scroll->verticalScrollBar()->value());
+    QPoint sd(0,0);
+    if (ui->scroll->horizontalScrollBar()) sd.setX(ui->scroll->horizontalScrollBar()->value());
+    if (ui->scroll->verticalScrollBar()) sd.setY(ui->scroll->verticalScrollBar()->value());
 
-    if (event->type() == QEvent::MouseMove) {
-        QPoint pt(mev->x()-inter.x(),mev->y()-inter.y());
-        pt += scrl_delta;
-        mx = pt.x();
-        my = pt.y();
-        qDebug("mx = %d\tmy = %d",mx,my);
+    QPoint pt(mev->x()-inter.x(),mev->y()-inter.y());
+    pt += sd;
+    mx = pt.x();
+    my = pt.y();
+    qDebug("mx = %d\tmy = %d",mx,my);
 
-        AriaPod* ptr = getPodUnder(mx,my);
-        if (ptr) {
-            //TODO: check for shift key
-            selection.clear();
-            selection.push_back(ptr);
+    AriaPod* ptr = getPodUnder(mx,my);
+    switch (event->type()) {
+    case QEvent::MouseButtonPress:
+        selection.clear(); //TODO: check for shift key
+        if (ptr) selection.push_back(ptr);
+        break;
+
+    case QEvent::MouseMove:
+        for (auto &i : selection) {
+            i->x += mx - ox;
+            i->y += my - oy;
         }
+        break;
+
+    default: break;
     }
 
-    if (mev) {
-        Update();
-        return true;
-    }
-
-    // standard event processing
-    return QObject::eventFilter(obj, event);
+    ox = mx;
+    oy = my;
+    Update();
+    return true;
 }
 
 bool LSCSEditor::CloseIt(bool force)
@@ -117,9 +125,15 @@ void LSCSEditor::Update()
 
     QPainter p(&img);
     p.setBackground(QBrush(LCED_BACKGROUND));
-    //p.setBrush(QBrush(LCED_INFILL));
-    p.setPen(LCED_BORDER);
 
+    QRgb gcol = LCED_GRID.rgb();
+    for (int i = 0; i < img.height(); i += grid) {
+        QRgb* line = (QRgb*)img.scanLine(i);
+        for (int j = 0; j < img.width(); j += grid, line += grid)
+            *line = gcol;
+    }
+
+    p.setPen(LCED_BORDER);
     auto lst = sys->getPods();
     for (auto &&i : lst) {
         AriaPod* pod = sys->getPod(i);
@@ -134,6 +148,9 @@ void LSCSEditor::Update()
 
         p.drawRect(pod->x,pod->y,pod->w,pod->h);
         p.drawText(pod->x,pod->y-LCED_MARGIN,QString::fromStdString(i));
+
+        if (extent.width() < pod->x + pod->w) extent.setWidth(pod->x + pod->w + LCED_MARGIN);
+        if (extent.height() < pod->y + pod->h) extent.setHeight(pod->y + pod->h + LCED_MARGIN);
     }
 
     ui->out->setPixmap(QPixmap::fromImage(img));
@@ -145,6 +162,7 @@ void LSCSEditor::on_actionNew_triggered()
 
     sys = new AnnaLSCS();
     ui->statusbar->showMessage("New LSCS system created");
+    Update();
 }
 
 void LSCSEditor::on_actionLoad_triggered()
@@ -218,4 +236,32 @@ AriaPod* LSCSEditor::getPodUnder(int x, int y)
         }
     }
     return nullptr;
+}
+
+void LSCSEditor::on_actionRedraw_triggered()
+{
+    Update();
+}
+
+void LSCSEditor::on_actionAssign_script_triggered()
+{
+    if (!sys || selection.empty()) return;
+    QString fn = QFileDialog::getOpenFileName(this,"Open Aria script","","Lua scripts (*.lua);;All files (*.*)");
+    if (fn.isEmpty()) return;
+
+    for (auto i : selection) {
+        std::string str = sys->getPodName(i);
+        if (str.empty()) {
+            ui->statusbar->showMessage("Error: invalid pod in selection!");
+            selection.clear();
+            return;
+        }
+        if (!sys->setPodScript(str,fn.toStdString())) {
+            ui->statusbar->showMessage(QString::asprintf("Error: unable to set script for %s: %s",str.c_str(),sys->getError().c_str()));
+            return;
+        }
+    }
+
+    Update();
+    ui->statusbar->showMessage("Script assigned to selected pods");
 }

@@ -63,8 +63,13 @@ bool AnnaLSCS::LoadState(std::string fname, void *user_data, size_t *user_size)
 
 bool AnnaLSCS::EmbedImage(std::string imgfile)
 {
-    //TODO
-    return false;
+    bool r = false;
+    for (auto &i : pods) {
+        if (!i.second.ptr) continue;
+        if (i.second.ptr->getState() != ARIA_READY) continue;
+        if (i.second.ptr->setUserImage(imgfile)) r = true;
+    }
+    return r;
 }
 
 AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)

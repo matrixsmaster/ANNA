@@ -85,6 +85,12 @@ string Aria::getGlobalOutput()
     return tmp;
 }
 
+bool Aria::setUserImage(std::string fn)
+{
+    usrimage = fn;
+    return true;
+}
+
 void Aria::setInPin(int pin, std::string str)
 {
     if (pin < 0 || pin >= pins) return;
@@ -291,6 +297,14 @@ int Aria::scriptGetInput()
     return 1;
 }
 
+int Aria::scriptGetUserImage()
+{
+    ARIA_BIND_HEADER("getuserimage",0);
+    lua_pushstring(R,usrimage.c_str());
+    usrimage.clear();
+    return 1;
+}
+
 int Aria::scriptGetName()
 {
     ARIA_BIND_HEADER("getinput",0);
@@ -344,6 +358,14 @@ int Aria::scriptBrainStop()
     return 0;
 }
 
+int Aria::scriptBrainState()
+{
+    ARIA_BIND_HEADER("brainstate",0);
+    string s = brain? AnnaBrain::StateToStr(brain->getState()) : "not loaded";
+    lua_pushstring(R,s.c_str());
+    return 1;
+}
+
 int Aria::scriptBrainIn()
 {
     ARIA_BIND_HEADER("brainin",1);
@@ -379,5 +401,22 @@ int Aria::scriptBrainProcess()
         lua_pushboolean(R,(s != ANNA_PROCESSING));
     } else
         lua_pushboolean(R,true);
+    return 1;
+}
+
+int Aria::scriptBrainSetVEnc()
+{
+    ARIA_BIND_HEADER("brainsetvenc",1);
+    string fn = luaL_checkstring(R,1);
+    if (!fn.empty() && brain) brain->setClipModelFile(fn);
+    return 0;
+}
+
+int Aria::scriptBrainLoadImage()
+{
+    ARIA_BIND_HEADER("brainloadimage",1);
+    string fn = luaL_checkstring(R,1);
+    bool r = (!fn.empty() && brain)? brain->EmbedImage(fn) : false;
+    lua_pushboolean(R,r);
     return 1;
 }

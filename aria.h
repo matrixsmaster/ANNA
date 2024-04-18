@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.7"
+#define ARIA_VERSION "0.0.8"
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -46,6 +46,8 @@ public:
     bool setGlobalInput(std::string in);
     std::string getGlobalOutput();
 
+    bool setUserImage(std::string fn);
+
     void setInPin(int pin, std::string str);
     std::string getOutPin(int pin);
 
@@ -54,14 +56,18 @@ public:
     int scriptGetVersion();
     int scriptPrintOut();
     int scriptGetInput();
+    int scriptGetUserImage();
     int scriptGetName();
     int scriptSetIOCount();
     int scriptBrainStart();
     int scriptBrainStop();
+    int scriptBrainState();
     int scriptBrainIn();
     int scriptBrainOut();
     int scriptBrainPrefix();
     int scriptBrainProcess();
+    int scriptBrainSetVEnc();
+    int scriptBrainLoadImage();
 
 private:
     lua_State* luavm = nullptr;
@@ -73,7 +79,7 @@ private:
     std::string scriptfn, mname;
     std::string merror;
     std::string output;
-    std::string input, last_input;
+    std::string input, last_input, usrimage;
     int pins = 0;
     int pouts = 0;
 

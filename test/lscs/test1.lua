@@ -16,15 +16,26 @@ function processing()
 
     if lastin ~= "" then
         printout("You've entered '" .. lastin .. "'")
-        brainin(lastin)
-        brainprefix("Anna:")
+        if lastin:sub(1,1) == "!" then
+            if lastin:sub(-1,-1) == "\n" then
+                output = lastin:sub(2,-2)
+            else
+                output = lastin:sub(2)
+            end
+            print("output = " .. output)
+        else
+            brainin(lastin)
+            brainprefix("Anna:")
+            while true do
+                while not brainprocess(false) do
+                    print("processing....")
+                end
+                if brainstate() ~= "ready" then break end
+                print("generating...")
+            end
+            printout(brainout())
+        end
     end
-
-    while not brainprocess(false) do
-        print("processing....")
-    end
-
-    output = brainout()
 end
 
 function outpin(pin)

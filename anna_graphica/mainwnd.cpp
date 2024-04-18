@@ -527,10 +527,10 @@ void MainWnd::on_SendButton_clicked()
     QString usrbox = ui->UserNameBox->currentText();
     if (last_username) {
         usr.clear(); // no need for initial newline
-        log += usrbox + " "; // we still need to put it into the log
+        if (!usrbox.isEmpty()) log += usrbox + " "; // we still need to put user prefix into the log
         last_username = false;
 
-    } else if (!(guiconfig.multi_usr && usrbox.contains('|')))
+    } else if (!usrbox.isEmpty() && !(guiconfig.multi_usr && usrbox.contains('|')))
         line = usrbox + " ";
 
     line += ui->UserInput->toPlainText();

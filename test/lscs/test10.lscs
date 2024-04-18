@@ -1,0 +1,23 @@
+NPods = 5
+
+Pod0Name = gen
+Pod1Name = proc
+Pod2Name = filter
+Pod3Name = timer
+Pod4Name = aux
+
+Pod0Script = 1in1out.lua
+Pod1Script = 3in1out.lua
+Pod2Script = 3in1out.lua
+Pod3Script = 0in1out.lua
+Pod4Script = 0in2out.lua
+
+Connections
+
+gen.0 -> proc.0
+proc.0 -> filter.0
+filter.0 -> gen.0
+timer.0 -> proc.1
+timer.0 -> filter.1
+aux.0 -> proc.2
+aux.1 -> filter.2

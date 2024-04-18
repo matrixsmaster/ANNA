@@ -1,0 +1,22 @@
+Pod0Name = aux
+Pod0Script = /home/lisa/dev/anna/test/lscs/0in2out.lua
+Pod1Name = filter
+Pod1Script = /home/lisa/dev/anna/test/lscs/3in1out.lua
+Pod2Name = gen
+Pod2Script = /home/lisa/dev/anna/test/lscs/1in1out.lua
+Pod3Name = proc
+Pod3Script = /home/lisa/dev/anna/test/lscs/3in1out.lua
+Pod4Name = timer
+Pod4Script = /home/lisa/dev/anna/test/lscs/0in1out.lua
+NPods = 5
+
+
+CONNECTIONS
+
+aux.0 -> proc.2
+aux.1 -> filter.2
+filter.0 -> gen.0
+gen.0 -> proc.0
+proc.0 -> filter.0
+timer.0 -> proc.1
+timer.0 -> filter.1

@@ -34,6 +34,7 @@ void LSCSEditor::closeEvent(QCloseEvent *event)
 bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
 {
     QMouseEvent* mev = nullptr;
+    QStatusTipEvent* ste;
 
     switch (event->type()) {
     case QEvent::MouseButtonPress:
@@ -43,11 +44,9 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         break;
 
     case QEvent::StatusTip:
-    {
-        QStatusTipEvent* se = static_cast<QStatusTipEvent*>(event);
-        if (se->tip().isEmpty()) return true;
+        ste = static_cast<QStatusTipEvent*>(event);
+        if (ste->tip().isEmpty()) return true;
         return false;
-    }
 
     default:
         break;
@@ -124,8 +123,8 @@ void LSCSEditor::Update()
         return;
     }
 
-    QPainter p(&img);
-    p.setBackground(QBrush(LCED_BACKGROUND));
+    QPainter* p = new QPainter(&img);
+    p->setBackground(QBrush(LCED_BACKGROUND));
 
     // Draw the dotted grid
     QRgb gcol = LCED_GRID.rgb();
@@ -146,24 +145,24 @@ void LSCSEditor::Update()
             continue;
         }
 
-        if (selection.contains(pod)) p.setBrush(QBrush(LCED_SELECT));
-        else p.setBrush(QBrush(LCED_INFILL));
+        if (selection.contains(pod)) p->setBrush(QBrush(LCED_SELECT));
+        else p->setBrush(QBrush(LCED_INFILL));
 
-        p.setPen(LCED_BORDER);
-        p.drawRect(pod->x,pod->y,pod->w,pod->h);
-        p.setPen(LCED_TEXT);
-        p.drawText(pod->x,pod->y-LCED_MARGIN,QString::fromStdString(i));
+        p->setPen(LCED_BORDER);
+        p->drawRect(pod->x,pod->y,pod->w,pod->h);
+        p->setPen(LCED_TEXT);
+        p->drawText(pod->x,pod->y-LCED_MARGIN,QString::fromStdString(i));
 
         if (pod->ptr) {
-            p.setBrush(QBrush(LCED_INCOL));
+            p->setBrush(QBrush(LCED_INCOL));
             int n = pod->ptr->getNumInPins();
-            if (n) DrawIO(&p,pod->x,pod->y+LCED_PIN_DIST,LCED_PIN_TXT_DX,n,LCED_INCOL);
+            if (n) DrawIO(p,pod->x,pod->y+LCED_PIN_DIST,LCED_PIN_TXT_DX,n,LCED_INCOL);
 
-            p.setBrush(QBrush(LCED_OUTCOL));
+            p->setBrush(QBrush(LCED_OUTCOL));
             n = pod->ptr->getNumOutPins();
-            if (n) DrawIO(&p,pod->x+pod->w,pod->y+LCED_PIN_DIST,-LCED_PIN_TXT_DX,n,LCED_OUTCOL);
+            if (n) DrawIO(p,pod->x+pod->w,pod->y+LCED_PIN_DIST,-LCED_PIN_TXT_DX,n,LCED_OUTCOL);
 
-            n = LCED_PIN_DIST * (std::max(pod->ptr->getNumInPins(),pod->ptr->getNumInPins()) + 1);
+            n = LCED_PIN_DIST * (std::max(pod->ptr->getNumInPins(),pod->ptr->getNumOutPins()) + 1);
             if (pod->h < n) {
                 pod->h = n;
                 redraw = true;
@@ -174,15 +173,16 @@ void LSCSEditor::Update()
         if (extent.height() < pod->y + pod->h) extent.setHeight(pod->y + pod->h + LCED_MARGIN);
     }
     if (redraw) {
+        delete p; // release the painter first
         Update(); // this will draw all updated pod geometries
         return;
     }
 
-    // Draw connections (TODO: make them auto-routed)
+    // Draw connections
     QPen conpen(LCED_CONCOL);
     conpen.setWidth(LCED_CON_WIDTH);
-    p.setPen(conpen);
-    p.setBrush(QBrush(LCED_CONCOL,Qt::NoBrush));
+    p->setPen(conpen);
+    p->setBrush(QBrush(LCED_CONCOL,Qt::NoBrush));
     for (auto &&i : lst) {
         AriaPod* pod = sys->getPod(i);
         int sx = pod->x + pod->w;
@@ -193,9 +193,9 @@ void LSCSEditor::Update()
 
             int sy = pod->y + (j.pin_from + 1) * LCED_PIN_DIST;
             int ey = recv->y + (j.pin_to + 1) * LCED_PIN_DIST;
-
             int ex = recv->x;
             int dx = (ex-sx) / 2;
+
             QPainterPath pth;
             pth.moveTo(sx,sy);
             if (ex >= sx)
@@ -203,13 +203,13 @@ void LSCSEditor::Update()
             else
                 pth.cubicTo(QPointF(sx-dx,sy),QPointF(ex+dx,ey),QPointF(ex,ey));
 
-            p.drawPath(pth);
-            //p.drawLine(sx,sy,recv->x,ey);
+            p->drawPath(pth);
         }
     }
 
     // Update the form
     ui->out->setPixmap(QPixmap::fromImage(img));
+    delete p;
 }
 
 void LSCSEditor::on_actionNew_triggered()
@@ -246,9 +246,10 @@ void LSCSEditor::on_actionSave_triggered()
     if (fn.empty()) return;
 
     if (!sys) return;
-    if (sys->WriteTo(fn))
+    if (sys->WriteTo(fn)) {
         ui->statusbar->showMessage(QString::asprintf("Saved to %s",fn.c_str()));
-    else
+        modified = false;
+    } else
         ui->statusbar->showMessage(QString::asprintf("Unable to save file %s",fn.c_str()));
 }
 

@@ -8,6 +8,7 @@ LLAMA_CUBLAS=1
 BUILD_TARGETS = libanna.a anna anna_server
 
 all: $(BUILD_TARGETS)
+	cd lua && make all
 .PHONY: all
 
 ifndef UNAME_S

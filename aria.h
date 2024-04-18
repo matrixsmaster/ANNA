@@ -31,6 +31,9 @@ public:
     Aria(std::string scriptfile, std::string name);
     virtual ~Aria();
 
+    void Close();
+    bool Reload();
+
     AriaState getState()            const   { return state; }
     std::string getError()          const   { return merror; }
     std::string getFName()          const   { return scriptfn; }

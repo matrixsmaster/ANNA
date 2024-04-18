@@ -30,15 +30,27 @@ Aria::Aria(string scriptfile, std::string name)
 {
     scriptfn = scriptfile;
     mname = name;
-    if (!StartVM()) return;
-    state = ARIA_READY;
+    Reload();
 }
 
 Aria::~Aria()
 {
+    Close();
+}
+
+void Aria::Close()
+{
     StopProcessing();
     if (luavm) lua_close(luavm);
     if (brain) delete brain;
+}
+
+bool Aria::Reload()
+{
+    Close();
+    bool r = StartVM();
+    state = r? ARIA_READY : ARIA_ERROR;
+    return r;
 }
 
 string Aria::FixPath(string parent, string fn)

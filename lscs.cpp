@@ -231,6 +231,7 @@ bool AnnaLSCS::WriteTo(string fn)
         if (!i.second.ptr) continue;
         fprintf(f,"Pod%dName = %s\n",n,i.first.c_str());
         fprintf(f,"Pod%dScript = %s\n",n,i.second.ptr->getFName().c_str());
+        fprintf(f,"Pod%dDims = %d %d %d %d\n",n,i.second.x,i.second.y,i.second.w,i.second.h);
         n++;
     }
     fprintf(f,"NPods = %d\n",n);
@@ -344,7 +345,7 @@ bool AnnaLSCS::CreatePods()
         // and fix its path
         pscr = Aria::FixPath(config_fn,pscr);
 
-        // actually create and register the pod
+        // actually create the pod
         AriaPod pod;
         pod.ptr = new Aria(pscr,pnm);
         if (pod.ptr->getState() != ARIA_READY) {
@@ -352,6 +353,12 @@ bool AnnaLSCS::CreatePods()
             delete pod.ptr;
             return false;
         }
+
+        // extract pod's graphical dimensions (if exists)
+        string dims = cfgmap[myformat("pod%ddims",i)];
+        if (!dims.empty()) sscanf(dims.c_str(),"%d %d %d %d",&pod.x,&pod.y,&pod.w,&pod.h);
+
+        // register the pod
         pods[pnm] = pod;
     }
 

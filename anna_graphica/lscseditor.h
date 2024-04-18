@@ -9,6 +9,7 @@
 #include "lscs.h"
 
 #define LCED_MARGIN 8
+#define LCED_UI_MARGIN 4
 #define LCED_PIN_DIST 16
 #define LCED_MIN_WIDTH 32
 #define LCED_MIN_HEIGHT 32

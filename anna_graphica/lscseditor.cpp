@@ -104,7 +104,7 @@ bool LSCSEditor::CloseIt(bool force)
         sys = nullptr;
     }
 
-    extent = QRect(0,0,ui->scroll->width(),ui->scroll->height());
+    extent = QRect(0,0,ui->scroll->width()-LCED_UI_MARGIN,ui->scroll->height()-LCED_UI_MARGIN);
     //img = QImage(extent.width(),extent.height(),QImage::Format_RGB32);
 
     selection.clear();
@@ -173,7 +173,8 @@ void LSCSEditor::Update()
         if (extent.height() < pod->y + pod->h) extent.setHeight(pod->y + pod->h + LCED_MARGIN);
     }
     if (redraw) {
-        delete p; // release the painter first
+        modified = true; // we've modified the parameters
+        delete p; // release the painter before drawing again
         Update(); // this will draw all updated pod geometries
         return;
     }

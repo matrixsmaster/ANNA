@@ -29,6 +29,7 @@ LFUNC(bind_BrainPrefix,scriptBrainPrefix)
 LFUNC(bind_BrainProcess,scriptBrainProcess)
 LFUNC(bind_BrainSetVEnc,scriptBrainSetVEnc)
 LFUNC(bind_BrainLoadImage,scriptBrainLoadImage)
+LFUNC(bind_BrainError,scriptBrainError)
 
 #endif // ARIA_BINDS_FUNCTIONS
 
@@ -49,5 +50,6 @@ LBIND(bind_BrainPrefix,"brainprefix");
 LBIND(bind_BrainProcess,"brainprocess");
 LBIND(bind_BrainSetVEnc,"brainsetvenc");
 LBIND(bind_BrainLoadImage,"brainloadimage");
+LBIND(bind_BrainError,"brainerror");
 
 #endif // ARIA_BINDS_NAMES

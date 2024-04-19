@@ -408,6 +408,7 @@ void AnnaLSCS::FanOut(std::string from)
             internal_error = myformat("Receiver pod %s doesn't exist",i.to.c_str());
             return;
         }
-        recv->setInPin(i.pin_to,outs[i.pin_from]);
+        if (!outs[i.pin_from].empty())
+            recv->setInPin(i.pin_to,outs[i.pin_from]);
     }
 }

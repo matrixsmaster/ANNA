@@ -355,6 +355,7 @@ int Aria::scriptBrainStop()
     ARIA_BIND_HEADER("brainstop",0);
     if (brain) delete brain;
     brain = nullptr;
+    DBG("Brain destroyed\n");
     return 0;
 }
 
@@ -408,7 +409,10 @@ int Aria::scriptBrainSetVEnc()
 {
     ARIA_BIND_HEADER("brainsetvenc",1);
     string fn = luaL_checkstring(R,1);
-    if (!fn.empty() && brain) brain->setClipModelFile(fn);
+    if (!fn.empty() && brain) {
+        fn = FixPath(scriptfn,fn);
+        brain->setClipModelFile(fn);
+    }
     return 0;
 }
 
@@ -416,7 +420,19 @@ int Aria::scriptBrainLoadImage()
 {
     ARIA_BIND_HEADER("brainloadimage",1);
     string fn = luaL_checkstring(R,1);
-    bool r = (!fn.empty() && brain)? brain->EmbedImage(fn) : false;
+    bool r = false;
+    if (!fn.empty() && brain) {
+        fn = FixPath(scriptfn,fn);
+        r = brain->EmbedImage(fn);
+    }
     lua_pushboolean(R,r);
+    return 1;
+}
+
+int Aria::scriptBrainError()
+{
+    ARIA_BIND_HEADER("brainerror",0);
+    string err = brain? brain->getError() : "brain doesn't exist";
+    lua_pushstring(R,err.c_str());
     return 1;
 }

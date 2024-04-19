@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.8"
+#define ARIA_VERSION "0.0.9"
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -68,6 +68,7 @@ public:
     int scriptBrainProcess();
     int scriptBrainSetVEnc();
     int scriptBrainLoadImage();
+    int scriptBrainError();
 
 private:
     lua_State* luavm = nullptr;

@@ -317,7 +317,8 @@ bool MainWnd::EmbedImage(const QString& fn)
 bool MainWnd::CheckUsrPrefix(QString& convo)
 {
     QString usrbox = ui->UserNameBox->currentText();
-    if (!guiconfig.multi_usr) {
+    bool multi = guiconfig.multi_usr && usrbox.contains(guiconfig.musr_delim);
+    if (!multi) {
         if (convo.endsWith(usrbox)) {
             convo.chop(usrbox.length()); //just to make the log a bit more easy to read
             return true;

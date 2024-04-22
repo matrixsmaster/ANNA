@@ -66,6 +66,8 @@ private slots:
 
     void on_actionSanitize_triggered();
 
+    void on_actionScript_editor_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;

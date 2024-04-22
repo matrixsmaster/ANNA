@@ -1063,13 +1063,13 @@
         <string>Change</string>
        </property>
       </widget>
-      <widget class="QWidget" name="layoutWidget">
+      <widget class="QWidget" name="">
        <property name="geometry">
         <rect>
-         <x>10</x>
-         <y>209</y>
+         <x>11</x>
+         <y>211</y>
          <width>531</width>
-         <height>161</height>
+         <height>155</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_11">
@@ -1102,11 +1102,22 @@
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="allowMultiUsr">
-          <property name="text">
-           <string>Allow multiple user prefixes via &quot;|&quot; symbol</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="horizontalLayout_13">
+          <item>
+           <widget class="QCheckBox" name="allowMultiUsr">
+            <property name="text">
+             <string>Allow multiple user prefixes via symbol:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="multiUsrTok">
+            <property name="maxLength">
+             <number>255</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>

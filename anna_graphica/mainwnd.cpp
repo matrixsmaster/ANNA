@@ -228,13 +228,16 @@ void MainWnd::LoadLLM(const QString &fn)
     ui->statusbar->showMessage("Loading LLM file... Please wait!");
     qApp->processEvents();
     strncpy(config.params.model,fn.toStdString().c_str(),sizeof(config.params.model)-1);
-    if (!NewBrain()) return;
-    ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
-    qApp->processEvents();
-    --block;
+    if (!NewBrain()) {
+        --block;
+        return;
+    }
 
     // Process initial prompt
+    ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
+    qApp->processEvents();
     ProcessInput(config.params.prompt);
+    --block;
 
     // Display whatever initial output we might have already
     cur_chat += QString::fromStdString(brain->getOutput()) + "\n";
@@ -316,16 +319,16 @@ bool MainWnd::CheckUsrPrefix(QString& convo)
     QString usrbox = ui->UserNameBox->currentText();
     if (!guiconfig.multi_usr) {
         if (convo.endsWith(usrbox)) {
-            convo.chop(usrbox.length());
+            convo.chop(usrbox.length()); //just to make the log a bit more easy to read
             return true;
         } else
             return false;
     }
 
-    QStringList pfx = usrbox.split('|');
+    QStringList pfx = usrbox.split(guiconfig.musr_delim);
     for (auto &i : pfx) {
         if (convo.endsWith(i)) {
-            convo.chop(i.length());
+            //convo.chop(i.length());
             return true;
         }
     }
@@ -484,7 +487,6 @@ void MainWnd::on_ModelPath_returnPressed()
 {
     QString fn = ui->ModelPath->text();
 
-    ++block;
     if (!config.params.prompt[0]) {
         auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
                                         QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
@@ -496,7 +498,10 @@ void MainWnd::on_ModelPath_returnPressed()
             return;
         }
     }
-    qApp->processEvents(); // make sure all dialog boxes are closed and not appeared to be frozen
+
+    // make sure all dialog boxes are closed and not appeared to be frozen
+    ++block;
+    qApp->processEvents();
     --block;
 
     if (guiconfig.clear_log) {
@@ -525,12 +530,13 @@ void MainWnd::on_SendButton_clicked()
     log += "\n**";
 
     QString usrbox = ui->UserNameBox->currentText();
+    bool multi = guiconfig.multi_usr && usrbox.contains(guiconfig.musr_delim);
     if (last_username) {
         usr.clear(); // no need for initial newline
-        if (!usrbox.isEmpty()) log += usrbox + " "; // we still need to put user prefix into the log
+        if (!usrbox.isEmpty() && !multi) log += usrbox + " "; // we might still need to put user prefix into the log
         last_username = false;
 
-    } else if (!usrbox.isEmpty() && !(guiconfig.multi_usr && usrbox.contains('|')))
+    } else if (!usrbox.isEmpty() && !multi)
         line = usrbox + " ";
 
     line += ui->UserInput->toPlainText();

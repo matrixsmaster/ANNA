@@ -19,7 +19,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.11.7"
+#define AG_VERSION "0.11.8"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -50,6 +50,7 @@ struct AnnaGuiSettings {
     bool use_lscs;
     QString server;
     QFont log_fnt, usr_fnt;
+    QString musr_delim;
     QString att_prefix, txt_prefix, txt_suffix;
     std::vector<AnnaRQPFile> rqps;
 };

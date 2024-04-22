@@ -14,6 +14,7 @@ LSCSEditor::LSCSEditor(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->scroll->installEventFilter(this);
+    ui->script->hide();
 }
 
 LSCSEditor::~LSCSEditor()
@@ -105,11 +106,9 @@ bool LSCSEditor::CloseIt(bool force)
     }
 
     extent = QRect(0,0,ui->scroll->width()-LCED_UI_MARGIN,ui->scroll->height()-LCED_UI_MARGIN);
-    //img = QImage(extent.width(),extent.height(),QImage::Format_RGB32);
-
     selection.clear();
-
     modified = false;
+
     return true;
 }
 
@@ -379,4 +378,9 @@ void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int dtx, int num, QColor co
 
         sy += LCED_PIN_DIST;
     }
+}
+
+void LSCSEditor::on_actionScript_editor_triggered()
+{
+    ui->script->show();
 }

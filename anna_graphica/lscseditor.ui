@@ -74,9 +74,20 @@
       <addaction name="actionSanitize"/>
       <addaction name="actionScript_editor"/>
      </widget>
+     <widget class="QMenu" name="menuScript">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="title">
+       <string>Script</string>
+      </property>
+      <addaction name="actionLoad_2"/>
+      <addaction name="actionSave_2"/>
+     </widget>
      <addaction name="menuFile"/>
      <addaction name="menuEdit"/>
      <addaction name="menuView"/>
+     <addaction name="menuScript"/>
      <addaction name="menuDebug"/>
      <addaction name="menuHelp"/>
     </widget>
@@ -93,6 +104,12 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <widget class="QScrollArea" name="scroll">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>2</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <property name="widgetResizable">
        <bool>true</bool>
       </property>
@@ -101,7 +118,7 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>68</width>
+         <width>348</width>
          <height>335</height>
         </rect>
        </property>
@@ -218,8 +235,21 @@
    </property>
   </action>
   <action name="actionScript_editor">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Script editor</string>
+   </property>
+  </action>
+  <action name="actionSave_2">
+   <property name="text">
+    <string>Save</string>
+   </property>
+  </action>
+  <action name="actionLoad_2">
+   <property name="text">
+    <string>Load</string>
    </property>
   </action>
  </widget>

@@ -319,7 +319,7 @@ bool MainWnd::CheckUsrPrefix(QString& convo)
     QString usrbox = ui->UserNameBox->currentText();
     bool multi = guiconfig.multi_usr && usrbox.contains(guiconfig.musr_delim);
     if (!multi) {
-        if (convo.endsWith(usrbox)) {
+        if (!usrbox.isEmpty() && convo.endsWith(usrbox)) {
             convo.chop(usrbox.length()); //just to make the log a bit more easy to read
             return true;
         } else

@@ -11,8 +11,8 @@
 #define LCED_MARGIN 8
 #define LCED_UI_MARGIN 4
 #define LCED_PIN_DIST 16
-#define LCED_MIN_WIDTH 32
-#define LCED_MIN_HEIGHT 32
+#define LCED_MIN_WIDTH 70
+#define LCED_MIN_HEIGHT 40
 #define LCED_DEF_GRID 8
 #define LCED_PIN_TXT_DX 8
 #define LCED_PIN_TXT_DY 4
@@ -68,6 +68,10 @@ private slots:
 
     void on_actionScript_editor_triggered();
 
+    void on_actionSave_2_triggered();
+
+    void on_actionLoad_2_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;
@@ -78,10 +82,16 @@ private:
     int ox = 0, oy = 0;
     int grid = LCED_DEF_GRID;
     QList<AriaPod*> selection;
+    QString script_fn, script_pod;
+    bool script_modified = false;
 
     AriaPod* getPodUnder(int x, int y);
     void Sanitize();
     void DrawIO(QPainter* p, int sx, int sy, int dtx, int num, QColor col);
+    void ShowScriptFor(AriaPod* pod);
+    bool NewScript();
+    void LoadScript();
+    void SaveScript();
 };
 
 #endif // LSCSEDITOR_H

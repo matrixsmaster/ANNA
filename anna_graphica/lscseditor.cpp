@@ -40,6 +40,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     switch (event->type()) {
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:
+    case QEvent::MouseButtonDblClick:
     case QEvent::MouseMove:
         mev = static_cast<QMouseEvent*>(event);
         break;
@@ -69,11 +70,15 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     my = pt.y();
     qDebug("mx = %d\tmy = %d",mx,my);
 
-    AriaPod* ptr = getPodUnder(mx,my);
+    AriaPod* pod = getPodUnder(mx,my);
     switch (event->type()) {
+    case QEvent::MouseButtonDblClick:
+        if (pod) ShowScriptFor(pod);
+        break;
+
     case QEvent::MouseButtonPress:
         selection.clear(); //TODO: check for shift key
-        if (ptr) selection.push_back(ptr);
+        if (pod) selection.push_back(pod);
         break;
 
     case QEvent::MouseMove:
@@ -95,7 +100,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
 
 bool LSCSEditor::CloseIt(bool force)
 {
-    if (!force && modified) {
+    if (!force && (modified || script_modified)) {
         if (QMessageBox::question(this,"LSCS Editor","You have unsaved changes. Do you want to continue?",QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::No)
             return false;
     }
@@ -108,6 +113,13 @@ bool LSCSEditor::CloseIt(bool force)
     extent = QRect(0,0,ui->scroll->width()-LCED_UI_MARGIN,ui->scroll->height()-LCED_UI_MARGIN);
     selection.clear();
     modified = false;
+
+    ui->script->clear();
+    ui->actionScript_editor->setChecked(false);
+    on_actionScript_editor_triggered();
+    script_fn.clear();
+    script_pod.clear();
+    script_modified = false;
 
     return true;
 }
@@ -382,5 +394,100 @@ void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int dtx, int num, QColor co
 
 void LSCSEditor::on_actionScript_editor_triggered()
 {
-    ui->script->show();
+    if (ui->actionScript_editor->isChecked()) ui->script->show();
+    else ui->script->hide();
+    ui->menuScript->setEnabled(ui->actionScript_editor->isChecked());
+}
+
+void LSCSEditor::ShowScriptFor(AriaPod* pod)
+{
+    if (!pod || !sys) return;
+
+    // show script editor
+    ui->actionScript_editor->setChecked(true);
+    on_actionScript_editor_triggered();
+
+    // load script or create a new one
+    if (!NewScript()) return;
+    if (!pod->ptr || pod->ptr->getFName().empty()) {
+        // new script
+        script_fn = QFileDialog::getSaveFileName(this,"New Aria script","","Lua scripts (*.lua);;All files (*.*)");
+        if (script_fn.isEmpty()) return;
+
+    } else {
+        // load script
+        script_fn = QString::fromStdString(pod->ptr->getFName());
+        LoadScript();
+    }
+
+    script_pod = QString::fromStdString(sys->getPodName(pod));
+    script_modified = false;
+}
+
+bool LSCSEditor::NewScript()
+{
+    if (script_modified) {
+        if (QMessageBox::question(this,"LSCS Editor","You have unsaved changes in current active script. Do you want to continue?",QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::No)
+            return false;
+    }
+
+    ui->script->clear();
+    script_fn.clear();
+    script_pod.clear();
+    script_modified = false;
+
+    return true;
+}
+
+void LSCSEditor::LoadScript()
+{
+    QFile sf(script_fn);
+    if (!sf.exists() || !sf.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        ui->statusbar->showMessage("Error: unable to open file " + script_fn);
+        return;
+    }
+
+    QString data = QString::fromStdString(sf.readAll().toStdString());
+    sf.close();
+
+    ui->script->setPlainText(data);
+    ui->statusbar->showMessage("Loaded script from " + script_fn);
+    script_modified = false;
+}
+
+void LSCSEditor::SaveScript()
+{
+    QFile sf(script_fn);
+    if (!sf.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        ui->statusbar->showMessage("Error: unable to write to " + script_fn);
+        return;
+    }
+
+    QByteArray data = QByteArray::fromStdString(ui->script->toPlainText().toStdString());
+    sf.write(data);
+    sf.close();
+
+    ui->statusbar->showMessage("Saved script to " + script_fn);
+    script_modified = false;
+}
+
+void LSCSEditor::on_actionSave_2_triggered()
+{
+    if (script_fn.isEmpty()) return;
+    SaveScript();
+
+    // try to reload the pod
+    if (!sys || script_pod.isEmpty()) return;
+    if (!sys->setPodScript(script_pod.toStdString(),script_fn.toStdString()))
+        ui->statusbar->showMessage(QString::asprintf("Error: unable to set script: %s",sys->getError().c_str()));
+
+    Update();
+}
+
+void LSCSEditor::on_actionLoad_2_triggered()
+{
+    if (!NewScript()) return;
+
+    script_fn = QFileDialog::getOpenFileName(this,"Open Aria script","","Lua scripts (*.lua);;All files (*.*)");
+    if (!script_fn.isEmpty()) LoadScript();
 }

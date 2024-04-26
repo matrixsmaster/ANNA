@@ -1,23 +1,27 @@
+Pod0Name = aux
+Pod0Script = /home/lisa/dev/anna/test/lscs/0in2out.lua
+Pod0Dims = 17 250 70 48
+Pod1Name = filter
+Pod1Script = /home/lisa/dev/anna/test/lscs/3in1out.lua
+Pod1Dims = 314 203 70 64
+Pod2Name = gen
+Pod2Script = /home/lisa/dev/anna/test/lscs/1in1out.lua
+Pod2Dims = 232 33 70 40
+Pod3Name = proc
+Pod3Script = /home/lisa/dev/anna/test/lscs/3in1out.lua
+Pod3Dims = 182 180 70 64
+Pod4Name = timer
+Pod4Script = /home/lisa/dev/anna/test/lscs/0in1out.lua
+Pod4Dims = 12 40 70 40
 NPods = 5
 
-Pod0Name = gen
-Pod1Name = proc
-Pod2Name = filter
-Pod3Name = timer
-Pod4Name = aux
 
-Pod0Script = 1in1out.lua
-Pod1Script = 3in1out.lua
-Pod2Script = 3in1out.lua
-Pod3Script = 0in1out.lua
-Pod4Script = 0in2out.lua
+CONNECTIONS
 
-Connections
-
-gen.0 -> proc.0
-proc.0 -> filter.0
-filter.0 -> gen.0
-timer.0 -> proc.1
-timer.0 -> filter.1
 aux.0 -> proc.2
 aux.1 -> filter.2
+filter.0 -> gen.0
+gen.0 -> proc.0
+proc.0 -> filter.0
+timer.0 -> proc.1
+timer.0 -> filter.1

@@ -14,8 +14,9 @@
 #define LCED_MIN_WIDTH 70
 #define LCED_MIN_HEIGHT 40
 #define LCED_DEF_GRID 8
-#define LCED_PIN_TXT_DX 8
-#define LCED_PIN_TXT_DY 4
+#define LCED_PIN_TXT_MARGIN 8
+#define LCED_PIN_TXT_HEIGHT 16
+#define LCED_PIN_TXT_VSPACE 4
 #define LCED_CON_WIDTH 2
 
 #define LCED_BACKGROUND QColor(0,0,0)
@@ -87,7 +88,7 @@ private:
 
     AriaPod* getPodUnder(int x, int y);
     void Sanitize();
-    void DrawIO(QPainter* p, int sx, int sy, int dtx, int num, QColor col);
+    void DrawIO(QPainter* p, int sx, int sy, int w, bool input, int num, QColor col);
     void ShowScriptFor(AriaPod* pod);
     bool NewScript();
     void LoadScript();

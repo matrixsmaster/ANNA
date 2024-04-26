@@ -134,8 +134,12 @@ void LSCSEditor::Update()
         return;
     }
 
+    // Make a painter and font
     QPainter* p = new QPainter(&img);
     p->setBackground(QBrush(LCED_BACKGROUND));
+    QFont mono("monospace");
+    mono.setPixelSize(LCED_PIN_TXT_HEIGHT-LCED_PIN_TXT_VSPACE);
+    p->setFont(mono);
 
     // Draw the dotted grid
     QRgb gcol = LCED_GRID.rgb();
@@ -167,11 +171,11 @@ void LSCSEditor::Update()
         if (pod->ptr) {
             p->setBrush(QBrush(LCED_INCOL));
             int n = pod->ptr->getNumInPins();
-            if (n) DrawIO(p,pod->x,pod->y+LCED_PIN_DIST,LCED_PIN_TXT_DX,n,LCED_INCOL);
+            if (n) DrawIO(p,pod->x,pod->y+LCED_PIN_DIST,pod->w,true,n,LCED_INCOL);
 
             p->setBrush(QBrush(LCED_OUTCOL));
             n = pod->ptr->getNumOutPins();
-            if (n) DrawIO(p,pod->x+pod->w,pod->y+LCED_PIN_DIST,-LCED_PIN_TXT_DX,n,LCED_OUTCOL);
+            if (n) DrawIO(p,pod->x+pod->w,pod->y+LCED_PIN_DIST,pod->w,false,n,LCED_OUTCOL);
 
             n = LCED_PIN_DIST * (std::max(pod->ptr->getNumInPins(),pod->ptr->getNumOutPins()) + 1);
             if (pod->h < n) {
@@ -372,7 +376,7 @@ void LSCSEditor::on_actionSanitize_triggered()
     Update();
 }
 
-void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int dtx, int num, QColor col)
+void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int w, bool input, int num, QColor col)
 {
     QPoint arr[LCED_SYM_CONNECT_N];
     int darr[] = LCED_SYM_CONNECT;
@@ -385,8 +389,13 @@ void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int dtx, int num, QColor co
 
         p->setPen(col);
         p->drawPolygon(arr,LCED_SYM_CONNECT_N);
+
+        QString txt = QString::asprintf("%d",n);
+        QRect rct;
+        if (input) rct = QRect(QPoint(sx+LCED_PIN_TXT_MARGIN,sy-LCED_PIN_TXT_HEIGHT/2),QPoint(sx+w/2,sy+LCED_PIN_TXT_HEIGHT/2));
+        else rct = QRect(QPoint(sx-w/2,sy-LCED_PIN_TXT_HEIGHT/2),QPoint(sx-LCED_PIN_TXT_MARGIN,sy+LCED_PIN_TXT_HEIGHT/2));
         p->setPen(LCED_TEXT);
-        p->drawText(sx+dtx,sy+LCED_PIN_TXT_DY,QString::asprintf("%d",n));
+        p->drawText(rct,(input? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignVCenter,txt);
 
         sy += LCED_PIN_DIST;
     }

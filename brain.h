@@ -9,7 +9,7 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.10.1"
+#define ANNA_VERSION "0.11.0"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
@@ -65,6 +65,7 @@ public:
     static std::string StateToStr(AnnaState s);
     virtual const char* TokenToStr(llama_token token);
     virtual std::string PrintContext();
+    virtual std::vector<llama_token> getContext();
 
     virtual bool SaveState(std::string fname, const void* user_data, size_t user_size);
     virtual bool LoadState(std::string fname, void* user_data, size_t* user_size);

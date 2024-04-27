@@ -424,6 +424,7 @@
     </property>
     <addaction name="actionRefresh_chat_box"/>
     <addaction name="actionShow_context_tokens"/>
+    <addaction name="actionShow_tokens_with_IDs"/>
     <addaction name="actionClear_chat_log"/>
     <addaction name="actionReview_RQP"/>
     <addaction name="actionShow_RQP_output"/>
@@ -681,6 +682,11 @@
   <action name="actionShow_lock">
    <property name="text">
     <string>Show lock</string>
+   </property>
+  </action>
+  <action name="actionShow_tokens_with_IDs">
+   <property name="text">
+    <string>Show tokens with IDs</string>
    </property>
   </action>
  </widget>

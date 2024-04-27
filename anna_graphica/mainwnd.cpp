@@ -317,7 +317,7 @@ bool MainWnd::EmbedImage(const QString& fn)
 bool MainWnd::CheckUsrPrefix(QString& convo)
 {
     QString usrbox = ui->UserNameBox->currentText();
-    bool multi = guiconfig.multi_usr && usrbox.contains(guiconfig.musr_delim);
+    bool multi = (!usrbox.isEmpty()) && guiconfig.multi_usr && (!guiconfig.musr_delim.isEmpty()) && usrbox.contains(guiconfig.musr_delim);
     if (!multi) {
         if (!usrbox.isEmpty() && convo.endsWith(usrbox)) {
             convo.chop(usrbox.length()); //just to make the log a bit more easy to read
@@ -531,7 +531,7 @@ void MainWnd::on_SendButton_clicked()
     log += "\n**";
 
     QString usrbox = ui->UserNameBox->currentText();
-    bool multi = guiconfig.multi_usr && usrbox.contains(guiconfig.musr_delim);
+    bool multi = (!usrbox.isEmpty()) && guiconfig.multi_usr && (!guiconfig.musr_delim.isEmpty()) && usrbox.contains(guiconfig.musr_delim);
     if (last_username) {
         usr.clear(); // no need for initial newline
         if (!usrbox.isEmpty() && !multi) log += usrbox + " "; // we might still need to put user prefix into the log
@@ -1142,4 +1142,15 @@ void MainWnd::on_actionLSCS_editor_triggered()
     LSCSEditor ed;
     while (!ed.exec()) ; // work around Qt's stupid hardcoded bind for Esc key
     qDebug("LSCS editor returned\n");
+}
+
+void MainWnd::on_actionShow_tokens_with_IDs_triggered()
+{
+    if (!brain) return;
+    auto vec = brain->getContext();
+    QString str;
+    for (auto &&i : vec)
+        str += QString::asprintf("%s[%d], ",brain->TokenToStr(i),i);
+
+    ui->ChatLog->setPlainText(str);
 }

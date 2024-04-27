@@ -19,7 +19,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.11.10"
+#define AG_VERSION "0.11.11"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -158,6 +158,8 @@ private slots:
     void on_actionShow_lock_triggered();
 
     void on_actionLSCS_editor_triggered();
+
+    void on_actionShow_tokens_with_IDs_triggered();
 
 private:
     Ui::MainWnd *ui;

@@ -365,6 +365,11 @@ string AnnaBrain::PrintContext()
     return out;
 }
 
+std::vector<llama_token> AnnaBrain::getContext()
+{
+    return ctx_sp->prev;
+}
+
 bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_size)
 {
     if (state == ANNA_NOT_INITIALIZED) return false;

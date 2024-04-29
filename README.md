@@ -2,6 +2,10 @@
 
 Initially an experiment based on llama.cpp (https://github.com/ggerganov/llama.cpp), it is now a very powerful cross-platform AI toolkit.
 
+## (NEW) ANNA's Lightweight Scripted Consciousness Simulator (LSCS)
+
+LSCS is a powerful new addition to ANNA, which allows anyone to create complex multi-model load-sharing structures. These structures can include generation models, filtering models, multi-modal models, and any types of other user-supplied scripted blocks. Together, these blocks can represent a constantly running self-driving "consciousness" model, able to be aware of changes in its environment (virtual or physical) and react to them, while also being able to communicate with its user (if needed) and store/recall any data it processed previously. Blocks can physically run on different devices, allowing for an extremely efficient distributed parallel systems. Ultimately, LSCS allows anyone to create very complex and realistic "consciousness" simulations!
+
 ## ANNA Server
 
 ANNA server is quite unique, as it allows you to host a multi-mod**a**l, multi-mod**e**l server without any constraint on the number of users. It uses preemptive type of multitask scheduling, allowing many users to share even relatively weak hardware quite efficiently. Every user can use their own unique models at the same time, no restrictions on how many different models are used simultaneously!

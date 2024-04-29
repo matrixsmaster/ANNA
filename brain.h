@@ -9,7 +9,7 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.11.0"
+#define ANNA_VERSION "0.11.1"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
@@ -56,6 +56,7 @@ public:
     virtual AnnaConfig getConfig()                  { return config; }
     virtual void setConfig(const AnnaConfig& cfg)   { config = cfg; }
     virtual void setClipModelFile(std::string fn)   { clip_file = fn; }
+    virtual std::string getClipModelFile()          { return clip_file; }
 
     virtual std::string getOutput();
     virtual void setInput(std::string inp);

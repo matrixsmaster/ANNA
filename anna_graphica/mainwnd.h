@@ -19,7 +19,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.11.11"
+#define AG_VERSION "0.11.12"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -182,6 +182,7 @@ private:
     std::mutex busybox_lock;
     bool nowait;
     int tokens_cnt;
+    bool waiting_aborted;
 
     void DefaultConfig();
     void LoadSettings();
@@ -206,7 +207,7 @@ private:
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 
-    bool WaitingFun(int prog, bool wait, const std::string& text = "");
+    bool WaitingFun(int prog, bool wait, const std::string& text = "", bool abortable = false);
 };
 
 #endif // MAINWND_H

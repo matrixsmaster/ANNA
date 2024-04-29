@@ -187,7 +187,7 @@ BusyBox::~BusyBox()
     delete ui;
 }
 
-void BusyBox::Use(QRect base, int progress)
+bool BusyBox::Use(QRect base, int progress, bool abortable)
 {
     if (isHidden()) show();
 
@@ -196,7 +196,17 @@ void BusyBox::Use(QRect base, int progress)
     ui->progressBar->setVisible(progress > 0);
     ui->progressBar->setValue(progress);
 
+    if (abortable) ui->cancelButton->show();
+    else ui->cancelButton->hide();
+
     update();
+    return abortable? (!aborted) : true;
+}
+
+void BusyBox::Reset()
+{
+    aborted = false;
+    ui->cancelButton->hide();
 }
 
 void BusyBox::draw()
@@ -348,4 +358,9 @@ void BusyBox::on_pushButton_clicked()
     ui->aiOutput->show();
     ui->usrInput->show();
     ui->pushButton->hide();
+}
+
+void BusyBox::on_cancelButton_clicked()
+{
+    aborted = true;
 }

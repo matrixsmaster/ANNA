@@ -272,20 +272,25 @@ void MainWnd::ProcessInput(string str)
     ++block; // block out sync-only UI functions
 
     // detach potentially long process into separate thread
+    volatile bool stop = false;
     auto th = async(launch::async,[&] {
         brain->setInput(str);
-        while (brain->Processing(true) == ANNA_PROCESSING)
+        while (!stop && brain->Processing(true) == ANNA_PROCESSING)
             tokens_cnt = brain->getTokensUsed(); // the GUI will be updated in the main thread
     });
 
     //use wait function while async object is busy
-    while (th.wait_for(AG_STRPROCESS_WAIT) != future_status::ready)
-        WaitingFun(0,true,"Processing text...");
+    while (th.wait_for(AG_STRPROCESS_WAIT) != future_status::ready) {
+        WaitingFun(0,true,"Processing text...",true);
+        if (waiting_aborted) stop = true;
+    }
     WaitingFun(-1,false);
 
     // don't forget to indicate any error
     if (brain->getState() == ANNA_ERROR)
         ui->statusbar->showMessage("Error: "+QString::fromStdString(brain->getError()));
+    else if (stop)
+        ui->statusbar->showMessage("Processing aborted by user.");
 
     --block; // UI can be used again
 }
@@ -704,9 +709,12 @@ void MainWnd::on_actionNew_dialog_triggered()
     }
 
     if (guiconfig.new_reload) {
+        string clip = brain? brain->getClipModelFile() : "";
         LoadLLM(ui->ModelPath->text());
-        if (brain && brain->getState() != ANNA_ERROR)
+        if (brain && brain->getState() != ANNA_ERROR) {
             ui->statusbar->showMessage("Brain has been reloaded and ready for new dialog.");
+            if (!clip.empty()) brain->setClipModelFile(clip);
+        }
 
     } else if (brain) {
         brain->Reset();
@@ -953,7 +961,10 @@ void MainWnd::CheckRQPs(const QString& inp)
 {
     ++block; // lock out the UI while processing RQPs
     for (auto & i : rqps) {
-        QString out = RQPEditor::DoRequest(i,inp,true,[&](QString& fn, QStringList& args) -> bool {
+        QString out = RQPEditor::DoRequest(i,inp,[&](QString msg) -> bool {
+            WaitingFun(0,false,msg.toStdString(),true);
+            return waiting_aborted;
+        },[&](QString& fn, QStringList& args) -> bool {
             if (!ui->actionReview_RQP->isChecked()) return true;
             RevRQPDialog dlg;
             dlg.setCode(fn,args);
@@ -962,8 +973,6 @@ void MainWnd::CheckRQPs(const QString& inp)
                 return true;
             } else
                 return false;
-        },[&](QString& fn) {
-            ui->statusbar->showMessage("Running external command "+fn);
         });
 
         if (!out.isEmpty()) {
@@ -1072,7 +1081,7 @@ void MainWnd::on_actionReset_prompt_to_default_triggered()
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }
 
-bool MainWnd::WaitingFun(int prog, bool wait, const string& text)
+bool MainWnd::WaitingFun(int prog, bool wait, const string& text, bool abortable)
 {
     if (nowait) return false; // is waiting temporarily prohibited?
     if (!busybox_lock.try_lock()) return false; // this might signal to other threads that waiting is already happening
@@ -1082,9 +1091,20 @@ bool MainWnd::WaitingFun(int prog, bool wait, const string& text)
         // Some process is happening
         ui->statusbar->showMessage(QString::fromStdString(text));
 
+        // Prepare to cancel a process
+        if (abortable) {
+            busy_box->Reset();
+            waiting_aborted = false;
+        }
+
         // this cycle allows for a more "interactive" waiting with multiple calls to processEvents()
         for (int i = 0; i < AG_SERVER_WAIT_CYCLES; i++) {
-            if (guiconfig.use_busybox) busy_box->Use(geometry(),prog);
+            if (guiconfig.use_busybox) {
+                if (!busy_box->Use(geometry(),prog,abortable)) {
+                    waiting_aborted = true;
+                    break;
+                }
+            }
             qApp->processEvents();
             if (wait) usleep(1000UL * AG_SERVER_WAIT_MS);
             else break; // no need to do many cycles, as we're not waiting

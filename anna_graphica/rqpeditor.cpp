@@ -239,7 +239,7 @@ void RQPEditor::on_pushButton_clicked()
     if (!fn.isEmpty()) ui->command->setText(fn);
 }
 
-QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_events, AnnaRQPFilter filter, AnnaRQPNotify notify)
+QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, AnnaRQPWaiter waiter, AnnaRQPFilter filter)
 {
     if (!rqp.s) return "";
 
@@ -261,16 +261,21 @@ QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, bool do_even
     // start the process and wait until it's actually started
     QProcess p;
     qDebug("Starting %s...\n",fn.toStdString().c_str());
-    if (notify) notify(fn);
     p.start(fn,r);
     if (!p.waitForStarted()) {
         qDebug("Failed to start process: %s\n",fn.toStdString().c_str());
         return "";
     }
 
-    // wait until the process has terminated
+    // wait until the process has terminated (or aborted by user)
     while (p.state() == QProcess::Running) {
-        if (do_events) qApp->processEvents();
+        if (waiter) {
+            if (!waiter("Running external command "+fn)) {
+                p.kill();
+                waiter("Process killed");
+                return QString();
+            }
+        }
         usleep(AG_PROCESS_WAIT_US);
     }
     qDebug("External process finished\n");
@@ -302,7 +307,7 @@ void RQPEditor::on_pushButton_2_clicked()
     s.s = sets;
 
     for (int i = 0; i < AG_ARGPARSE_FAILSAFE; i++) {
-        QString out = DoRequest(s,ui->testEdit->toPlainText(),true,nullptr,nullptr);
+        QString out = DoRequest(s,ui->testEdit->toPlainText(),[](auto) { qApp->processEvents(); return true; },nullptr);
         if (!out.isEmpty()) {
             ui->testOut->setPlainText(out);
             break;

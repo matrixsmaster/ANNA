@@ -23,7 +23,8 @@ public:
     explicit BusyBox(QWidget *parent);
     ~BusyBox();
 
-    void Use(QRect base, int progress);
+    bool Use(QRect base, int progress, bool abortable);
+    void Reset();
 
 protected:
     virtual void paintEvent(QPaintEvent *event) override;
@@ -33,11 +34,14 @@ private slots:
 
     void on_pushButton_clicked();
 
+    void on_cancelButton_clicked();
+
 private:
     Ui::BusyBox *ui;
     float angle,cx,cy;
     QString prev, repbuf;
     std::vector<int> rep_start, rep_stop, rep_cur;
+    bool aborted = false;
 
     void draw();
     void pos(float a);

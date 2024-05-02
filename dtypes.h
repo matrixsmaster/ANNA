@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <thread>
 
 #define LLAMA_MAX_FILENAME_LEN 512
 #define LLAMA_MAX_PROMPT_LEN (1*1024UL*1024UL)
@@ -11,8 +12,6 @@
 // FIXME: grammars are not used atm, so this field is simply not needed;
 // we'll get it back once it'll be required
 #define LLAMA_MAX_GRAMMAR_LEN 4
-
-int32_t get_num_physical_cores();
 
 // sampling parameters
 struct __attribute__((packed)) llama_sampling_params {
@@ -52,7 +51,7 @@ struct __attribute__((packed)) llama_sampling_params {
 struct __attribute__((packed)) gpt_params {
     float   tensor_split[128]     = {0};   // how split tensors should be distributed across GPUs
     uint32_t seed                 = 0;     // RNG seed
-    int32_t n_threads             = get_num_physical_cores();
+    int32_t n_threads             = std::thread::hardware_concurrency();
     int32_t n_threads_draft       = -1;
     int32_t n_threads_batch       = -1;    // number of threads to use for batch processing (-1 = use n_threads)
     int32_t n_threads_batch_draft = -1;

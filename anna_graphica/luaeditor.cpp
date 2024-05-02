@@ -106,47 +106,25 @@ void LuaEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
     }
 }
 
-Highlighter::Highlighter(QTextDocument *parent)
-    : QSyntaxHighlighter(parent)
+Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent)
 {
-    HighlightingRule rule;
-    QTextCharFormat keywordFormat,typeFormat,quotationFormat,functionFormat,commentFormat;
+    for (auto &&i : lua_table) {
+        HighlightingRule rule;
+        QTextCharFormat fmt;
 
-    keywordFormat.setForeground(Qt::darkBlue);
-    keywordFormat.setFontWeight(QFont::Bold);
-    for (auto &&i : lua_keywords) {
-        QString pat(i);
-        pat = "\\b" + pat + "\\b";
-        rule.pattern = QRegularExpression(pat);
-        rule.format = keywordFormat;
-        highlightingRules.append(rule);
+        fmt.setFontFamily("monospace");
+        if (i.color != Qt::transparent) fmt.setForeground(i.color);
+        if (i.bold) fmt.setFontWeight(QFont::Bold);
+        fmt.setFontItalic(i.italic);
+
+        for (int j = 0; i.exprs[j]; j++) {
+            QString pat(i.exprs[j]);
+            if (i.pad) pat = "\\b" + pat + "\\b";
+            rule.pattern = QRegularExpression(pat);
+            rule.format = fmt;
+            highlightingRules.append(rule);
+        }
     }
-
-    typeFormat.setForeground(Qt::darkGreen);
-    typeFormat.setFontWeight(QFont::Bold);
-    for (auto &&i : lua_types) {
-        QString pat(i);
-        pat = "\\b" + pat + "\\b";
-        rule.pattern = QRegularExpression(pat);
-        rule.format = typeFormat;
-        highlightingRules.append(rule);
-    }
-
-    quotationFormat.setForeground(Qt::red);
-    rule.pattern = QRegularExpression(QStringLiteral("\"[^\"]*\""));
-    rule.format = quotationFormat;
-    highlightingRules.append(rule);
-
-    functionFormat.setFontWeight(QFont::Bold);
-    rule.pattern = QRegularExpression(QStringLiteral("\\b[A-Za-z0-9_]+(?=\\()"));
-    rule.format = functionFormat;
-    highlightingRules.append(rule);
-
-    commentFormat.setFontItalic(true);
-    commentFormat.setForeground(Qt::blue);
-    rule.pattern = QRegularExpression(QStringLiteral("--[^\n]*"));
-    rule.format = commentFormat;
-    highlightingRules.append(rule);
 }
 
 void Highlighter::highlightBlock(const QString &text)

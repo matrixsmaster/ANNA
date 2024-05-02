@@ -1,4 +1,4 @@
-/* This code uses parts of the ARIA library (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2024 */
+/* This code uses parts of the SGUI library (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2024 */
 #include <string.h>
 #include "brain.h"
 #include "netclient.h"

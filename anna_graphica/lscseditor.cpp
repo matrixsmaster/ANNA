@@ -68,7 +68,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     pt += sd;
     mx = pt.x();
     my = pt.y();
-    qDebug("mx = %d\tmy = %d",mx,my);
+    //qDebug("mx = %d\tmy = %d",mx,my);
 
     AriaPod* pod = getPodUnder(mx,my);
     switch (event->type()) {

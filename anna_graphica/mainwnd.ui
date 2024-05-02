@@ -288,6 +288,21 @@
            <enum>QFrame::Raised</enum>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_3">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
            <item>
             <widget class="QPushButton" name="SendButton">
              <property name="text">
@@ -298,14 +313,14 @@
            <item>
             <widget class="QCheckBox" name="NewlineCheck">
              <property name="text">
-              <string>no newline</string>
+              <string>No newline</string>
              </property>
             </widget>
            </item>
            <item>
             <widget class="QCheckBox" name="SamplingCheck">
              <property name="text">
-              <string>no sampling</string>
+              <string>No sampling</string>
              </property>
             </widget>
            </item>
@@ -340,6 +355,13 @@
             <widget class="QPushButton" name="stopButton">
              <property name="text">
               <string>Stop</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="stopNL">
+             <property name="text">
+              <string>Stop at NL</string>
              </property>
             </widget>
            </item>

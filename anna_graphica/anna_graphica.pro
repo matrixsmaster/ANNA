@@ -11,6 +11,7 @@ SOURCES += \
     busybox.cpp \
     helpbox.cpp \
     lscseditor.cpp \
+    luaeditor.cpp \
     main.cpp \
     mainwnd.cpp \
     revrqpdialog.cpp \
@@ -31,6 +32,8 @@ HEADERS += \
     busybox.h \
     helpbox.h \
     lscseditor.h \
+    lua_tables.h \
+    luaeditor.h \
     mainwnd.h \
     mainwnd_tabs.h \
     revrqpdialog.h \

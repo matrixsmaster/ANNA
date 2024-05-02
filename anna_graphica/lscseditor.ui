@@ -151,7 +151,7 @@
        </layout>
       </widget>
      </widget>
-     <widget class="QTextEdit" name="script"/>
+     <widget class="LuaEditor" name="script"/>
     </widget>
    </item>
    <item>
@@ -253,6 +253,13 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>LuaEditor</class>
+   <extends>QPlainTextEdit</extends>
+   <header>luaeditor.h</header>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="resources.qrc"/>
  </resources>

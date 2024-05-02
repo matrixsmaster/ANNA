@@ -364,7 +364,9 @@ void MainWnd::Generate()
         case ANNA_TURNOVER:
             str = brain->getOutput();
             convo += QString::fromStdString(str);
-            if (CheckUsrPrefix(convo)) {
+            if (ui->stopNL->isChecked() && str.find('\n') != string::npos)
+                s = ANNA_TURNOVER;
+            else if (CheckUsrPrefix(convo)) {
                 last_username = true;
                 s = ANNA_TURNOVER;
             }

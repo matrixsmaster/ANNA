@@ -29,6 +29,10 @@ static const char* lua_keywords[] = {
     NULL
 };
 
+static const char* lua_indent[] = {
+    "then", "else", "do"
+};
+
 static const char* lua_types[] = {
     "local", "type",
     "nil", "false", "true",

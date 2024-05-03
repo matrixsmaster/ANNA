@@ -15,6 +15,7 @@ LSCSEditor::LSCSEditor(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->scroll->installEventFilter(this);
+    connect(ui->script,&QPlainTextEdit::textChanged,this,[&] { script_modified = true; });
     ui->script->hide();
 }
 

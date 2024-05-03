@@ -7,6 +7,8 @@
 #include <QRegularExpression>
 
 #define AG_LUAED_DEF_FONT 10
+#define AG_LUAED_DEF_TAB "    "
+#define AG_LUAED_DEF_TABS 4
 
 class Highlighter : public QSyntaxHighlighter
 {
@@ -38,7 +40,8 @@ public:
     int lineNumberAreaWidth();
 
 protected:
-    void resizeEvent(QResizeEvent *event) override;
+    void resizeEvent(QResizeEvent *ev) override;
+    void keyPressEvent(QKeyEvent *ev) override;
 
 private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
@@ -47,6 +50,8 @@ private slots:
 private:
     QWidget *lineNumberArea;
     Highlighter* highlighter;
+
+    bool CheckIndent();
 };
 
 class LineNumberArea : public QWidget

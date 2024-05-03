@@ -15,6 +15,7 @@ LuaEditor::LuaEditor(QWidget *parent) : QPlainTextEdit(parent)
     font.setFamily("monospace");
     font.setFixedPitch(true);
     font.setPointSize(AG_LUAED_DEF_FONT);
+    setFont(font);
 
     highlighter = new Highlighter(document());
 }
@@ -48,11 +49,50 @@ void LuaEditor::updateLineNumberArea(const QRect &rect, int dy)
     if (rect.contains(viewport()->rect())) updateLineNumberAreaWidth(0);
 }
 
-void LuaEditor::resizeEvent(QResizeEvent *e)
+bool LuaEditor::CheckIndent()
 {
-    QPlainTextEdit::resizeEvent(e);
+    auto blk = textCursor().block();
+    if (!blk.isValid()) return false;
+
+    QString vs = blk.text().trimmed();
+    bool fnd = false;
+    for (auto &&i : lua_indent) {
+        if (vs.endsWith(i)) {
+            fnd = true;
+            break;
+        }
+    }
+
+    int ss = blk.text().indexOf(QRegExp("[^ \t]"));
+    if (ss < 0) ss = 0;
+    if (fnd) ss += AG_LUAED_DEF_TABS;
+
+    insertPlainText("\n" + QString(ss,' '));
+    return true;
+}
+
+void LuaEditor::resizeEvent(QResizeEvent *ev)
+{
+    QPlainTextEdit::resizeEvent(ev);
     QRect cr = contentsRect();
     lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+}
+
+void LuaEditor::keyPressEvent(QKeyEvent *ev)
+{
+    switch (ev->key()) {
+    case Qt::Key_Tab:
+        textCursor().insertText(AG_LUAED_DEF_TAB);
+        break;
+
+    case Qt::Key_Return:
+        if (!CheckIndent())
+            QPlainTextEdit::keyPressEvent(ev);
+        break;
+
+    default:
+        QPlainTextEdit::keyPressEvent(ev);
+    }
 }
 
 void LuaEditor::lineNumberAreaPaintEvent(QPaintEvent *event)

@@ -1,4 +1,7 @@
-/* Based on code from Qt help. Modified and extended by Dmitry 'MatrixS_Master' Solovyev, 2024 */
+/* Based on code from Qt help.
+ * Heavily modified and extended by Dmitry 'MatrixS_Master' Solovyev, 2024
+ */
+
 #ifndef LUAEDITOR_H
 #define LUAEDITOR_H
 
@@ -7,8 +10,8 @@
 #include <QRegularExpression>
 
 #define AG_LUAED_DEF_FONT 10
-#define AG_LUAED_DEF_TAB "    "
 #define AG_LUAED_DEF_TABS 4
+#define AG_LUAED_DEF_TAB "    "
 
 class Highlighter : public QSyntaxHighlighter
 {
@@ -52,6 +55,7 @@ private:
     Highlighter* highlighter;
 
     bool CheckIndent();
+    bool CheckUnIndent();
 };
 
 class LineNumberArea : public QWidget

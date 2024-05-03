@@ -1,4 +1,7 @@
-/* Based on code from Qt help. Modified and extended by Dmitry 'MatrixS_Master' Solovyev, 2024 */
+/* Based on code from Qt help.
+ * Heavily modified and extended by Dmitry 'MatrixS_Master' Solovyev, 2024
+ */
+
 #include <QPainter>
 #include <QTextBlock>
 #include "luaeditor.h"
@@ -71,6 +74,25 @@ bool LuaEditor::CheckIndent()
     return true;
 }
 
+bool LuaEditor::CheckUnIndent()
+{
+    auto blk = textCursor().block();
+    if (!blk.isValid()) return false;
+
+    int pos = textCursor().positionInBlock();
+    if (pos <= 0) return false;
+
+    int ss = blk.text().indexOf(QRegExp("[^ \t]"));
+    if (ss < 0) ss = pos;
+    if (!ss || pos > ss) return false;
+
+    if (pos >= AG_LUAED_DEF_TABS) {
+        for (int i = 0; i < AG_LUAED_DEF_TABS; i++)
+            textCursor().deletePreviousChar();
+    }
+    return true;
+}
+
 void LuaEditor::resizeEvent(QResizeEvent *ev)
 {
     QPlainTextEdit::resizeEvent(ev);
@@ -86,8 +108,11 @@ void LuaEditor::keyPressEvent(QKeyEvent *ev)
         break;
 
     case Qt::Key_Return:
-        if (!CheckIndent())
-            QPlainTextEdit::keyPressEvent(ev);
+        if (!CheckIndent()) QPlainTextEdit::keyPressEvent(ev);
+        break;
+
+    case Qt::Key_Backspace:
+        if (!CheckUnIndent()) QPlainTextEdit::keyPressEvent(ev);
         break;
 
     default:

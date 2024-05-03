@@ -59,7 +59,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     // standard event processing
     if (!mev) return QObject::eventFilter(obj, event);
 
-    // mouse processing (took code from my MILLA project)
+    // mouse position processing (took code from my MILLA project)
     QRect aligned = QStyle::alignedRect(QApplication::layoutDirection(),QFlag(ui->out->alignment()),img.size(),ui->out->rect());
     QRect inter = aligned.intersected(ui->out->rect());
     QPoint sd(0,0);
@@ -70,43 +70,49 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     pt += sd;
     mx = pt.x();
     my = pt.y();
-    //qDebug("mx = %d\tmy = %d",mx,my);
 
+    // now we can determine the actual action required
     int pin = -1;
     AriaPod* pod = getPodUnder(mx,my,&pin);
 
     switch (event->type()) {
     case QEvent::MouseButtonDblClick:
+        // open script
         if (pod) ShowScriptFor(pod);
         break;
 
     case QEvent::MouseButtonPress:
         if (!(mev->modifiers() & Qt::ShiftModifier)) {
+            // deselect
             selection.clear();
             new_link.from.clear();
         }
         if (pod) {
             new_link.from.clear();
             if (!(mev->modifiers() & Qt::ShiftModifier) && pin >= 0 && sys) {
+                // don't select the pod, but select a pin and start making a connection
                 selection.clear();
                 new_link.from = sys->getPodName(pod);
                 new_link.pin_from = pin;
             } else
-                selection.push_back(pod);
+                selection.push_back(pod); // add pod to selection
         }
         break;
 
     case QEvent::MouseButtonRelease:
         if (pod && pin >= 0 && sys && !new_link.from.empty()) {
+            // finalize a connection
             new_link.to = sys->getPodName(pod);
             new_link.pin_to = pin;
             NormalizeLink(new_link);
+            // double-linking == unlinking
             if (!sys->Unlink(new_link)) sys->Link(new_link);
         }
         new_link.from.clear();
         break;
 
     case QEvent::MouseMove:
+        // move the whole selction (if exists)
         for (auto &i : selection) {
             i->x += mx - ox;
             i->y += my - oy;
@@ -117,6 +123,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     default: break;
     }
 
+    // update mouse coordinates and redraw the scheme
     ox = mx;
     oy = my;
     Update();
@@ -241,7 +248,7 @@ void LSCSEditor::Update()
         }
     }
 
-    // New connection
+    // New (unfinished) connection
     if (!new_link.from.empty() && new_link.pin_from >= 0) {
         AriaPod* pod = sys->getPod(new_link.from);
         if (pod && pod->ptr) {
@@ -451,15 +458,6 @@ void LSCSEditor::Sanitize()
         if (pod->w < LCED_MIN_WIDTH) pod->w = LCED_MIN_WIDTH;
         if (pod->h < LCED_MIN_HEIGHT) pod->h = LCED_MIN_HEIGHT;
     }
-
-    /*minx -= LCED_MARGIN;
-    miny -= LCED_MARGIN;
-    for (auto &&i : lst) {
-        AriaPod* pod = sys->getPod(i);
-        if (!pod) continue;
-        if (minx > 0) pod->x -= minx;
-        if (miny > 0) pod->y -= miny;
-    }*/
 }
 
 void LSCSEditor::on_actionSanitize_triggered()

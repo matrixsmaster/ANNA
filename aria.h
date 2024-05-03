@@ -6,7 +6,9 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.9"
+#define ARIA_VERSION "0.0.10"
+
+#define ARIA_PATH_DELIM '/'
 
 enum AriaState {
     ARIA_NOT_INITIALIZED,
@@ -42,6 +44,7 @@ public:
     int getNumOutPins()             const   { return pouts; }
 
     static std::string FixPath(std::string parent, std::string fn);
+    static std::string MakeRelativePath(std::string parent, std::string fn);
 
     bool setGlobalInput(std::string in);
     std::string getGlobalOutput();

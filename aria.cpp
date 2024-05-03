@@ -55,7 +55,7 @@ bool Aria::Reload()
 
 string Aria::FixPath(string parent, string fn)
 {
-    char delim = '/';
+    const char delim = ARIA_PATH_DELIM;
 #ifdef _WIN32
     // in mingw the paths will be POSIX-style, but we might still need to fix user-supplied paths
     for (auto &i : parent) i = (i == '\\')? delim : i;
@@ -70,6 +70,27 @@ string Aria::FixPath(string parent, string fn)
         }
     }
     return fn;
+}
+
+string Aria::MakeRelativePath(string parent, string fn)
+{
+    const char delim = ARIA_PATH_DELIM;
+    string norm = FixPath(parent,fn); // make sure it's absolute first
+#ifdef _WIN32
+    for (auto &i : parent) i = (i == '\\')? delim : i;
+#endif
+
+    unsigned stop = 0;
+    for (unsigned i = 0; i < std::min(norm.length(),parent.length()); i++) {
+        if (norm[i] != parent[i]) {
+            if (!i || !stop) break;
+            norm.erase(0,stop+1);
+            return norm;
+
+        } else if (norm[i] == delim)
+            stop = i;
+    }
+    return fn; // unchanged
 }
 
 bool Aria::setGlobalInput(std::string in)

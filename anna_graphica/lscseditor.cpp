@@ -5,6 +5,7 @@
 #include <QStyle>
 #include <QScrollBar>
 #include <QPainterPath>
+#include <QFileInfo>
 #include "lscseditor.h"
 #include "ui_lscseditor.h"
 
@@ -292,10 +293,14 @@ void LSCSEditor::on_actionLoad_triggered()
 
 void LSCSEditor::on_actionSave_triggered()
 {
+    if (!sys) return;
+
     std::string fn = QFileDialog::getSaveFileName(this,"Save LSCS file","","LSCS files (*.lscs);;All files (*.*)").toStdString();
     if (fn.empty()) return;
 
-    if (!sys) return;
+    QFileInfo fi(QString::fromStdString(fn));
+    if (fi.suffix().isEmpty()) fn += ".lscs";
+
     if (sys->WriteTo(fn)) {
         ui->statusbar->showMessage(QString::asprintf("Saved to %s",fn.c_str()));
         modified = false;

@@ -216,12 +216,6 @@ bool AnnaLSCS::setPodScript(std::string name, std::string path)
     return true;
 }
 
-vector<AriaLink> AnnaLSCS::getLinksFrom(string name)
-{
-    if (!links.count(name)) return vector<AriaLink>();
-    return links[name];
-}
-
 bool AnnaLSCS::Link(AriaLink lnk)
 {
     // check the link is possible
@@ -254,6 +248,12 @@ bool AnnaLSCS::Unlink(AriaLink lnk)
     return false;
 }
 
+vector<AriaLink> AnnaLSCS::getLinksFrom(string name)
+{
+    if (!links.count(name)) return vector<AriaLink>();
+    return links[name];
+}
+
 bool AnnaLSCS::WriteTo(string fn)
 {
     FILE* f = fopen(fn.c_str(),"w");
@@ -267,7 +267,7 @@ bool AnnaLSCS::WriteTo(string fn)
     for (auto &&i : pods) {
         if (!i.second.ptr) continue;
         fprintf(f,"Pod%dName = %s\n",n,i.first.c_str());
-        fprintf(f,"Pod%dScript = %s\n",n,i.second.ptr->getFName().c_str());
+        fprintf(f,"Pod%dScript = %s\n",n,Aria::MakeRelativePath(fn,i.second.ptr->getFName()).c_str());
         fprintf(f,"Pod%dDims = %d %d %d %d\n",n,i.second.x,i.second.y,i.second.w,i.second.h);
         n++;
     }

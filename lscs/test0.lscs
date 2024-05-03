@@ -1,13 +1,12 @@
-NPods = 2
-
 Pod0Name = master
 Pod0Script = test1.lua
-
+Pod0Dims = 46 55 70 40
 Pod1Name = slave
 Pod1Script = test2.lua
+Pod1Dims = 193 88 70 40
+NPods = 2
 
-Pod2Script = User Data/testing long path/script.lua
 
-Connections
+CONNECTIONS
 
 master.0 -> slave.0

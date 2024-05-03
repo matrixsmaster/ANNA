@@ -7,40 +7,33 @@
 LuaEditor::LuaEditor(QWidget *parent) : QPlainTextEdit(parent)
 {
     lineNumberArea = new LineNumberArea(this);
-
     connect(this, &LuaEditor::blockCountChanged, this, &LuaEditor::updateLineNumberAreaWidth);
     connect(this, &LuaEditor::updateRequest, this, &LuaEditor::updateLineNumberArea);
-    //connect(this, &LuaEditor::cursorPositionChanged, this, &LuaEditor::highlightCurrentLine);
-
     updateLineNumberAreaWidth(0);
-    //highlightCurrentLine();
 
     QFont font;
     font.setFamily("monospace");
     font.setFixedPitch(true);
-    font.setPointSize(10); // FIXME
+    font.setPointSize(AG_LUAED_DEF_FONT);
 
     highlighter = new Highlighter(document());
 }
 
 LuaEditor::~LuaEditor()
 {
-    delete lineNumberArea;
     delete highlighter;
+    delete lineNumberArea;
 }
 
 int LuaEditor::lineNumberAreaWidth()
 {
     int digits = 1;
-    int max = qMax(1, blockCount());
+    int max = std::max(1,blockCount());
     while (max >= 10) {
         max /= 10;
         ++digits;
     }
-
-    int space = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
-
-    return space;
+    return fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits + 3;
 }
 
 void LuaEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
@@ -50,39 +43,16 @@ void LuaEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
 
 void LuaEditor::updateLineNumberArea(const QRect &rect, int dy)
 {
-    if (dy)
-        lineNumberArea->scroll(0, dy);
-    else
-        lineNumberArea->update(0, rect.y(), lineNumberArea->width(), rect.height());
-
-    if (rect.contains(viewport()->rect()))
-        updateLineNumberAreaWidth(0);
+    if (dy) lineNumberArea->scroll(0, dy);
+    else lineNumberArea->update(0, rect.y(), lineNumberArea->width(), rect.height());
+    if (rect.contains(viewport()->rect())) updateLineNumberAreaWidth(0);
 }
 
 void LuaEditor::resizeEvent(QResizeEvent *e)
 {
     QPlainTextEdit::resizeEvent(e);
-
     QRect cr = contentsRect();
     lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
-}
-
-void LuaEditor::highlightCurrentLine()
-{
-    QList<QTextEdit::ExtraSelection> extraSelections;
-
-    if (!isReadOnly()) {
-        QTextEdit::ExtraSelection selection;
-        QColor lineColor = QColor(Qt::yellow).lighter(160);
-
-        selection.format.setBackground(lineColor);
-        selection.format.setProperty(QTextFormat::FullWidthSelection, true);
-        selection.cursor = textCursor();
-        selection.cursor.clearSelection();
-        extraSelections.append(selection);
-    }
-
-    setExtraSelections(extraSelections);
 }
 
 void LuaEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
@@ -129,33 +99,11 @@ Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent)
 
 void Highlighter::highlightBlock(const QString &text)
 {
-    for (const HighlightingRule &rule : qAsConst(highlightingRules)) {
-        QRegularExpressionMatchIterator matchIterator = rule.pattern.globalMatch(text);
+    for (auto &&i : qAsConst(highlightingRules)) {
+        QRegularExpressionMatchIterator matchIterator = i.pattern.globalMatch(text);
         while (matchIterator.hasNext()) {
             QRegularExpressionMatch match = matchIterator.next();
-            setFormat(match.capturedStart(), match.capturedLength(), rule.format);
+            setFormat(match.capturedStart(), match.capturedLength(), i.format);
         }
     }
-
-#if 0
-    setCurrentBlockState(0);
-
-    int startIndex = 0;
-    if (previousBlockState() != 1)
-        startIndex = text.indexOf(commentStartExpression);
-
-    while (startIndex >= 0) {
-        QRegularExpressionMatch match = commentEndExpression.match(text, startIndex);
-        int endIndex = match.capturedStart();
-        int commentLength = 0;
-        if (endIndex == -1) {
-            setCurrentBlockState(1);
-            commentLength = text.length() - startIndex;
-        } else
-            commentLength = endIndex - startIndex + match.capturedLength();
-
-        setFormat(startIndex, commentLength, multiLineCommentFormat);
-        startIndex = text.indexOf(commentStartExpression, startIndex + commentLength);
-    }
-#endif
 }

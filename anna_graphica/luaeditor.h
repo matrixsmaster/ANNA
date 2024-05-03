@@ -6,6 +6,8 @@
 #include <QSyntaxHighlighter>
 #include <QRegularExpression>
 
+#define AG_LUAED_DEF_FONT 10
+
 class Highlighter : public QSyntaxHighlighter
 {
     Q_OBJECT
@@ -40,7 +42,6 @@ protected:
 
 private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
-    void highlightCurrentLine();
     void updateLineNumberArea(const QRect &rect, int dy);
 
 private:

@@ -151,7 +151,11 @@
        </layout>
       </widget>
      </widget>
-     <widget class="LuaEditor" name="script"/>
+     <widget class="LuaEditor" name="script">
+      <property name="lineWrapMode">
+       <enum>QPlainTextEdit::NoWrap</enum>
+      </property>
+     </widget>
     </widget>
    </item>
    <item>

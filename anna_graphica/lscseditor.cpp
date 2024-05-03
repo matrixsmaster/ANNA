@@ -70,15 +70,38 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     my = pt.y();
     //qDebug("mx = %d\tmy = %d",mx,my);
 
-    AriaPod* pod = getPodUnder(mx,my);
+    int pin = -1;
+    AriaPod* pod = getPodUnder(mx,my,&pin);
+
     switch (event->type()) {
     case QEvent::MouseButtonDblClick:
         if (pod) ShowScriptFor(pod);
         break;
 
     case QEvent::MouseButtonPress:
-        selection.clear(); //TODO: check for shift key
-        if (pod) selection.push_back(pod);
+        if (!(mev->modifiers() & Qt::ShiftModifier)) {
+            selection.clear();
+            new_link.from.clear();
+        }
+        if (pod) {
+            new_link.from.clear();
+            if (!(mev->modifiers() & Qt::ShiftModifier) && pin >= 0 && sys) {
+                selection.clear();
+                new_link.from = sys->getPodName(pod);
+                new_link.pin_from = pin;
+            } else
+                selection.push_back(pod);
+        }
+        break;
+
+    case QEvent::MouseButtonRelease:
+        if (pod && pin >= 0 && sys && !new_link.from.empty()) {
+            new_link.to = sys->getPodName(pod);
+            new_link.pin_to = pin;
+            NormalizeLink(new_link);
+            if (!sys->Unlink(new_link)) sys->Link(new_link);
+        }
+        new_link.from.clear();
         break;
 
     case QEvent::MouseMove:
@@ -199,6 +222,8 @@ void LSCSEditor::Update()
     conpen.setWidth(LCED_CON_WIDTH);
     p->setPen(conpen);
     p->setBrush(QBrush(LCED_CONCOL,Qt::NoBrush));
+
+    // Fixed connections
     for (auto &&i : lst) {
         AriaPod* pod = sys->getPod(i);
         int sx = pod->x + pod->w;
@@ -210,16 +235,25 @@ void LSCSEditor::Update()
             int sy = pod->y + (j.pin_from + 1) * LCED_PIN_DIST;
             int ey = recv->y + (j.pin_to + 1) * LCED_PIN_DIST;
             int ex = recv->x;
-            int dx = (ex-sx) / 2;
+            DrawConnect(p,sx,sy,ex,ey);
+        }
+    }
 
-            QPainterPath pth;
-            pth.moveTo(sx,sy);
-            if (ex >= sx)
-                pth.cubicTo(QPointF(sx+dx,sy),QPointF(sx+dx,ey),QPointF(ex,ey));
-            else
-                pth.cubicTo(QPointF(sx-dx,sy),QPointF(ex+dx,ey),QPointF(ex,ey));
+    // New connection
+    if (!new_link.from.empty() && new_link.pin_from >= 0) {
+        AriaPod* pod = sys->getPod(new_link.from);
+        if (pod && pod->ptr) {
+            int sx = mx;
+            int sy = my, ey = my;
+            int ex = pod->x;
+            if (new_link.pin_from >= pod->ptr->getNumInPins()) {
+                ex = mx;
+                sx = pod->x + pod->w;
+                sy = pod->y + (new_link.pin_from - pod->ptr->getNumInPins() + 1) * LCED_PIN_DIST;
+            } else
+                ey = pod->y + (new_link.pin_from + 1) * LCED_PIN_DIST;
 
-            p->drawPath(pth);
+            DrawConnect(p,sx,sy,ex,ey);
         }
     }
 
@@ -297,12 +331,36 @@ void LSCSEditor::on_actionAdd_pod_triggered()
     Update();
 }
 
-AriaPod* LSCSEditor::getPodUnder(int x, int y)
+AriaPod* LSCSEditor::getPodUnder(int x, int y, int* pin)
 {
     if (!sys) return nullptr;
     auto lst = sys->getPods();
     for (auto &&i : lst) {
         AriaPod* pod = sys->getPod(i);
+
+        if (pin && pod->ptr) {
+            // look for inputs
+            int px = pod->x;
+            for (int q = 1; q <= pod->ptr->getNumInPins(); q++) {
+                int py = pod->y + q * LCED_PIN_DIST;
+                if (Distance(x,y,px,py) <= LCED_CON_HOOKRAD) {
+                    *pin = q-1;
+                    return pod;
+                }
+            }
+
+            // look for outputs
+            px = pod->x + pod->w;
+            for (int q = 1; q <= pod->ptr->getNumOutPins(); q++) {
+                int py = pod->y + q * LCED_PIN_DIST;
+                if (Distance(x,y,px,py) <= LCED_CON_HOOKRAD) {
+                    *pin = q - 1 + pod->ptr->getNumInPins();
+                    return pod;
+                }
+            }
+        }
+
+        // match the body of the pod
         if (x >= pod->x && y >= pod->y) {
             int ex = pod->x + pod->w;
             int ey = pod->y + pod->h;
@@ -310,6 +368,34 @@ AriaPod* LSCSEditor::getPodUnder(int x, int y)
         }
     }
     return nullptr;
+}
+
+float LSCSEditor::Distance(float x0, float y0, float x1, float y1)
+{
+    return sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0));
+}
+
+void LSCSEditor::NormalizeLink(AriaLink& lnk)
+{
+    if (!sys) return;
+
+    AriaPod* pfrom = sys->getPod(lnk.from);
+    AriaPod* pto = sys->getPod(lnk.to);
+    if (!pfrom || !pto || !pfrom->ptr || !pto->ptr) return;
+
+    bool reverse = false;
+    if (lnk.pin_from >= pfrom->ptr->getNumInPins())
+        lnk.pin_from -= pfrom->ptr->getNumInPins();
+    else
+        reverse = true;
+
+    if (lnk.pin_to >= pto->ptr->getNumInPins())
+        lnk.pin_to -= pto->ptr->getNumInPins();
+
+    if (reverse) {
+        std::swap(lnk.from,lnk.to);
+        std::swap(lnk.pin_from,lnk.pin_to);
+    }
 }
 
 void LSCSEditor::on_actionRedraw_triggered()
@@ -399,6 +485,20 @@ void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int w, bool input, int num,
 
         sy += LCED_PIN_DIST;
     }
+}
+
+void LSCSEditor::DrawConnect(QPainter* p, int sx, int sy, int ex, int ey)
+{
+    int dx = (ex-sx) / 2;
+
+    QPainterPath pth;
+    pth.moveTo(sx,sy);
+    if (ex >= sx)
+        pth.cubicTo(QPointF(sx+dx,sy),QPointF(sx+dx,ey),QPointF(ex,ey));
+    else
+        pth.cubicTo(QPointF(sx-dx,sy),QPointF(ex+dx,ey),QPointF(ex,ey));
+
+    p->drawPath(pth);
 }
 
 void LSCSEditor::on_actionScript_editor_triggered()

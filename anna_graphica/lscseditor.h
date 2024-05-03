@@ -18,6 +18,7 @@
 #define LCED_PIN_TXT_HEIGHT 16
 #define LCED_PIN_TXT_VSPACE 4
 #define LCED_CON_WIDTH 2
+#define LCED_CON_HOOKRAD 9
 
 #define LCED_BACKGROUND QColor(0,0,0)
 #define LCED_GRID QColor(50,50,50)
@@ -83,12 +84,16 @@ private:
     int ox = 0, oy = 0;
     int grid = LCED_DEF_GRID;
     QList<AriaPod*> selection;
+    AriaLink new_link;
     QString script_fn, script_pod;
     bool script_modified = false;
 
-    AriaPod* getPodUnder(int x, int y);
+    AriaPod* getPodUnder(int x, int y, int* pin = nullptr);
+    float Distance(float x0, float y0, float x1, float y1);
+    void NormalizeLink(AriaLink& lnk);
     void Sanitize();
     void DrawIO(QPainter* p, int sx, int sy, int w, bool input, int num, QColor col);
+    void DrawConnect(QPainter* p, int sx, int sy, int ex, int ey);
     void ShowScriptFor(AriaPod* pod);
     bool NewScript();
     void LoadScript();

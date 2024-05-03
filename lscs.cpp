@@ -222,6 +222,38 @@ vector<AriaLink> AnnaLSCS::getLinksFrom(string name)
     return links[name];
 }
 
+bool AnnaLSCS::Link(AriaLink lnk)
+{
+    // check the link is possible
+    if (lnk.from.empty() || lnk.to.empty()) return false;
+    if (lnk.pin_from < 0 || lnk.pin_to < 0) return false;
+    if (!pods.count(lnk.from) || !pods.count(lnk.to)) return false;
+
+    Aria* from = pods[lnk.from].ptr;
+    Aria* to = pods[lnk.to].ptr;
+    if (!from || !to) return false;
+    if (lnk.pin_from >= from->getNumOutPins() || lnk.pin_to >= to->getNumInPins()) return false;
+
+    // make the link
+    links[lnk.from].push_back(lnk);
+    return true;
+}
+
+bool AnnaLSCS::Unlink(AriaLink lnk)
+{
+    if (lnk.from.empty() || lnk.to.empty()) return false;
+    if (lnk.pin_from < 0 || lnk.pin_to < 0) return false;
+    if (!links.count(lnk.from)) return false;
+
+    for (auto it = links.at(lnk.from).begin(); it != links.at(lnk.from).end(); ++it) {
+        if (it->pin_from == lnk.pin_from && it->to == lnk.to && it->pin_to == lnk.pin_to) {
+            links[lnk.from].erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 bool AnnaLSCS::WriteTo(string fn)
 {
     FILE* f = fopen(fn.c_str(),"w");

@@ -44,6 +44,14 @@ private slots:
 
     void on_LogitBiasDialog_accepted();
 
+    void on_btnRemove_clicked();
+
+    void on_btnClear_clicked();
+
+    void on_btnSave_clicked();
+
+    void on_btnLoad_clicked();
+
 private:
     Ui::LogitBiasDialog *ui;
     std::list<std::string> vocab;

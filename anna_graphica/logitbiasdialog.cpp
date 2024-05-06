@@ -1,3 +1,6 @@
+#include <QMessageBox>
+#include <QSettings>
+#include <QFileDialog>
 #include "logitbiasdialog.h"
 #include "ui_logitbiasdialog.h"
 
@@ -88,4 +91,60 @@ void LogitBiasDialog::UpdateTab()
         ui->mainTab->setItem(i,1,(new QTableWidgetItem((biases.at(i).op == ALB_OP_ADD)? "Add":"Mul")));
         ui->mainTab->setItem(i,2,(new QTableWidgetItem(QString::asprintf("%.3f",biases.at(i).val))));
     }
+}
+
+void LogitBiasDialog::on_btnRemove_clicked()
+{
+    int n = ui->mainTab->currentRow();
+    if (n >= 0 && n < (int)biases.size())
+        biases.erase(biases.begin() + n);
+    UpdateTab();
+}
+
+void LogitBiasDialog::on_btnClear_clicked()
+{
+    if (QMessageBox::question(this,"Logit Bias Editor","Do you want to delete all records?",QMessageBox::No | QMessageBox::Yes,QMessageBox::No) == QMessageBox::Yes)
+        biases.clear();
+    UpdateTab();
+}
+
+void LogitBiasDialog::on_btnSave_clicked()
+{
+    QString fn = QFileDialog::getSaveFileName(this,"Save bias config file","","INI files (*.ini);;All files (*.*)");
+    if (fn.isEmpty()) return;
+
+    QSettings ini(fn,QSettings::IniFormat);
+
+    int n = biases.size();
+    ini.beginWriteArray("bias",n);
+    for (int i = 0; i < n; i++) {
+        ini.setArrayIndex(i);
+        ini.setValue("pat",biases.at(i).pat);
+        ini.setValue("op",biases.at(i).op);
+        ini.setValue("val",biases.at(i).val);
+    }
+    ini.endArray();
+}
+
+void LogitBiasDialog::on_btnLoad_clicked()
+{
+    QString fn = QFileDialog::getOpenFileName(this,"Load bias config file","","INI files (*.ini);;All files (*.*)");
+    if (fn.isEmpty()) return;
+
+    QSettings ini(fn,QSettings::IniFormat);
+
+    biases.clear();
+    int n = ini.beginReadArray("bias");
+    for (int i = 0; i < n; i++) {
+        ini.setArrayIndex(i);
+
+        AnnaLogBias b;
+        b.pat = ini.value("pat").toString();
+        b.op = static_cast<AnnaLogBiasOp>(ini.value("op").toInt());
+        b.val = ini.value("val").toDouble();
+
+        biases.push_back(b);
+    }
+    ini.endArray();
+    UpdateTab();
 }

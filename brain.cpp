@@ -345,10 +345,25 @@ void AnnaBrain::addEmbeddings(const std::vector<float>& emb)
     ext_emb.insert(ext_emb.end(),emb.begin(),emb.end());
 }
 
+void AnnaBrain::applyLogitBias(llama_sample_bias bias)
+{
+    ctx_sp->biases.push_back(bias);
+}
+
 const char* AnnaBrain::TokenToStr(llama_token token)
 {
     piecebuf = llama_token_to_piece(ctx,token);
     return piecebuf.c_str();
+}
+
+list<string> AnnaBrain::getDictionary()
+{
+    list<string> res;
+    int sz = llama_n_vocab(model);
+    if (sz < 1) return res;
+
+    for (int i = 0; i < sz; i++) res.push_back(llama_token_get_text(model,i));
+    return res;
 }
 
 void AnnaBrain::print_vec(string& str, const vector<llama_token>& vec)

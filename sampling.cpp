@@ -198,6 +198,14 @@ static llama_token llama_sampling_sample_impl(
         original_logits = std::vector<float>(logits, logits + llama_n_vocab(llama_get_model(ctx_main)));
     }
 
+    // apply proper biases
+    for (auto &&i : ctx_sampling->biases) {
+        switch (i.op) {
+        case 1: logits[i.tok] += i.val; break;
+        case 2: logits[i.tok] *= i.val; break;
+        }
+    }
+
     // apply params.logit_bias map
     /*for (auto it = params.logit_bias.begin(); it != params.logit_bias.end(); it++) {
         logits[it->first] += it->second;

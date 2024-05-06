@@ -10,6 +10,7 @@ SOURCES += \
     aboutbox.cpp \
     busybox.cpp \
     helpbox.cpp \
+    logitbiasdialog.cpp \
     lscseditor.cpp \
     luaeditor.cpp \
     main.cpp \
@@ -31,6 +32,7 @@ HEADERS += \
     aboutbox.h \
     busybox.h \
     helpbox.h \
+    logitbiasdialog.h \
     lscseditor.h \
     lua_tables.h \
     luaeditor.h \
@@ -44,6 +46,7 @@ FORMS += \
     aboutbox.ui \
     busybox.ui \
     helpbox.ui \
+    logitbiasdialog.ui \
     lscseditor.ui \
     mainwnd.ui \
     revrqpdialog.ui \

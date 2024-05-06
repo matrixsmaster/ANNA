@@ -3,13 +3,14 @@
 #include <vector>
 #include <string>
 #include <deque>
+#include <list>
 #include "llama.h"
 #include "dtypes.h"
 #include "common.h"
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.11.1"
+#define ANNA_VERSION "0.12.0"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
@@ -62,9 +63,11 @@ public:
     virtual void setInput(std::string inp);
     virtual void setPrefix(std::string str);
     virtual void addEmbeddings(const std::vector<float>& emb);
+    virtual void applyLogitBias(llama_sample_bias bias);
 
     static std::string StateToStr(AnnaState s);
     virtual const char* TokenToStr(llama_token token);
+    virtual std::list<std::string> getDictionary();
     virtual std::string PrintContext();
     virtual std::vector<llama_token> getContext();
 

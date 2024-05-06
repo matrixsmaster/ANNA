@@ -10,6 +10,7 @@
 #include "helpbox.h"
 #include "revrqpdialog.h"
 #include "lscseditor.h"
+#include "logitbiasdialog.h"
 #include "mainwnd_tabs.h"
 
 using namespace std;
@@ -207,7 +208,6 @@ bool MainWnd::NewBrain()
     ui->statusbar->showMessage("Unable to load LLM file: "+QString::fromStdString(brain->getError()));
     delete brain;
     brain = nullptr;
-    block = 0; // nothing to block anymore
     return false;
 }
 
@@ -442,6 +442,7 @@ void MainWnd::on_actionSimple_view_triggered()
     ui->UserNameBox->hide();
     ui->UserInputOptions->hide();
     ui->menuDebug->setEnabled(false);
+    ui->actionLogit_bias_editor->setEnabled(false);
     seed_label->hide();
 }
 
@@ -458,6 +459,7 @@ void MainWnd::on_actionAdvanced_view_triggered()
     ui->BeforeRadio->hide();
     ui->AfterRadio->hide();
     ui->menuDebug->setEnabled(false);
+    ui->actionLogit_bias_editor->setEnabled(false);
     seed_label->show();
 }
 
@@ -474,6 +476,7 @@ void MainWnd::on_actionProfessional_view_triggered()
     ui->BeforeRadio->show();
     ui->AfterRadio->show();
     ui->menuDebug->setEnabled(true);
+    ui->actionLogit_bias_editor->setEnabled(true);
     seed_label->show();
 }
 
@@ -1175,4 +1178,11 @@ void MainWnd::on_actionShow_tokens_with_IDs_triggered()
         str += QString::asprintf("%s[%d], ",brain->TokenToStr(i),i);
 
     ui->ChatLog->setPlainText(str);
+}
+
+void MainWnd::on_actionLogit_bias_editor_triggered()
+{
+    LogitBiasDialog dlg;
+    dlg.brain = brain;
+    dlg.exec();
 }

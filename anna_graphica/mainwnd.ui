@@ -458,6 +458,7 @@
     </property>
     <addaction name="actionRequester_plugins"/>
     <addaction name="actionLSCS_editor"/>
+    <addaction name="actionLogit_bias_editor"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuModel"/>
@@ -709,6 +710,14 @@
   <action name="actionShow_tokens_with_IDs">
    <property name="text">
     <string>Show tokens with IDs</string>
+   </property>
+  </action>
+  <action name="actionLogit_bias_editor">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Logit bias editor</string>
    </property>
   </action>
  </widget>

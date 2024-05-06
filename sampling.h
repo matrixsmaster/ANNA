@@ -7,6 +7,12 @@
 #include "grammar-parser.h"
 #include "dtypes.h"
 
+struct llama_sample_bias {
+    llama_token tok;
+    int op;
+    double val;
+};
+
 // general sampler context
 // TODO: move to llama.h
 struct llama_sampling_context {
@@ -24,6 +30,9 @@ struct llama_sampling_context {
     // TODO: replace with ring-buffer
     std::vector<llama_token>      prev;
     std::vector<llama_token_data> cur;
+
+    // logit biases
+    std::vector<llama_sample_bias> biases;
 };
 
 // Create a new sampling context instance.

@@ -527,6 +527,9 @@ void LSCSEditor::ShowScriptFor(AriaPod* pod)
         script_fn = QFileDialog::getSaveFileName(this,"New Aria script","","Lua scripts (*.lua);;All files (*.*)");
         if (script_fn.isEmpty()) return;
 
+        QFileInfo fi(script_fn);
+        if (fi.suffix().isEmpty()) script_fn += ".lua";
+
     } else {
         // load script
         script_fn = QString::fromStdString(pod->ptr->getFName());

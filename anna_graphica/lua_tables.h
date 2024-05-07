@@ -62,9 +62,9 @@ static const char* lua_comments[] = {
 };
 
 static const LuaEditorHighlight lua_table[] = {
-    { lua_keywords, true, Qt::darkBlue, true, false },
+    { lua_keywords, true, Qt::transparent, true, false },
     { lua_types, true, Qt::darkGreen, true, false },
-    { lua_quotes, false, Qt::red, false, false },
-    { lua_funcs, false, Qt::transparent, true, false },
+    { lua_quotes, false, Qt::magenta, false, false },
+    { lua_funcs, false, Qt::darkCyan, false, false },
     { lua_comments, false, Qt::blue, false, true, }
 };

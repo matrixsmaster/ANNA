@@ -866,6 +866,13 @@ bool MainWnd::LoadLLMState(const QString& fn)
 {
     if (block) return false;
 
+    // extra precaution - don't attempt to load non-existing file
+    QFileInfo fi(fn);
+    if (!fi.exists()) {
+        ui->statusbar->showMessage("Error: state file doesn't exist");
+        return false;
+    }
+
     // if full reload required, let's remove old brain first
     if (brain && guiconfig.full_reload) {
         delete brain;

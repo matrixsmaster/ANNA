@@ -10,7 +10,7 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.12.0"
+#define ANNA_VERSION "0.12.2"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
@@ -70,6 +70,8 @@ public:
     virtual std::list<std::string> getDictionary();
     virtual std::string PrintContext();
     virtual std::vector<llama_token> getContext();
+    virtual std::vector<float> getContextLogits();
+    virtual std::vector<llama_sample_bias> getLogitBiases();
 
     virtual bool SaveState(std::string fname, const void* user_data, size_t user_size);
     virtual bool LoadState(std::string fname, void* user_data, size_t* user_size);

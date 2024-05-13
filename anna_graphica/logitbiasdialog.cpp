@@ -6,11 +6,16 @@
 
 using namespace std;
 
+static const char* opnames[ALB_OP_N_OPS] = {
+    "Nop", "Add", "Mul", "Set"
+};
+
 LogitBiasDialog::LogitBiasDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::LogitBiasDialog)
 {
     ui->setupUi(this);
+    for (auto i : opnames) ui->opCombo->addItem(i);
 }
 
 LogitBiasDialog::~LogitBiasDialog()
@@ -51,7 +56,7 @@ void LogitBiasDialog::on_btnAdd_clicked()
 
     AnnaLogBias b;
     b.pat = str;
-    b.op = ui->opAdd->isChecked()? ALB_OP_ADD : ALB_OP_MUL;
+    b.op = (AnnaLogBiasOp)ui->opCombo->currentIndex();
     b.val = ui->magnitude->value();
     biases.push_back(b);
 
@@ -88,7 +93,7 @@ void LogitBiasDialog::UpdateTab()
     ui->mainTab->setRowCount(biases.size());
     for (int i = 0; i < ui->mainTab->rowCount(); i++) {
         ui->mainTab->setItem(i,0,(new QTableWidgetItem(biases.at(i).pat)));
-        ui->mainTab->setItem(i,1,(new QTableWidgetItem((biases.at(i).op == ALB_OP_ADD)? "Add":"Mul")));
+        ui->mainTab->setItem(i,1,(new QTableWidgetItem(opnames[biases.at(i).op])));
         ui->mainTab->setItem(i,2,(new QTableWidgetItem(QString::asprintf("%.3f",biases.at(i).val))));
     }
 }

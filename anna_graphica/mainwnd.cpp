@@ -407,7 +407,10 @@ void MainWnd::Generate()
     --block;
     cur_chat += convo + "\n";
     raw_output += convo + "\n";
-    ui->statusbar->showMessage("Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
+
+    QString sstr = "Brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s));
+    if (s == ANNA_ERROR) sstr += " (" + QString::fromStdString(brain->getError()) + ")";
+    ui->statusbar->showMessage(sstr);
     UpdateChatLogFrom(cur_chat);
 }
 
@@ -1180,9 +1183,13 @@ void MainWnd::on_actionShow_tokens_with_IDs_triggered()
 {
     if (!brain) return;
     auto vec = brain->getContext();
+    auto log = brain->getContextLogits(); // only needed for debugging (hopefully)
     QString str;
-    for (auto &&i : vec)
-        str += QString::asprintf("%s[%d], ",brain->TokenToStr(i),i);
+    int nd = (int)log.size() - (int)vec.size();
+    for (auto &&i : vec) {
+        str += QString::asprintf("%s[%d](%.1f), ",brain->TokenToStr(i),i,(nd >= 0)? log.at(nd):0);
+        nd++;
+    }
 
     ui->ChatLog->setPlainText(str);
 }
@@ -1192,4 +1199,14 @@ void MainWnd::on_actionLogit_bias_editor_triggered()
     LogitBiasDialog dlg;
     dlg.brain = brain;
     dlg.exec();
+}
+
+void MainWnd::on_actionShow_active_biases_triggered()
+{
+    if (!brain) return;
+    auto bs = brain->getLogitBiases();
+    QString out = "token; operation; value\n";
+    for (auto &&i : bs)
+        out += QString::asprintf("%d; %d; %.2f\n",i.tok,i.op,i.val);
+    ui->ChatLog->setPlainText(out);
 }

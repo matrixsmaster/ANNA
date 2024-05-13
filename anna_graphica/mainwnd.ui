@@ -447,6 +447,7 @@
     <addaction name="actionRefresh_chat_box"/>
     <addaction name="actionShow_context_tokens"/>
     <addaction name="actionShow_tokens_with_IDs"/>
+    <addaction name="actionShow_active_biases"/>
     <addaction name="actionClear_chat_log"/>
     <addaction name="actionReview_RQP"/>
     <addaction name="actionShow_RQP_output"/>
@@ -718,6 +719,11 @@
    </property>
    <property name="text">
     <string>Logit bias editor</string>
+   </property>
+  </action>
+  <action name="actionShow_active_biases">
+   <property name="text">
+    <string>Show active biases</string>
    </property>
   </action>
  </widget>

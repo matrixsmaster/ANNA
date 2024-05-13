@@ -385,6 +385,16 @@ std::vector<llama_token> AnnaBrain::getContext()
     return ctx_sp->prev;
 }
 
+std::vector<float> AnnaBrain::getContextLogits()
+{
+    return ctx_sp->logit_sel;
+}
+
+std::vector<llama_sample_bias> AnnaBrain::getLogitBiases()
+{
+    return ctx_sp->biases;
+}
+
 bool AnnaBrain::SaveState(std::string fname, const void* user_data, size_t user_size)
 {
     if (state == ANNA_NOT_INITIALIZED) return false;

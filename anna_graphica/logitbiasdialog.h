@@ -10,6 +10,7 @@ enum AnnaLogBiasOp {
     ALB_OP_NOP,
     ALB_OP_ADD,
     ALB_OP_MUL,
+    ALB_OP_SET,
     ALB_OP_N_OPS
 };
 

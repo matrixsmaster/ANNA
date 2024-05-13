@@ -33,6 +33,9 @@ struct llama_sampling_context {
 
     // logit biases
     std::vector<llama_sample_bias> biases;
+
+    // logit selection history (DEBUG ONLY)
+    std::vector<float> logit_sel;
 };
 
 // Create a new sampling context instance.

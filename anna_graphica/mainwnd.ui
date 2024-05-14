@@ -395,8 +395,15 @@
      <addaction name="actionMarkdown"/>
      <addaction name="actionHTML"/>
     </widget>
+    <widget class="QMenu" name="menuImport">
+     <property name="title">
+      <string>Import</string>
+     </property>
+     <addaction name="actionDialog_as_prompt"/>
+    </widget>
     <addaction name="actionNew_dialog"/>
     <addaction name="menuSave_dialog"/>
+    <addaction name="menuImport"/>
     <addaction name="separator"/>
     <addaction name="actionSave_state"/>
     <addaction name="actionLoad_state"/>
@@ -724,6 +731,11 @@
   <action name="actionShow_active_biases">
    <property name="text">
     <string>Show active biases</string>
+   </property>
+  </action>
+  <action name="actionDialog_as_prompt">
+   <property name="text">
+    <string>Dialog as prompt</string>
    </property>
   </action>
  </widget>

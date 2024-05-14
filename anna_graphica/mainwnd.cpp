@@ -1210,3 +1210,19 @@ void MainWnd::on_actionShow_active_biases_triggered()
         out += QString::asprintf("%d; %d; %.2f\n",i.tok,i.op,i.val);
     ui->ChatLog->setPlainText(out);
 }
+
+void MainWnd::on_actionDialog_as_prompt_triggered()
+{
+    QString fn = GetOpenFileName(ANNA_FILE_DLG_MD);
+    if (fn.isEmpty()) return;
+    QString txt;
+    if (!LoadFile(fn,txt) || txt.isEmpty()) return;
+
+    // convert MD to TXT
+    ui->ChatLog->setMarkdown(txt);
+    txt = ui->ChatLog->toPlainText();
+    UpdateChatLogFrom(cur_chat);
+
+    strncpy(config.params.prompt,txt.toStdString().c_str(),sizeof(config.params.prompt)-1);
+    ui->statusbar->showMessage("Prompt set with data from " + fn);
+}

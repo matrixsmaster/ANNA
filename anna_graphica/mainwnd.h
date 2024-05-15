@@ -19,7 +19,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.12.4"
+#define AG_VERSION "0.12.5"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -213,7 +213,7 @@ private:
     void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
     void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
 
-    bool WaitingFun(int prog, bool wait, const std::string& text = "", bool abortable = false);
+    bool WaitingFun(int prog, bool wait, const std::string& text = "", bool abortable = false, bool force = false);
 };
 
 #endif // MAINWND_H

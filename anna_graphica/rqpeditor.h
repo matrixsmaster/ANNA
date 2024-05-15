@@ -10,7 +10,7 @@
 #define AG_PROCESS_WAIT_US 10000UL
 #define AG_ARGPARSE_FAILSAFE 100
 
-typedef std::function<bool(QString)> AnnaRQPWaiter;
+typedef std::function<bool(QString,bool)> AnnaRQPWaiter;
 typedef std::function<bool(QString&,QStringList&)> AnnaRQPFilter;
 
 struct AnnaRQPFile {

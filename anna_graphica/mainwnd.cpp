@@ -349,6 +349,10 @@ void MainWnd::Generate()
     stop = false;
     ++block;
 
+    // make sure to update the UI state ASAP - to let user know it's working
+    ui->statusbar->showMessage("Brain state: thinking...");
+    qApp->processEvents();
+
     // main LLM generation loop - continues until brain is deleted (in processEvents()), or turnover, or error
     while (brain && !stop) {
         s = brain->Processing(ui->SamplingCheck->isChecked());
@@ -976,9 +980,10 @@ void MainWnd::CheckRQPs(const QString& inp)
 {
     ++block; // lock out the UI while processing RQPs
     for (auto & i : rqps) {
-        QString out = RQPEditor::DoRequest(i,inp,[&](QString msg) -> bool {
-            WaitingFun(0,false,msg.toStdString(),true);
-            return waiting_aborted;
+        QString out = RQPEditor::DoRequest(i,inp,[&](QString msg, bool end) -> bool {
+            WaitingFun((end? -1:0),false,msg.toStdString(),true,true);
+            qApp->processEvents();
+            return !waiting_aborted;
         },[&](QString& fn, QStringList& args) -> bool {
             if (!ui->actionReview_RQP->isChecked()) return true;
             RevRQPDialog dlg;
@@ -1096,9 +1101,9 @@ void MainWnd::on_actionReset_prompt_to_default_triggered()
     strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
 }
 
-bool MainWnd::WaitingFun(int prog, bool wait, const string& text, bool abortable)
+bool MainWnd::WaitingFun(int prog, bool wait, const string& text, bool abortable, bool force)
 {
-    if (nowait) return false; // is waiting temporarily prohibited?
+    if (nowait && !force) return false; // is waiting temporarily prohibited?
     if (!busybox_lock.try_lock()) return false; // this might signal to other threads that waiting is already happening
     ++block; // block the UI
 

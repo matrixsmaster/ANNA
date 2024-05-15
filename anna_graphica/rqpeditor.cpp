@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <QDebug>
 #include <QFileDialog>
 #include "rqpeditor.h"
 #include "ui_rqpeditor.h"
@@ -269,15 +270,17 @@ QString RQPEditor::DoRequest(AnnaRQPState &rqp, const QString& inp, AnnaRQPWaite
 
     // wait until the process has terminated (or aborted by user)
     while (p.state() == QProcess::Running) {
+        qDebug() << p.state();
         if (waiter) {
-            if (!waiter("Running external command "+fn)) {
+            if (!waiter("Running external command "+fn,false)) {
                 p.kill();
-                waiter("Process killed");
+                waiter("Process killed",true);
                 return QString();
             }
         }
         usleep(AG_PROCESS_WAIT_US);
     }
+    if (waiter) waiter("External process finished",true);
     qDebug("External process finished\n");
 
     // collect process' output and apply the decorations
@@ -307,7 +310,7 @@ void RQPEditor::on_pushButton_2_clicked()
     s.s = sets;
 
     for (int i = 0; i < AG_ARGPARSE_FAILSAFE; i++) {
-        QString out = DoRequest(s,ui->testEdit->toPlainText(),[](auto) { qApp->processEvents(); return true; },nullptr);
+        QString out = DoRequest(s,ui->testEdit->toPlainText(),[](auto,auto) { qApp->processEvents(); return true; },nullptr);
         if (!out.isEmpty()) {
             ui->testOut->setPlainText(out);
             break;

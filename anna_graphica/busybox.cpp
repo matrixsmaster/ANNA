@@ -189,7 +189,11 @@ BusyBox::~BusyBox()
 
 bool BusyBox::Use(QRect base, int progress, bool abortable)
 {
-    if (isHidden()) show();
+    if (isHidden()) {
+        show();
+        if (!ui->usrInput->text().isEmpty())
+            ui->usrInput->setCursorPosition(ui->usrInput->text().length());
+    }
 
     setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter,size(),base));
 

@@ -362,7 +362,7 @@ list<string> AnnaBrain::getDictionary()
     int sz = llama_n_vocab(model);
     if (sz < 1) return res;
 
-    for (int i = 0; i < sz; i++) res.push_back(llama_token_get_text(model,i));
+    for (int i = 0; i < sz; i++) res.push_back(llama_token_to_piece(ctx,i));
     return res;
 }
 

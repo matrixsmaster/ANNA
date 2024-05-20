@@ -44,7 +44,8 @@ void LogitBiasDialog::on_patLine_textChanged(const QString &arg1)
     ui->patList->clear();
     for (auto &&i : vocab) {
         QString str = QString::fromStdString(i);
-        if (reg.exactMatch(str)) ui->patList->addItem(str);
+        if (reg.exactMatch(str))
+            ui->patList->addItem(str);
     }
 }
 

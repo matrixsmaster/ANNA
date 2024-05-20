@@ -727,6 +727,9 @@
    <property name="text">
     <string>Logit bias editor</string>
    </property>
+   <property name="shortcut">
+    <string>F11</string>
+   </property>
   </action>
   <action name="actionShow_active_biases">
    <property name="text">

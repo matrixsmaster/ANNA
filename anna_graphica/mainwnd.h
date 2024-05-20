@@ -19,7 +19,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.12.5"
+#define AG_VERSION "0.12.6"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -64,6 +64,7 @@ enum AnnaFileDialogType {
     ANNA_FILE_MODEL_STATE,
     ANNA_FILE_CLIP,
     ANNA_FILE_ATTACHMENT,
+    ANNA_FILE_LOGITBIAS,
     ANNA_NUM_FILETYPES
 };
 
@@ -79,6 +80,11 @@ class MainWnd : public QMainWindow
 public:
     MainWnd(QWidget *parent = nullptr);
     ~MainWnd();
+
+    QString GetSaveFileName(const AnnaFileDialogType tp);
+    QString GetOpenFileName(const AnnaFileDialogType tp);
+
+    bool WaitingFun(int prog, bool wait, const std::string& text = "", bool abortable = false, bool force = false);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -195,6 +201,8 @@ private:
     void SaveSettings();
     bool LoadFile(const QString& fn, QString& str);
     bool SaveFile(const QString& fn, const QString& str);
+    void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
+    void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
     bool NewBrain();
     void LoadLLM(const QString& fn);
     bool LoadLLMState(const QString& fn);
@@ -207,13 +215,6 @@ private:
     bool EmbedImage(const QString& fn);
     bool CheckUsrPrefix(QString& convo);
     void Generate();
-
-    QString GetSaveFileName(const AnnaFileDialogType tp);
-    QString GetOpenFileName(const AnnaFileDialogType tp);
-    void SaveComboBox(QSettings* sets, QString prefix, QComboBox* box);
-    void LoadComboBox(QSettings* sets, QString prefix, QComboBox* box);
-
-    bool WaitingFun(int prog, bool wait, const std::string& text = "", bool abortable = false, bool force = false);
 };
 
 #endif // MAINWND_H

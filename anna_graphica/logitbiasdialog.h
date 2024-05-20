@@ -29,7 +29,7 @@ class LogitBiasDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit LogitBiasDialog(QWidget *parent = nullptr);
+    explicit LogitBiasDialog(QWidget *parent);
     ~LogitBiasDialog();
 
     AnnaBrain* brain = nullptr;

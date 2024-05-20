@@ -3,6 +3,7 @@
 #include <QFileDialog>
 #include "logitbiasdialog.h"
 #include "ui_logitbiasdialog.h"
+#include "mainwnd.h"
 
 using namespace std;
 
@@ -115,7 +116,9 @@ void LogitBiasDialog::on_btnClear_clicked()
 
 void LogitBiasDialog::on_btnSave_clicked()
 {
-    QString fn = QFileDialog::getSaveFileName(this,"Save bias config file","","INI files (*.ini);;All files (*.*)");
+    MainWnd* mwnd = dynamic_cast<MainWnd*>(parent());
+    QString fn = mwnd? mwnd->GetSaveFileName(ANNA_FILE_LOGITBIAS) :
+                       QFileDialog::getSaveFileName(this,"Save bias config file","","INI files (*.ini);;All files (*.*)");
     if (fn.isEmpty()) return;
 
     QSettings ini(fn,QSettings::IniFormat);
@@ -133,7 +136,9 @@ void LogitBiasDialog::on_btnSave_clicked()
 
 void LogitBiasDialog::on_btnLoad_clicked()
 {
-    QString fn = QFileDialog::getOpenFileName(this,"Load bias config file","","INI files (*.ini);;All files (*.*)");
+    MainWnd* mwnd = dynamic_cast<MainWnd*>(parent());
+    QString fn = mwnd? mwnd->GetOpenFileName(ANNA_FILE_LOGITBIAS) :
+                       QFileDialog::getOpenFileName(this,"Load bias config file","","INI files (*.ini);;All files (*.*)");
     if (fn.isEmpty()) return;
 
     QSettings ini(fn,QSettings::IniFormat);

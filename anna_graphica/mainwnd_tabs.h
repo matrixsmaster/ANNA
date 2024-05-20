@@ -10,7 +10,8 @@ static const char* filetype_names[ANNA_NUM_FILETYPES] = {
     "dialog as HTML",
     "model state",
     "CLiP encoder",
-    "attachment"
+    "attachment",
+    "logit biases",
 };
 
 static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
@@ -22,6 +23,7 @@ static const char* filetype_filters[ANNA_NUM_FILETYPES] = {
     "ANNA save states (*.anna);;All files (*.*)",
     "GGUF files (*.gguf);;All files (*.*)",
     "Image files (*.png *.jpg *.jpeg *.bmp *.xpm *.ppm *.pbm *.pgm *.xbm *.xpm);;Text files (*.txt);;All files (*.*)",
+    "Logit bias files (*.ini);;All files (*.*)",
 };
 
 static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
@@ -33,6 +35,7 @@ static const char* filetype_defaults[ANNA_NUM_FILETYPES] = {
     ".anna",
     ".gguf",
     ".txt",
+    ".ini",
 };
 
 static const char* md_fix_in_tab[] = {

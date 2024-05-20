@@ -1201,7 +1201,7 @@ void MainWnd::on_actionShow_tokens_with_IDs_triggered()
 
 void MainWnd::on_actionLogit_bias_editor_triggered()
 {
-    LogitBiasDialog dlg;
+    LogitBiasDialog dlg(this);
     dlg.brain = brain;
     dlg.exec();
 }

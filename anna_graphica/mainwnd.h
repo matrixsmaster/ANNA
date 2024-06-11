@@ -20,7 +20,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.12.8"
+#define AG_VERSION "0.12.9"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -187,7 +187,7 @@ private:
     QString cur_chat, raw_output;
     std::list<AnnaAttachment> attachs;
     AnnaAttachment* next_attach;
-    bool last_username;
+    QString last_username;
     bool stop;
     std::atomic_int block;
     QString filedlg_cache[ANNA_NUM_FILETYPES];
@@ -214,8 +214,8 @@ private:
     void ForceAIName(const QString& nm);
     void ProcessInput(std::string str);
     bool EmbedImage(const QString& fn);
-    bool CheckUsrPrefix(QString& convo);
     void Generate();
+    QString CheckUsrPrefix(QString& convo);
 };
 
 #endif // MAINWND_H

@@ -38,7 +38,7 @@ MainWnd::MainWnd(QWidget *parent)
     LoadSettings();
     UpdateRQPs();
     next_attach = nullptr;
-    last_username = false;
+    last_username.clear();
     nowait = false;
     tokens_cnt = 0;
 
@@ -198,7 +198,7 @@ bool MainWnd::NewBrain()
     }
 
     // re-initialize related state variables
-    last_username = false;
+    last_username.clear();
     tokens_cnt = 0;
 
     // if all is good, we can exit
@@ -319,26 +319,26 @@ bool MainWnd::EmbedImage(const QString& fn)
     return res;
 }
 
-bool MainWnd::CheckUsrPrefix(QString& convo)
+QString MainWnd::CheckUsrPrefix(QString& convo)
 {
     QString usrbox = ui->UserNameBox->currentText();
     bool multi = (!usrbox.isEmpty()) && guiconfig.multi_usr && (!guiconfig.musr_delim.isEmpty()) && usrbox.contains(guiconfig.musr_delim);
     if (!multi) {
         if (!usrbox.isEmpty() && convo.endsWith(usrbox)) {
             convo.chop(usrbox.length()); //just to make the log a bit more easy to read
-            return true;
+            return usrbox;
         } else
-            return false;
+            return "";
     }
 
     QStringList pfx = usrbox.split(guiconfig.musr_delim);
     for (auto &i : pfx) {
         if (convo.endsWith(i)) {
             //convo.chop(i.length());
-            return true;
+            return i;
         }
     }
-    return false;
+    return "";
 }
 
 void MainWnd::Generate()
@@ -370,9 +370,9 @@ void MainWnd::Generate()
             convo += QString::fromStdString(str);
             if (ui->stopNL->isChecked() && str.find('\n') != string::npos)
                 s = ANNA_TURNOVER;
-            else if (CheckUsrPrefix(convo)) {
-                last_username = true;
-                s = ANNA_TURNOVER;
+            else {
+                last_username = CheckUsrPrefix(convo);
+                if (!last_username.isEmpty()) s = ANNA_TURNOVER;
             }
             break;
         case ANNA_PROCESSING:
@@ -549,13 +549,14 @@ void MainWnd::on_SendButton_clicked()
 
     QString usrbox = ui->UserNameBox->currentText();
     bool multi = (!usrbox.isEmpty()) && guiconfig.multi_usr && (!guiconfig.musr_delim.isEmpty()) && usrbox.contains(guiconfig.musr_delim);
-    if (last_username) {
+    if (last_username == usrbox || (!last_username.isEmpty() && multi)) {
         usr.clear(); // no need for initial newline
-        if (!usrbox.isEmpty() && !multi) log += usrbox + " "; // we might still need to put user prefix into the log
-        last_username = false;
+        if (!usrbox.isEmpty() && !multi) log += usrbox + " "; // we still need to put user prefix into the log
 
     } else if (!usrbox.isEmpty() && !multi)
         line = usrbox + " ";
+
+    last_username.clear();
 
     line += ui->UserInput->toPlainText();
     if (guiconfig.md_fix) FixMarkdown(line,md_fix_in_tab);
@@ -749,7 +750,7 @@ void MainWnd::on_actionNew_dialog_triggered()
     UpdateRQPs();
     raw_output.clear();
     ui->UserInput->clear();
-    last_username = false;
+    last_username.clear();
     next_attach = nullptr;
 }
 
@@ -1024,7 +1025,6 @@ void MainWnd::on_actionRefresh_chat_box_triggered()
 
 void MainWnd::UpdateChatLogFrom(QString s)
 {
-    //QTextCursor pp = ui->ChatLog->textCursor();
     auto pp = ui->ChatLog->verticalScrollBar();
     int op = pp? pp->value() : 0;
 
@@ -1034,9 +1034,8 @@ void MainWnd::UpdateChatLogFrom(QString s)
     if (ui->actionAuto_scroll->isChecked()) {
         ui->ChatLog->moveCursor(QTextCursor::End);
         ui->ChatLog->ensureCursorVisible();
-    } else if (pp) {
+    } else if (pp)
         pp->setValue(op);
-    }
 }
 
 void MainWnd::on_actionShow_context_tokens_triggered()

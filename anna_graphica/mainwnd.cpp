@@ -1024,10 +1024,19 @@ void MainWnd::on_actionRefresh_chat_box_triggered()
 
 void MainWnd::UpdateChatLogFrom(QString s)
 {
+    //QTextCursor pp = ui->ChatLog->textCursor();
+    auto pp = ui->ChatLog->verticalScrollBar();
+    int op = pp? pp->value() : 0;
+
     FixMarkdown(s,md_fix_out_tab);
     ui->ChatLog->setMarkdown(s);
-    ui->ChatLog->moveCursor(QTextCursor::End);
-    ui->ChatLog->ensureCursorVisible();
+
+    if (ui->actionAuto_scroll->isChecked()) {
+        ui->ChatLog->moveCursor(QTextCursor::End);
+        ui->ChatLog->ensureCursorVisible();
+    } else if (pp) {
+        pp->setValue(op);
+    }
 }
 
 void MainWnd::on_actionShow_context_tokens_triggered()

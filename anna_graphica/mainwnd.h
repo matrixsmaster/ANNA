@@ -11,6 +11,7 @@
 #include <QComboBox>
 #include <QSettings>
 #include <QCompleter>
+#include <QScrollBar>
 #include <mutex>
 #include <atomic>
 #include "rqpeditor.h"
@@ -19,7 +20,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.12.7"
+#define AG_VERSION "0.12.8"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48

@@ -422,6 +422,8 @@
     <addaction name="separator"/>
     <addaction name="actionShow_prompt"/>
     <addaction name="actionClear_attachments"/>
+    <addaction name="separator"/>
+    <addaction name="actionAuto_scroll"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -739,6 +741,17 @@
   <action name="actionDialog_as_prompt">
    <property name="text">
     <string>Dialog as prompt</string>
+   </property>
+  </action>
+  <action name="actionAuto_scroll">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Auto-scroll</string>
    </property>
   </action>
  </widget>

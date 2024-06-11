@@ -315,9 +315,9 @@ QString BusyBox::think(QString in)
             si += 2;
             for (l = 0; l < c.length(); l++) {
                 if (c.mid(l,ks.length()) == ks)
-                    c = c.mid(0,l) + rs + c.mid(l+ks.length()-1,1000);
+                    c = c.mid(0,l) + rs + c.mid(l+ks.length()-1);
                 else if (c.mid(l,rs.length()) == rs)
-                    c = c.mid(0,l) + ks + c.mid(l+rs.length()-1,1000);
+                    c = c.mid(0,l) + ks + c.mid(l+rs.length()-1);
             }
         }
         if (c.mid(0,1) == " ") c.remove(0,1);

@@ -400,6 +400,7 @@
       <string>Import</string>
      </property>
      <addaction name="actionDialog_as_prompt"/>
+     <addaction name="actionDialog_as_log"/>
     </widget>
     <addaction name="actionNew_dialog"/>
     <addaction name="menuSave_dialog"/>
@@ -752,6 +753,11 @@
    </property>
    <property name="text">
     <string>Auto-scroll</string>
+   </property>
+  </action>
+  <action name="actionDialog_as_log">
+   <property name="text">
+    <string>Dialog as log</string>
    </property>
   </action>
  </widget>

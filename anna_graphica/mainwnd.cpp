@@ -1239,3 +1239,15 @@ void MainWnd::on_actionDialog_as_prompt_triggered()
     strncpy(config.params.prompt,txt.toStdString().c_str(),sizeof(config.params.prompt)-1);
     ui->statusbar->showMessage("Prompt set with data from " + fn);
 }
+
+void MainWnd::on_actionDialog_as_log_triggered()
+{
+    QString fn = GetOpenFileName(ANNA_FILE_DLG_MD);
+    if (fn.isEmpty()) return;
+    QString txt;
+    if (!LoadFile(fn,txt) || txt.isEmpty()) return;
+
+    cur_chat = txt;
+    UpdateChatLogFrom(cur_chat);
+    ui->statusbar->showMessage("Dialog history loaded from " + fn);
+}

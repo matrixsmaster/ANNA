@@ -15,7 +15,7 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.4.1b"
+#define SERVER_VERSION "0.4.2"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -90,6 +90,7 @@ mutex usermap_mtx, q_lock;
 bool quit = false;
 bool g_lock = false;
 string gip_lock;
+map<string,map<int,int>> offload_cache;
 
 #ifdef SERVER_DEBUG
 
@@ -169,6 +170,13 @@ int get_max_gpu_layers(AnnaConfig* cfg)
         return 0;
     }
 
+    // check if we already have the answer
+    if (offload_cache.count(cfg->params.model) && offload_cache[cfg->params.model].count(cfg->params.n_ctx)) {
+        int off = offload_cache[cfg->params.model][cfg->params.n_ctx];
+        INFO("Used cached GPU offload for '%s' with %d context size: %d layers\n",cfg->params.model,cfg->params.n_ctx,off);
+        return off;
+    }
+
     // first of all, let's determine the overall size of the model file
     FILE* f = fopen(cfg->params.model,"rb");
     if (!f) {
@@ -194,6 +202,7 @@ int get_max_gpu_layers(AnnaConfig* cfg)
     int off = floor(fulloff * SERVER_DEF_GPU_MARGIN);
     if (off < 0) off = 0;
     INFO("GPU offload for '%s' calculated as %.2f (%d) layers\n",cfg->params.model,fulloff,off);
+    offload_cache[cfg->params.model][cfg->params.n_ctx] = off;
 
     llama_free(ctx);
     llama_free_model(mdl);

@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QSettings>
 #include <QFontDialog>
+#include <QListWidget>
 #include "../brain.h"
 
 #define AG_SETS_RQP_TAB 6
@@ -58,12 +59,22 @@ private slots:
 
     void on_pushButton_8_clicked();
 
+    void on_pushButton_9_clicked();
+
+    void on_pushButton_10_clicked();
+
+    void on_pushButton_11_clicked();
+
+    void on_newStopW_textChanged(const QString &arg1);
+
 private:
     Ui::SettingsDialog *ui;
 
     QString GetSaveFileName(QString title, QString filter, QString ext);
     static QFont LoadFont(QSettings* sets, QString prefix, const QFont& prev);
     void addRQPfile(QString fn, bool checked);
+    QStringList toStringList(QListWidget* widget);
+    void fromStringList(QListWidget* widget, QStringList list);
 };
 
 #endif // SETTINGSDIALOG_H

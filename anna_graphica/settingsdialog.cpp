@@ -83,6 +83,8 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->taSuffix->setText(gs->txt_suffix);
         ui->useLSCS->setChecked(gs->use_lscs);
 
+        fromStringList(ui->stopWords,gs->stop_words);
+
         ui->rqpList->clear();
         for (auto & i : gs->rqps) addRQPfile(i.fn,i.enabled);
     }
@@ -147,6 +149,7 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("txt_prefix",gs->txt_prefix);
     sets->setValue("txt_suffix",gs->txt_suffix);
     sets->setValue("use_lscs",gs->use_lscs);
+    sets->setValue("stop_words",gs->stop_words);
 
     sets->beginWriteArray("RQP");
     for (int i = 0; i < (int)gs->rqps.size(); i++) {
@@ -214,6 +217,8 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->txt_suffix = ui->taSuffix->text();
     gs->use_lscs = ui->useLSCS->isChecked();
 
+    gs->stop_words = toStringList(ui->stopWords);
+
     gs->rqps.clear();
     for (int i = 0; i < ui->rqpList->count(); i++) {
         AnnaRQPFile r;
@@ -280,6 +285,7 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->txt_prefix = sets->value("txt_prefix",gs->txt_prefix).toString();
     gs->txt_suffix = sets->value("txt_suffix",gs->txt_suffix).toString();
     gs->use_lscs = sets->value("use_lscs",gs->use_lscs).toBool();
+    gs->stop_words = sets->value("stop_words",gs->stop_words).toStringList();
 
     int n_rqps = sets->beginReadArray("RQP");
     gs->rqps.clear();
@@ -416,4 +422,43 @@ void SettingsDialog::on_pushButton_8_clicked()
     if (ui->rqpList->currentRow() < 0 || ui->rqpList->currentRow() >= ui->rqpList->count()) return;
     auto ptr = ui->rqpList->takeItem(ui->rqpList->currentRow());
     if (ptr) delete ptr;
+}
+
+QStringList SettingsDialog::toStringList(QListWidget* widget)
+{
+    QStringList res;
+    for (int i = 0; widget && i < widget->count(); i++)
+        res.append(widget->item(i)->text());
+    return res;
+}
+
+void SettingsDialog::fromStringList(QListWidget* widget, QStringList list)
+{
+    if (!widget) return;
+    widget->clear();
+    for (auto &&i : list) widget->addItem(i);
+}
+
+void SettingsDialog::on_pushButton_9_clicked()
+{
+    ui->stopWords->addItem(ui->newStopW->text());
+}
+
+void SettingsDialog::on_pushButton_10_clicked()
+{
+    if (ui->stopWords->currentRow() < 0 || ui->stopWords->currentRow() >= ui->stopWords->count()) return;
+    auto ptr = ui->stopWords->takeItem(ui->stopWords->currentRow());
+    if (ptr) delete ptr;
+}
+
+void SettingsDialog::on_pushButton_11_clicked()
+{
+    if (QMessageBox::question(this,"ANNA","Clear all entries from the stop word list?",QMessageBox::No|QMessageBox::Yes,QMessageBox::No) == QMessageBox::Yes)
+        ui->stopWords->clear();
+}
+
+void SettingsDialog::on_newStopW_textChanged(const QString &arg1)
+{
+    QRegExp tst(arg1);
+    ui->stopWValid->setChecked(tst.isValid());
 }

@@ -20,7 +20,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.12.10"
+#define AG_VERSION "0.12.11"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -53,6 +53,7 @@ struct AnnaGuiSettings {
     QFont log_fnt, usr_fnt;
     QString musr_delim;
     QString att_prefix, txt_prefix, txt_suffix;
+    QStringList stop_words;
     std::vector<AnnaRQPFile> rqps;
 };
 
@@ -218,6 +219,7 @@ private:
     bool EmbedImage(const QString& fn);
     void Generate();
     QString CheckUsrPrefix(QString& convo);
+    bool CheckStopWords(QString &convo);
 };
 
 #endif // MAINWND_H

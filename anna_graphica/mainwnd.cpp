@@ -325,7 +325,7 @@ QString MainWnd::CheckUsrPrefix(QString& convo)
     bool multi = (!usrbox.isEmpty()) && guiconfig.multi_usr && (!guiconfig.musr_delim.isEmpty()) && usrbox.contains(guiconfig.musr_delim);
     if (!multi) {
         if (!usrbox.isEmpty() && convo.endsWith(usrbox)) {
-            convo.chop(usrbox.length()); //just to make the log a bit more easy to read
+            convo.chop(usrbox.length()); //hide "dangling" user prefix, just to make the log a bit more easy to read
             return usrbox;
         } else
             return "";
@@ -334,11 +334,29 @@ QString MainWnd::CheckUsrPrefix(QString& convo)
     QStringList pfx = usrbox.split(guiconfig.musr_delim);
     for (auto &i : pfx) {
         if (convo.endsWith(i)) {
-            //convo.chop(i.length());
+            //convo.chop(i.length()); //don't hide the prefix, as we need to know it
             return i;
         }
     }
     return "";
+}
+
+bool MainWnd::CheckStopWords(QString &convo)
+{
+    if (convo.isEmpty()) return false;
+
+    for (auto &&i : guiconfig.stop_words) {
+        QRegExp tst(i);
+        if (!tst.isValid()) continue;
+
+        int p = tst.lastIndexIn(convo);
+        if (p >= 0 && p + tst.matchedLength() == convo.length()) {
+            convo.chop(tst.matchedLength());
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void MainWnd::Generate()
@@ -365,23 +383,29 @@ void MainWnd::Generate()
                 break;
             }
             // fall-thru
+
         case ANNA_TURNOVER:
             str = brain->getOutput();
             convo += QString::fromStdString(str);
-            if (ui->stopNL->isChecked() && str.find('\n') != string::npos)
+            if (ui->stopNL->isChecked() && str.find('\n') != string::npos) //stop at NL
                 s = ANNA_TURNOVER;
-            else {
+            else if (CheckStopWords(convo)) //stop at stop-word
+                s = ANNA_TURNOVER;
+            else { //stop if user prefix was generated
                 last_username = CheckUsrPrefix(convo);
                 if (!last_username.isEmpty()) s = ANNA_TURNOVER;
             }
             break;
+
         case ANNA_PROCESSING:
             // nothing to do, waiting
             break;
+
         case ANNA_ERROR:
             ui->statusbar->showMessage("Error: " + QString::fromStdString(brain->getError()));
             stop = true;
             break;
+
         default:
             ui->statusbar->showMessage("Wrong brain state: " + QString::fromStdString(AnnaBrain::StateToStr(s)));
             stop = true;

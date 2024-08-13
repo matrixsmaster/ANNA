@@ -5,7 +5,7 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.4.0"
+#define ANNA_CLIENT_VERSION "0.5.0"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (8ULL * 1024ULL * 1024ULL)
@@ -15,6 +15,7 @@
 #define ANNA_HASH_UPDATE_MS 100
 #define ANNA_KEEPALIVE_CHECK_MS 100
 #define ANNA_KEEPALIVE_PERIOD (2 * 60000 / (ANNA_KEEPALIVE_CHECK_MS))
+#define ANNA_MAXLEN_BIAS_STR 256
 
 // Avoid inclusion of httplib.h into any header files
 namespace httplib {
@@ -39,8 +40,14 @@ public:
     void setInput(std::string inp) override;
     void setPrefix(std::string str) override;
     void addEmbeddings(const std::vector<float>& emb) override;
+    void applyLogitBias(llama_sample_bias bias) override;
 
+    const char* TokenToStr(llama_token token) override;
+    std::list<std::string> getDictionary() override;
     std::string PrintContext() override;
+    std::vector<llama_token> getContext() override;
+    std::vector<float> getContextLogits() override;
+    std::vector<llama_sample_bias> getLogitBiases() override;
 
     bool SaveState(std::string fname, const void* user_data, size_t user_size) override;
     bool LoadState(std::string fname, void* user_data, size_t* user_size) override;

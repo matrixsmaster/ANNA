@@ -158,9 +158,70 @@ void AnnaClient::addEmbeddings(const std::vector<float>& emb)
     request(true,"/addEmbeddings",enc);
 }
 
+void AnnaClient::applyLogitBias(llama_sample_bias bias)
+{
+    char buf[ANNA_MAXLEN_BIAS_STR] = {0};
+    snprintf(buf,ANNA_MAXLEN_BIAS_STR-1,"%d %d %lf",bias.tok,bias.op,bias.val);
+    DBG("applyLogitBias(): sending '%s'\n",buf);
+    request(true,"/applyLogitBias",asBase64(buf,strlen(buf)));
+}
+
+const char* AnnaClient::TokenToStr(llama_token token)
+{
+    piecebuf = fromBase64(request(false,"/TokenToStr",asBase64(&token,sizeof(token))));
+    return piecebuf.c_str();
+}
+
+list<string> AnnaClient::getDictionary()
+{
+    list<string> res;
+    string buf = fromBase64(request(false,"/getDictionary"));
+    while (!buf.empty()) {
+        size_t n = buf.find('\n');
+        if (n < buf.length()) {
+            res.push_back(buf.substr(n));
+            buf.erase(0,n+1);
+        } else break;
+    }
+    return res;
+}
+
 string AnnaClient::PrintContext()
 {
     return request(false,"/printContext");
+}
+
+vector<llama_token> AnnaClient::getContext()
+{
+    string buf = fromBase64(request(false,"/getContext"));
+    return vector_storage<llama_token>::from_pool((uint8_t*)buf.data(),buf.length());
+}
+
+vector<float> AnnaClient::getContextLogits()
+{
+    string buf = fromBase64(request(false,"/getContextLogits"));
+    return vector_storage<float>::from_pool((uint8_t*)buf.data(),buf.length());
+}
+
+vector<llama_sample_bias> AnnaClient::getLogitBiases()
+{
+    vector<llama_sample_bias> res;
+    string buf = fromBase64(request(false,"/getLogitBiases"));
+    while (!buf.empty()) {
+        size_t n = buf.find('\n');
+        if (n < buf.length()) {
+            string tmp = buf.substr(n);
+            buf.erase(0,n+1);
+            llama_sample_bias b;
+            if (sscanf(tmp.c_str(),"%d %d %lf",&b.tok,&b.op,&b.val) == 3)
+                res.push_back(b);
+            else {
+                internal_error = myformat("Unable to parse bias string '%s'",tmp.c_str());
+                break;
+            }
+        } else break;
+    }
+    return res;
 }
 
 bool AnnaClient::SaveState(string fname, const void* user_data, size_t user_size)

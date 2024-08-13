@@ -6,6 +6,7 @@
 #include <deque>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 template <class T> class vector_storage {
 public:
@@ -57,6 +58,27 @@ public:
         std::string r;
         for (auto & i: vec) r.push_back(i);
         return r;
+    }
+
+    static std::vector<T> from_pool(uint8_t* data, size_t size) {
+        std::vector<T> r;
+        while (size--) {
+            r.push_back(*((T*)data));
+            data += sizeof(T);
+        }
+        return r;
+    }
+
+    static uint8_t* to_pool(const std::vector<T> & vec) {
+        uint8_t* out = (uint8_t*)malloc(sizeof(T) * vec.size());
+        if (out) {
+            uint8_t* pos = out;
+            for (auto & i : vec) {
+                *((T*)pos) = i;
+                pos += sizeof(T);
+            }
+        }
+        return out;
     }
 
     static std::vector<T> from_deque(const std::deque<T> & deq) {

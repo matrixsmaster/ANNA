@@ -17,7 +17,7 @@
 *.includes
 *.user
 *.gguf
-build-anna_graphica-*
+build-*
 anna
 anna_server
 saves/

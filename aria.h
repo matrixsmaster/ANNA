@@ -1,4 +1,5 @@
-/* This code uses parts of the SGUI library (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2024 */
+/* This code uses parts of the SGUI library
+ * (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2025 */
 #pragma once
 
 #include <thread>
@@ -6,7 +7,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.10"
+#define ARIA_VERSION "0.0.11"
 
 #define ARIA_PATH_DELIM '/'
 
@@ -26,7 +27,7 @@ enum AriaThreadSem {
     ARIA_THR_FORCE_STOP
 };
 
-// Artificially Restricted Intelligence Agent
+// Artificially Restricted Intelligent Agent
 class Aria
 {
 public:
@@ -79,7 +80,7 @@ private:
     AnnaConfig bconfig;
     AriaState state = ARIA_NOT_INITIALIZED;
     std::thread* process_thr = nullptr;
-    std::atomic<AriaThreadSem> thr_state = ARIA_THR_NOT_RUNNING;
+    std::atomic<AriaThreadSem> thr_state;
     std::string scriptfn, mname;
     std::string merror;
     std::string output;

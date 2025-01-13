@@ -16,9 +16,10 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include "brain.h"
+#include "lscs.h"
 #include "netclient.h"
 
-#define CLI_VERSION "0.8.2"
+#define CLI_VERSION "0.9.0"
 
 #define ERR(X,...) fprintf(stderr, "[ANNA] ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "[ANNA] ERROR: " __VA_ARGS__)
@@ -581,10 +582,15 @@ int main(int argc, char* argv[])
     }
     if (set_params(cfg,argc,argv)) return -1;
 
-    // create new brain or brain connector
-    if (g_server.empty()) brain = new AnnaBrain(&cfg);
-    else brain = dynamic_cast<AnnaBrain*>(new AnnaClient(&cfg,g_server,false,nullptr));
-    if (brain->getState() == ANNA_ERROR) {
+    // create new brain, LSCS, or brain connector
+    if (g_server.empty()) {
+        string fn = cfg.params.model;
+        if (fn.ends_with(".lscs")) brain = new AnnaLSCS(fn);
+        else brain = new AnnaBrain(&cfg);
+    } else
+        brain = dynamic_cast<AnnaBrain*>(new AnnaClient(&cfg,g_server,false,nullptr));
+
+    if (!brain || brain->getState() == ANNA_ERROR) {
         ERR("Unable to create brain: %s\n",brain->getError().c_str());
         return 10;
     }

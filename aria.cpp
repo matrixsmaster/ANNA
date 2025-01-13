@@ -1,4 +1,5 @@
-/* This code uses parts of the SGUI library (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2024 */
+/* This code uses parts of the SGUI library
+ * (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2025 */
 #include <string.h>
 #include "brain.h"
 #include "netclient.h"
@@ -30,6 +31,7 @@ Aria::Aria(string scriptfile, std::string name)
 {
     scriptfn = scriptfile;
     mname = name;
+    thr_state = ARIA_THR_NOT_RUNNING;
     Reload();
 }
 

@@ -28,7 +28,7 @@ endif
 #
 
 # keep standard at C11 and C++11
-MK_CPPFLAGS = -I. -Icommon
+MK_CPPFLAGS = -I. -Icommon -Ilua
 MK_CFLAGS   = -std=c11   -fPIC
 MK_CXXFLAGS = -std=c++11 -fPIC
 
@@ -511,14 +511,20 @@ clip.o: clip.cpp clip.h stb_image.h
 brain.o: brain.cpp brain.h vecstore.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
+lscs.o: lscs.cpp lscs.h
+	$(CXX) $(CXXFLAGS) -std=c++11 -c $< -o $@
+
+aria.o: aria.cpp aria.h aria_binds.h
+	$(CXX) $(CXXFLAGS) -std=c++11 -c $< -o $@
+
 netclient.o: netclient.cpp netclient.h brain.h server/httplib.h server/base64m.h server/codec.h
 	$(CXX) $(CXXFLAGS) -std=c++2a -Iserver -c $< -o $@
 
-anna: anna.cpp ggml.o llama.o common.o sampling.o clip.o brain.o netclient.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
-	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
-
-libanna.a: ggml.o llama.o common.o sampling.o clip.o brain.o netclient.o grammar-parser.o $(OBJS) $(COMMON_H_DEPS)
+libanna.a: ggml.o llama.o common.o sampling.o clip.o brain.o netclient.o grammar-parser.o lscs.o aria.o $(OBJS) $(COMMON_H_DEPS)
 	ar cru $@ $^
+
+anna: anna.cpp libanna.a
+	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) libanna.a -o $@ $(LDFLAGS) -Llua -llua
 
 anna_server: server/server.cpp server/base64m.h server/httplib.h server/codec.h libanna.a
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)

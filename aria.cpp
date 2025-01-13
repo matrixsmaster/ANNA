@@ -221,7 +221,7 @@ bool Aria::LuaCall(std::string f, const char* args, ...)
         case 'i':
         {
             int i = va_arg(vl,int);
-            DBG("pushing integer %d",i);
+            DBG("pushing integer %d\n",i);
             lua_pushinteger(luavm,i);
             num++;
             break;
@@ -230,7 +230,7 @@ bool Aria::LuaCall(std::string f, const char* args, ...)
         case 'd':
         {
             double vf = va_arg(vl,double);
-            DBG("pushing float (number) %f",vf);
+            DBG("pushing float (number) %f\n",vf);
             lua_pushnumber(luavm,vf);
             num++;
             break;
@@ -238,13 +238,13 @@ bool Aria::LuaCall(std::string f, const char* args, ...)
         case 's':
         {
             const char* str = va_arg(vl,const char*);
-            DBG("pushing string %s",str);
+            DBG("pushing string %s\n",str);
             lua_pushstring(luavm,str);
             num++;
             break;
         }
         default:
-            DBG("unknown formatting literal '%c', ignored",*args);
+            DBG("unknown formatting literal '%c', ignored\n",*args);
         }
         args++;
     }

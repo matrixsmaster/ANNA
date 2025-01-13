@@ -116,7 +116,6 @@
          <property name="font">
           <font>
            <pointsize>24</pointsize>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -169,7 +168,6 @@
          </property>
          <property name="font">
           <font>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -230,7 +228,6 @@
         <font>
          <family>FreeSerif</family>
          <pointsize>14</pointsize>
-         <weight>50</weight>
          <bold>false</bold>
         </font>
        </property>
@@ -255,7 +252,7 @@
        <property name="text">
         <string>Copyright (c) Georgi Gerganov, 2023-2024
 Copyright (c) llama.cpp contributors, 2023-2024
-Copyright (c) Dmitry 'sciloaf' Solovyev, 2023-2024</string>
+Copyright (c) Dmitry 'sciloaf' Solovyev, 2023-2025</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>

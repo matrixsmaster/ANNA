@@ -187,7 +187,7 @@ bool MainWnd::NewBrain()
         });
         brain = dynamic_cast<AnnaBrain*>(ptr);
 
-    } else if (guiconfig.use_lscs) {
+    } else if (guiconfig.use_lscs && string(config.params.model).ends_with(".lscs")) {
         // create AnnaLSCS-based instance
         AnnaLSCS* ptr = new AnnaLSCS(config.params.model);
         brain = dynamic_cast<AnnaBrain*>(ptr);

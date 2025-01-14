@@ -476,7 +476,7 @@ $(info )
 # Build stuff
 #
 
-ggml.o: ggml.c ggml.h ggml-cuda.h
+ggml.o: ggml.c ggml.h
 	$(CC)  $(CFLAGS)   -c $< -o $@
 
 ggml-alloc.o: ggml-alloc.c ggml.h ggml-alloc.h
@@ -490,7 +490,7 @@ ggml-quants.o: ggml-quants.c ggml.h ggml-quants.h
 
 OBJS += ggml-alloc.o ggml-backend.o ggml-quants.o
 
-llama.o: llama.cpp ggml.h ggml-alloc.h ggml-backend.h ggml-cuda.h llama.h
+llama.o: llama.cpp ggml.h ggml-alloc.h ggml-backend.h llama.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 COMMON_H_DEPS = common.h sampling.h dtypes.h

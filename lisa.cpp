@@ -11,7 +11,7 @@
 #include <string>
 #include "lscs.h"
 
-#define LISA_VERSION "0.0.1"
+#define LISA_VERSION "0.0.2"
 
 #define ERR(X,...) fprintf(stderr, "[LISA] ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "[LISA] ERROR: " __VA_ARGS__)
@@ -25,9 +25,9 @@
 using namespace std;
 
 const char* argstrings[] = {
-    "<-s LSCS scheme file> : load scheme",
-    "[-t <time>] : inter-step delay value (in ms)",
-    "[-m <file>] : use shutdown marker file",
+    "<-s file> : load LSCS scheme",
+    "[-t time] : inter-step delay value (in ms)",
+    "[-m file] : use shutdown marker file",
     NULL
 };
 

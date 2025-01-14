@@ -5,7 +5,7 @@ LLAMA_CUBLAS=1
 
 
 # Define the default target now so that it is always the first target
-BUILD_TARGETS = libanna.a anna anna_server
+BUILD_TARGETS = libanna.a anna anna_server lisa
 
 all: $(BUILD_TARGETS)
 	cd lua && make all

@@ -47,7 +47,7 @@ int set_params(int argc, char* argv[])
     int opt;
 
     // parse params
-    while ((opt = getopt(argc,argv,"s:t:")) != -1) {
+    while ((opt = getopt(argc,argv,"s:t:m:")) != -1) {
         switch (opt) {
         case 's':
             g_lscs_file = optarg;
@@ -72,7 +72,7 @@ int set_params(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-    fprintf(stderr,"LISA version " ANNA_VERSION " starting up\n");
+    fprintf(stderr,"LISA version " LISA_VERSION " starting up\n");
 
     // get CLI arguments
     if (argc < 2) {
@@ -102,6 +102,6 @@ int main(int argc, char* argv[])
 
     // delete system
     delete sys;
-    fprintf(stderr,"LISA version " ANNA_VERSION " closing down\n");
+    fprintf(stderr,"LISA version " LISA_VERSION " closing down\n");
     return 0;
 }

@@ -8,7 +8,6 @@ LLAMA_CUBLAS=1
 BUILD_TARGETS = libanna.a anna anna_server lisa
 
 all: $(BUILD_TARGETS)
-	cd lua && make all
 .PHONY: all
 
 ifndef UNAME_S
@@ -523,14 +522,18 @@ netclient.o: netclient.cpp netclient.h brain.h server/httplib.h server/base64m.h
 libanna.a: ggml.o llama.o common.o sampling.o clip.o brain.o netclient.o grammar-parser.o lscs.o aria.o $(OBJS) $(COMMON_H_DEPS)
 	ar cru $@ $^
 
-anna: anna.cpp libanna.a
+lua/liblua.a:
+	cd lua && make all
+
+anna: anna.cpp libanna.a lua/liblua.a
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) libanna.a -o $@ $(LDFLAGS) -Llua -llua
 
 anna_server: server/server.cpp server/base64m.h server/httplib.h server/codec.h libanna.a
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
 
-lisa: lisa.cpp libanna.a
+lisa: lisa.cpp libanna.a lua/liblua.a
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) libanna.a -o $@ $(LDFLAGS) -Llua -llua
 
 clean:
 	rm -vrf *.o tests/*.o *.so *.a *.dll *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)
+	cd lua && make clean

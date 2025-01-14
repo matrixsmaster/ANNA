@@ -1,3 +1,8 @@
+/* ANNA - Automatic Neural Network Assistant
+ * CLI version
+ * (C) Dmitry 'MatrixS_Master' Solovyev, 2023-2025
+ * */
+
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>

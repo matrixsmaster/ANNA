@@ -512,10 +512,10 @@ brain.o: brain.cpp brain.h vecstore.h
 	$(CXX) $(CXXFLAGS) -Wno-cast-qual -c $< -o $@
 
 lscs.o: lscs.cpp lscs.h
-	$(CXX) $(CXXFLAGS) -std=c++11 -c $< -o $@
+	$(CXX) $(CXXFLAGS) -std=c++2a -c $< -o $@
 
 aria.o: aria.cpp aria.h aria_binds.h
-	$(CXX) $(CXXFLAGS) -std=c++11 -c $< -o $@
+	$(CXX) $(CXXFLAGS) -std=c++2a -c $< -o $@
 
 netclient.o: netclient.cpp netclient.h brain.h server/httplib.h server/base64m.h server/codec.h
 	$(CXX) $(CXXFLAGS) -std=c++2a -Iserver -c $< -o $@
@@ -528,6 +528,9 @@ anna: anna.cpp libanna.a
 
 anna_server: server/server.cpp server/base64m.h server/httplib.h server/codec.h libanna.a
 	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) -o $@ $(LDFLAGS)
+
+lisa: lisa.cpp libanna.a
+	$(CXX) $(CXXFLAGS) -std=c++2a $(filter-out %.h,$^) libanna.a -o $@ $(LDFLAGS) -Llua -llua
 
 clean:
 	rm -vrf *.o tests/*.o *.so *.a *.dll *.dot $(COV_TARGETS) $(BUILD_TARGETS) $(TEST_TARGETS)

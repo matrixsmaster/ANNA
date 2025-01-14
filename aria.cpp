@@ -350,7 +350,7 @@ int Aria::scriptBrainStart()
     string srv = luaL_checkstring(R,2);
 
     mod = FixPath(scriptfn,mod);
-    strncpy(bconfig.params.model,mod.c_str(),sizeof(bconfig.params.model));
+    strncpy(bconfig.params.model,mod.c_str(),sizeof(bconfig.params.model)-1);
 
     if (brain) {
         ERR("Brain has already been created, refusing to create another one for model %s\n",mod.c_str());
@@ -396,6 +396,7 @@ int Aria::scriptBrainCThreads()
     int thr = luaL_checkinteger(R,1);
     if (thr > 0) {
         bconfig.params.n_threads = thr;
+        bconfig.params.n_threads_batch = thr;
         DBG("Threads limit set to %d\n",thr);
     }
     return 0;

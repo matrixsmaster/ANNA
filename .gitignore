@@ -18,8 +18,9 @@
 *.user
 *.gguf
 build-*
-anna
-anna_server
+/anna
+/anna_server
+/lisa
 saves/
 models/
 debug_log/

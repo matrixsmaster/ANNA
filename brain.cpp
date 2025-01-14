@@ -1,3 +1,8 @@
+/* ANNA - Automatic Neural Network Assistant
+ * Brain Module Interface
+ * (C) Dmitry 'MatrixS_Master' Solovyev, 2023-2025
+ * */
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <unistd.h>

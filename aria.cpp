@@ -432,6 +432,8 @@ int Aria::scriptBrainCSampling()
 {
     ARIA_BIND_HEADER("braincsampling",1);
     string dsc = luaL_checkstring(R,1);
+    if (dsc.empty()) return 0;
+    const char* loc = setlocale(LC_NUMERIC,"C"); // stupid locale conversions of decimal separators!!! IT'S DOT. PERIOD. F OFF!
 
     if (dsc.starts_with("greedy;")) {
         DBG("Setting greedy sampling\n");
@@ -443,7 +445,7 @@ int Aria::scriptBrainCSampling()
         int arg = sscanf(dsc.c_str(),"%f;%f;%f;%f;%f;",&temp,&topp,&topk,&tfz,&typp);
         if (arg < 5) {
             ERR("Not enough arguments: %d received\n",arg);
-            return 0;
+            goto csamp_end;
         }
         DBG("Setting Top P sampling with temp %.2f, topp %.2f, topk %.2f, tfz %.2f, typp %.2f\n",temp,topp,topk,tfz,typp);
         bconfig.params.sparams.temp = temp;
@@ -458,7 +460,7 @@ int Aria::scriptBrainCSampling()
         int arg = sscanf(dsc.c_str(),"%f;%f;%f;",&temp,&rate,&ent);
         if (arg < 3) {
             ERR("Not enough arguments: %d received\n",arg);
-            return 0;
+            goto csamp_end;
         }
         DBG("Setting Mirostat V2 sampling with temp %.2f, rate %.3f, entropy %.2f\n",temp,rate,ent);
         bconfig.params.sparams.temp = temp;
@@ -467,6 +469,8 @@ int Aria::scriptBrainCSampling()
         bconfig.params.sparams.mirostat_tau = ent;
     }
 
+csamp_end:
+    if (loc) setlocale(LC_NUMERIC,loc);
     return 0;
 }
 

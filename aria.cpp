@@ -390,6 +390,110 @@ int Aria::scriptBrainState()
     return 1;
 }
 
+int Aria::scriptBrainCThreads()
+{
+    ARIA_BIND_HEADER("braincthreads",1);
+    int thr = luaL_checkinteger(R,1);
+    if (thr > 0) {
+        bconfig.params.n_threads = thr;
+        DBG("Threads limit set to %d\n",thr);
+    }
+    return 0;
+}
+
+int Aria::scriptBrainCContext()
+{
+    ARIA_BIND_HEADER("brainccontext",1);
+    int nctx = luaL_checkinteger(R,1);
+    if (nctx > 0) {
+        bconfig.params.n_ctx = nctx;
+        DBG("Context length set to %d\n",nctx);
+    }
+    return 0;
+}
+
+int Aria::scriptBrainCGroupAtt()
+{
+    ARIA_BIND_HEADER("braincgroupatt",2);
+    int fac = luaL_checkinteger(R,1);
+    int width = luaL_checkinteger(R,2);
+    if (fac > 0) {
+        DBG("Setting group attention to factor %d, width %d\n",fac,width);
+        bconfig.params.grp_attn_n = fac;
+        bconfig.params.grp_attn_w = width;
+    } else {
+        DBG("Setting widening to RoPE scaling\n");
+        bconfig.params.grp_attn_n = 0;
+    }
+    return 0;
+}
+
+int Aria::scriptBrainCSampling()
+{
+    ARIA_BIND_HEADER("braincsampling",1);
+    string dsc = luaL_checkstring(R,1);
+
+    if (dsc.starts_with("greedy;")) {
+        DBG("Setting greedy sampling\n");
+        bconfig.params.sparams.temp = -1;
+
+    } else if (dsc.starts_with("topp;")) {
+        dsc.erase(0,5);
+        float temp,topp,topk,tfz,typp;
+        int arg = sscanf(dsc.c_str(),"%f;%f;%f;%f;%f;",&temp,&topp,&topk,&tfz,&typp);
+        if (arg < 5) {
+            ERR("Not enough arguments: %d received\n",arg);
+            return 0;
+        }
+        DBG("Setting Top P sampling with temp %.2f, topp %.2f, topk %.2f, tfz %.2f, typp %.2f\n",temp,topp,topk,tfz,typp);
+        bconfig.params.sparams.temp = temp;
+        bconfig.params.sparams.top_p = topp;
+        bconfig.params.sparams.top_k = topk;
+        bconfig.params.sparams.tfs_z = tfz;
+        bconfig.params.sparams.typical_p = typp;
+
+    } else if (dsc.starts_with("miro2;")) {
+        dsc.erase(0,6);
+        float temp,rate,ent;
+        int arg = sscanf(dsc.c_str(),"%f;%f;%f;",&temp,&rate,&ent);
+        if (arg < 3) {
+            ERR("Not enough arguments: %d received\n",arg);
+            return 0;
+        }
+        DBG("Setting Mirostat V2 sampling with temp %.2f, rate %.3f, entropy %.2f\n",temp,rate,ent);
+        bconfig.params.sparams.temp = temp;
+        bconfig.params.sparams.mirostat = 2;
+        bconfig.params.sparams.mirostat_eta = rate;
+        bconfig.params.sparams.mirostat_tau = ent;
+    }
+
+    return 0;
+}
+
+int Aria::scriptBrainLoad()
+{
+    ARIA_BIND_HEADER("brainload",1);
+    string fn = luaL_checkstring(R,1);
+    if (!brain) lua_pushboolean(R,0);
+    else {
+        DBG("Attempting to load brain state from %s\n",fn.c_str());
+        lua_pushboolean(R,brain->LoadState(fn,nullptr,nullptr));
+    }
+    return 1;
+}
+
+int Aria::scriptBrainSave()
+{
+    ARIA_BIND_HEADER("brainsave",1);
+    string fn = luaL_checkstring(R,1);
+    if (!brain) lua_pushboolean(R,0);
+    else {
+        DBG("Attempting to save brain state to %s\n",fn.c_str());
+        lua_pushboolean(R,brain->SaveState(fn,nullptr,0));
+    }
+    return 1;
+}
+
 int Aria::scriptBrainIn()
 {
     ARIA_BIND_HEADER("brainin",1);

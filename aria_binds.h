@@ -1,4 +1,4 @@
-/* This code uses parts of the SGUI library (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2024 */
+/* This code uses parts of the SGUI library (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2025 */
 #ifndef ARIA_BINDS_H
 #define ARIA_BINDS_H
 
@@ -23,6 +23,12 @@ LFUNC(bind_SetIOCount,scriptSetIOCount)
 LFUNC(bind_BrainStart,scriptBrainStart)
 LFUNC(bind_BrainStop,scriptBrainStop)
 LFUNC(bind_BrainState,scriptBrainState)
+LFUNC(bind_BrainCThreads,scriptBrainCThreads)
+LFUNC(bind_BrainCContext,scriptBrainCContext)
+LFUNC(bind_BrainCGroupAtt,scriptBrainCGroupAtt)
+LFUNC(bind_BrainCSampling,scriptBrainCSampling)
+LFUNC(bind_BrainLoad,scriptBrainLoad)
+LFUNC(bind_BrainSave,scriptBrainSave)
 LFUNC(bind_BrainIn,scriptBrainIn)
 LFUNC(bind_BrainOut,scriptBrainOut)
 LFUNC(bind_BrainPrefix,scriptBrainPrefix)
@@ -44,6 +50,12 @@ LBIND(bind_SetIOCount,"setiocount");
 LBIND(bind_BrainStart,"brainstart");
 LBIND(bind_BrainStop,"brainstop");
 LBIND(bind_BrainState,"brainstate");
+LBIND(bind_BrainCThreads,"braincthreads")
+LBIND(bind_BrainCContext,"brainccontext")
+LBIND(bind_BrainCGroupAtt,"braincgroupatt")
+LBIND(bind_BrainCSampling,"braincsampling")
+LBIND(bind_BrainLoad,"brainload")
+LBIND(bind_BrainSave,"brainsave")
 LBIND(bind_BrainIn,"brainin");
 LBIND(bind_BrainOut,"brainout");
 LBIND(bind_BrainPrefix,"brainprefix");

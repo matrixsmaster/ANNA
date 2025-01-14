@@ -66,6 +66,12 @@ public:
     int scriptBrainStart();
     int scriptBrainStop();
     int scriptBrainState();
+    int scriptBrainCThreads();
+    int scriptBrainCContext();
+    int scriptBrainCGroupAtt();
+    int scriptBrainCSampling();
+    int scriptBrainLoad();
+    int scriptBrainSave();
     int scriptBrainIn();
     int scriptBrainOut();
     int scriptBrainPrefix();

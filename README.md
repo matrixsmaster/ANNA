@@ -76,5 +76,7 @@ The GUI contains built-in offline help system (WIP atm).
 # AUTHORS
 
 (C) Georgi Gerganov, 2023-2024
+
 (C) llama.cpp contributors, 2023-2024
-(C) Dmitry 'sciloaf' Solovyev, 2023-2024
+
+(C) Dmitry 'sciloaf' Solovyev, 2023-2025

@@ -15,7 +15,7 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.12.2"
+#define ANNA_VERSION "0.12.3"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
@@ -36,7 +36,7 @@ struct __attribute__((packed)) AnnaConfig
     int verbose_level       = 0;
     bool convert_eos_to_nl  = true;
     bool nl_to_turnover     = true;
-    bool no_pad_in_prefix   = false;
+    bool no_pad_in_prefix   = true;
     gpt_params params;
     void* user              = nullptr;
 };

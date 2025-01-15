@@ -11,7 +11,7 @@
 #include <string>
 #include "lscs.h"
 
-#define LISA_VERSION "0.0.2"
+#define LISA_VERSION "0.0.3"
 
 #define ERR(X,...) fprintf(stderr, "[LISA] ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "[LISA] ERROR: " __VA_ARGS__)
@@ -25,9 +25,9 @@
 using namespace std;
 
 const char* argstrings[] = {
-    "<-s file> : load LSCS scheme",
-    "[-t time] : inter-step delay value (in ms)",
-    "[-m file] : use shutdown marker file",
+    "-s file : load LSCS scheme",
+    "-t time : inter-step delay value (in ms)",
+    "-m file : use shutdown marker file",
     NULL
 };
 
@@ -65,14 +65,17 @@ int set_params(int argc, char* argv[])
     }
 
     // check'em
-    if (g_lscs_file.empty()) return 1;
+    if (g_lscs_file.empty()) {
+        ERR("LSCS scheme file was not specified (%d args given)",argc-1);
+        return 1;
+    }
 
     return 0;
 }
 
 int main(int argc, char* argv[])
 {
-    fprintf(stderr,"LISA version " LISA_VERSION " starting up\n");
+    fprintf(stderr,"LISA ver. " LISA_VERSION " (brain ver. " ANNA_VERSION ") starting up\n");
 
     // get CLI arguments
     if (argc < 2) {
@@ -102,6 +105,6 @@ int main(int argc, char* argv[])
 
     // delete system
     delete sys;
-    fprintf(stderr,"LISA version " LISA_VERSION " closing down\n");
+    fprintf(stderr,"LISA ver. " LISA_VERSION " closing down\n");
     return 0;
 }

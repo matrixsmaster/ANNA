@@ -11,7 +11,7 @@
 #include <string>
 #include "lscs.h"
 
-#define LISA_VERSION "0.0.3"
+#define LISA_VERSION "0.0.4"
 
 #define ERR(X,...) fprintf(stderr, "[LISA] ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "[LISA] ERROR: " __VA_ARGS__)
@@ -102,6 +102,10 @@ int main(int argc, char* argv[])
         sys->Processing();
         usleep(g_timeout * 1000);
     }
+
+    // check for errors
+    if (sys->getState() == ANNA_ERROR)
+        ERR("%s\n",sys->getError().c_str());
 
     // delete system
     delete sys;

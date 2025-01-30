@@ -27,7 +27,7 @@ using namespace std;
 #include "aria_binds.h"
 #undef ARIA_BINDS_FUNCTIONS
 
-Aria::Aria(string scriptfile, std::string name)
+Aria::Aria(string scriptfile, string name)
 {
     scriptfn = scriptfile;
     mname = name;
@@ -95,7 +95,7 @@ string Aria::MakeRelativePath(string parent, string fn)
     return fn; // unchanged
 }
 
-bool Aria::setGlobalInput(std::string in)
+bool Aria::setGlobalInput(string in)
 {
     input = in;
     return true;
@@ -108,13 +108,20 @@ string Aria::getGlobalOutput()
     return tmp;
 }
 
-bool Aria::setUserImage(std::string fn)
+bool Aria::setUserImage(string fn)
 {
     usrimage = fn;
     return true;
 }
 
-void Aria::setInPin(int pin, std::string str)
+void Aria::setName(string name)
+{
+    if (name.empty()) return;
+    mname = name;
+    Reload();
+}
+
+void Aria::setInPin(int pin, string str)
 {
     if (pin < 0 || pin >= pins) return;
     LuaCall("inpin","is",pin,str.c_str());
@@ -175,7 +182,7 @@ bool Aria::StartVM()
     //load the script file
     int r = luaL_loadfilex(luavm,scriptfn.c_str(),NULL);
     if (r != LUA_OK) {
-        merror = AnnaBrain::myformat("failed to load and compile chunk from file %s (error %d)",scriptfn.c_str(),r);
+        ErrorVM();
         return false;
     }
 
@@ -198,7 +205,7 @@ void Aria::ErrorVM()
     lua_pop(luavm,1);
 }
 
-bool Aria::LuaCall(std::string f, const char* args, ...)
+bool Aria::LuaCall(string f, const char* args, ...)
 {
     if (!luavm) return false;
 

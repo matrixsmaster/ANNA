@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "aria.h"
 
-#define LSCS_VERSION "0.0.14"
+#define LSCS_VERSION "0.1.0"
 
 struct AriaPod {
     Aria* ptr = nullptr;
@@ -51,7 +51,12 @@ public:
     void Clear();
     AriaPod* addPod(std::string name);
     AriaPod* getPod(std::string name);
+    void delPod(std::string name);
+    void delPod(AriaPod* pod);
+
     std::string getPodName(AriaPod* pod);
+    void setPodName(AriaPod* pod, std::string nname);
+
     std::list<std::string> getPods();
 
     bool setPodScript(std::string name, std::string path);

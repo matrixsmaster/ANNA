@@ -18,7 +18,7 @@ AnnaLSCS::AnnaLSCS()
     state = ANNA_NOT_INITIALIZED;
 }
 
-AnnaLSCS::AnnaLSCS(std::string cfgfile)
+AnnaLSCS::AnnaLSCS(string cfgfile)
 {
     config_fn = cfgfile;
     AnnaLSCS::Reset();
@@ -40,7 +40,7 @@ void AnnaLSCS::setConfig(const AnnaConfig &cfg)
     //TODO: make some sort of config application?
 }
 
-void AnnaLSCS::setInput(std::string inp)
+void AnnaLSCS::setInput(string inp)
 {
     for (auto &i : pods) {
         if (!i.second.ptr) continue;
@@ -49,19 +49,19 @@ void AnnaLSCS::setInput(std::string inp)
     }
 }
 
-bool AnnaLSCS::SaveState(std::string fname, const void *user_data, size_t user_size)
+bool AnnaLSCS::SaveState(string fname, const void *user_data, size_t user_size)
 {
     //TODO
     return false;
 }
 
-bool AnnaLSCS::LoadState(std::string fname, void *user_data, size_t *user_size)
+bool AnnaLSCS::LoadState(string fname, void *user_data, size_t *user_size)
 {
     //TODO
     return false;
 }
 
-bool AnnaLSCS::EmbedImage(std::string imgfile)
+bool AnnaLSCS::EmbedImage(string imgfile)
 {
     bool r = false;
     for (auto &i : pods) {
@@ -157,7 +157,7 @@ void AnnaLSCS::Clear()
     links.clear();
 }
 
-AriaPod* AnnaLSCS::addPod(std::string name)
+AriaPod* AnnaLSCS::addPod(string name)
 {
     if (pods.count(name)) {
         internal_error = myformat("Aria pod named %s already exists!",name.c_str());
@@ -177,12 +177,38 @@ AriaPod* AnnaLSCS::getPod(string name)
         return &(pods[name]);
 }
 
+void AnnaLSCS::delPod(string name)
+{
+    if (!pods.count(name)) {
+        internal_error = myformat("No Aria pod named %s",name.c_str());
+        return;
+    }
+
+    AriaPod npod = pods[name];
+    pods.erase(name);
+    if (npod.ptr) delete npod.ptr;
+}
+
+void AnnaLSCS::delPod(AriaPod* pod)
+{
+    //if (pod && pod->ptr) delPod(pod->ptr->getName());
+    for (auto it = pods.begin(); it != pods.end();) {
+        if (&(it->second) == pod) it = pods.erase(it);
+        else ++it;
+    }
+}
+
 string AnnaLSCS::getPodName(AriaPod* pod)
 {
     for (auto &&i : pods) {
         if (&(i.second) == pod) return i.first;
     }
     return "";
+}
+
+void AnnaLSCS::setPodName(AriaPod* pod, string nname)
+{
+    if (pod && pod->ptr) pod->ptr->setName(nname);
 }
 
 list<string> AnnaLSCS::getPods()
@@ -192,7 +218,7 @@ list<string> AnnaLSCS::getPods()
     return res;
 }
 
-bool AnnaLSCS::setPodScript(std::string name, std::string path)
+bool AnnaLSCS::setPodScript(string name, string path)
 {
     if (!pods.count(name)) {
         internal_error = myformat("No Aria pod named %s",name.c_str());
@@ -424,7 +450,7 @@ bool AnnaLSCS::CreatePods()
     return true;
 }
 
-void AnnaLSCS::FanOut(std::string from)
+void AnnaLSCS::FanOut(string from)
 {
     if (!pods.count(from) || !links.count(from)) return;
     Aria* pod = pods[from].ptr;

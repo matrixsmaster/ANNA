@@ -57,12 +57,10 @@
       <addaction name="actionAssign_script"/>
      </widget>
      <widget class="QMenu" name="menuDebug">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
       <property name="title">
        <string>Debug</string>
       </property>
+      <addaction name="actionDry_run"/>
      </widget>
      <widget class="QMenu" name="menuHelp">
       <property name="title">
@@ -123,7 +121,7 @@
          <x>0</x>
          <y>0</y>
          <width>348</width>
-         <height>335</height>
+         <height>339</height>
         </rect>
        </property>
        <layout class="QGridLayout" name="gridLayout">
@@ -269,6 +267,11 @@
   <action name="actionAbout">
    <property name="text">
     <string>About</string>
+   </property>
+  </action>
+  <action name="actionDry_run">
+   <property name="text">
+    <string>Dry run</string>
    </property>
   </action>
  </widget>

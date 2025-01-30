@@ -51,6 +51,9 @@ public:
     bool CloseIt(bool force = false);
     void Update();
 
+    void setSplitter(const QByteArray & arr);
+    QByteArray getSplitter();
+
 private slots:
     void on_actionNew_triggered();
 
@@ -73,6 +76,10 @@ private slots:
     void on_actionSave_2_triggered();
 
     void on_actionLoad_2_triggered();
+
+    void on_actionRemove_pod_triggered();
+
+    void on_actionDry_run_triggered();
 
 private:
     Ui::LSCSEditor *ui;

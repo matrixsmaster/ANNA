@@ -107,6 +107,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
             NormalizeLink(new_link);
             // double-linking == unlinking
             if (!sys->Unlink(new_link)) sys->Link(new_link);
+            modified = true;
         }
         new_link.from.clear();
         break;
@@ -269,6 +270,16 @@ void LSCSEditor::Update()
     // Update the form
     ui->out->setPixmap(QPixmap::fromImage(img));
     delete p;
+}
+
+void LSCSEditor::setSplitter(const QByteArray &arr)
+{
+    ui->splitter->restoreState(arr);
+}
+
+QByteArray LSCSEditor::getSplitter()
+{
+    return ui->splitter->saveState();
 }
 
 void LSCSEditor::on_actionNew_triggered()
@@ -579,7 +590,14 @@ void LSCSEditor::SaveScript()
         return;
     }
 
-    QByteArray data = QByteArray::fromStdString(ui->script->toPlainText().toStdString());
+    QString text = ui->script->toPlainText();
+    text.remove(QChar::Null);
+    QStringList lines = text.split("\n");
+    for (auto & i : lines) {
+        while (i.endsWith(' ') || i.endsWith('\t')) i.chop(1);
+    }
+    text = lines.join("\n");
+    QByteArray data = QByteArray::fromStdString(text.toStdString());
     sf.write(data);
     sf.close();
 
@@ -606,4 +624,31 @@ void LSCSEditor::on_actionLoad_2_triggered()
 
     script_fn = QFileDialog::getOpenFileName(this,"Open Aria script","","Lua scripts (*.lua);;All files (*.*)");
     if (!script_fn.isEmpty()) LoadScript();
+}
+
+void LSCSEditor::on_actionRemove_pod_triggered()
+{
+    if (!sys) return;
+
+    for (auto & i : selection) sys->delPod(i);
+    modified = true;
+    selection.clear();
+    Update();
+}
+
+void LSCSEditor::on_actionDry_run_triggered()
+{
+    if (!sys) return;
+
+    if (sys->getState() == ANNA_ERROR) {
+        ui->statusbar->showMessage(QString::asprintf("Previous error: %s",sys->getError().c_str()));
+        return;
+    }
+
+    sys->Processing();
+
+    if (sys->getState() == ANNA_ERROR)
+        ui->statusbar->showMessage(QString::asprintf("Error: %s",sys->getError().c_str()));
+    else
+        ui->statusbar->showMessage(QString::asprintf("LSCS state: %s",sys->StateToStr(sys->getState()).c_str()));
 }

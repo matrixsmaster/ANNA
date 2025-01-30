@@ -7,7 +7,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.0.12"
+#define ARIA_VERSION "0.1.0"
 
 #define ARIA_PATH_DELIM '/'
 
@@ -52,6 +52,7 @@ public:
 
     bool setUserImage(std::string fn);
 
+    void setName(std::string name);
     void setInPin(int pin, std::string str);
     std::string getOutPin(int pin);
 

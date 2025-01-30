@@ -1211,9 +1211,21 @@ void MainWnd::on_actionShow_lock_triggered()
 
 void MainWnd::on_actionLSCS_editor_triggered()
 {
+    QString ini = qApp->applicationDirPath() + "/" + AG_CONFIG_FILE;
+    QSettings s(ini,QSettings::IniFormat);
     LSCSEditor ed;
+
+    s.beginGroup("LSCS");
+    if (s.childKeys().contains("geom"))
+        ed.restoreGeometry(s.value("geom").toByteArray());
+    if (s.childKeys().contains("split"))
+        ed.setSplitter(s.value("split").toByteArray());
+
     while (!ed.exec()) ; // work around Qt's stupid hardcoded bind for Esc key
     qDebug("LSCS editor returned\n");
+
+    s.setValue("geom",ed.saveGeometry());
+    s.setValue("split",ed.getSplitter());
 }
 
 void MainWnd::on_actionShow_tokens_with_IDs_triggered()

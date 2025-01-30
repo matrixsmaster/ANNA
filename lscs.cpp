@@ -191,7 +191,6 @@ void AnnaLSCS::delPod(string name)
 
 void AnnaLSCS::delPod(AriaPod* pod)
 {
-    //if (pod && pod->ptr) delPod(pod->ptr->getName());
     for (auto it = pods.begin(); it != pods.end();) {
         if (&(it->second) == pod) it = pods.erase(it);
         else ++it;
@@ -208,7 +207,29 @@ string AnnaLSCS::getPodName(AriaPod* pod)
 
 void AnnaLSCS::setPodName(AriaPod* pod, string nname)
 {
-    if (pod && pod->ptr) pod->ptr->setName(nname);
+    if (!pod || !pod->ptr) return;
+
+    AriaPod old = *pod;
+    string oname = old.ptr->getName();
+
+    // rename the pod internally and in the map
+    old.ptr->setName(nname);
+    pods.erase(oname);
+    pods[nname] = old;
+
+    // update links by replacing old name with the new one
+    for (auto it = links.begin(); it != links.end();) {
+        for (auto & j : it->second) {
+            if (j.from == oname) j.from = nname;
+            if (j.to == oname) j.to = nname;
+        }
+        if (it->first == oname) {
+            auto oldvec = it->second;
+            it = links.erase(it);
+            links[nname] = oldvec;
+        } else
+            ++it;
+    }
 }
 
 list<string> AnnaLSCS::getPods()

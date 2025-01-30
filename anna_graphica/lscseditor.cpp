@@ -70,6 +70,10 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
     pt += sd;
     mx = pt.x();
     my = pt.y();
+    if (ui->actionSnap_to_grid->isChecked()) {
+        mx = mx / grid * grid;
+        my = my / grid * grid;
+    }
 
     // now we can determine the actual action required
     int pin = -1;
@@ -117,6 +121,10 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         for (auto &i : selection) {
             i->x += mx - ox;
             i->y += my - oy;
+            if (ui->actionSnap_to_grid->isChecked()) {
+                i->x = i->x / grid * grid;
+                i->y = i->y / grid * grid;
+            }
             modified = true;
         }
         break;
@@ -651,4 +659,22 @@ void LSCSEditor::on_actionDry_run_triggered()
         ui->statusbar->showMessage(QString::asprintf("Error: %s",sys->getError().c_str()));
     else
         ui->statusbar->showMessage(QString::asprintf("LSCS state: %s",sys->StateToStr(sys->getState()).c_str()));
+}
+
+void LSCSEditor::on_actionRename_pod_triggered()
+{
+    if (!sys) return;
+
+    if (selection.size() != 1) {
+        ui->statusbar->showMessage("Can't rename multiple pods");
+        return;
+    }
+
+    bool ok = false;
+    std::string oname = sys->getPodName(selection.first());
+    QString nname = QInputDialog::getText(this,"Renaming Aria pod","Enter new unique name for the pod:",QLineEdit::Normal,QString::fromStdString(oname),&ok);
+    if (!ok || nname.isEmpty()) return;
+
+    sys->setPodName(selection.first(),nname.toStdString());
+    Update();
 }

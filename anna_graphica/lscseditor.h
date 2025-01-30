@@ -81,6 +81,8 @@ private slots:
 
     void on_actionDry_run_triggered();
 
+    void on_actionRename_pod_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;

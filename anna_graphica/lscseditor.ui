@@ -54,13 +54,17 @@
       <addaction name="actionAdd_pod"/>
       <addaction name="actionDuplicate_pod"/>
       <addaction name="actionRemove_pod"/>
+      <addaction name="actionRename_pod"/>
       <addaction name="actionAssign_script"/>
+      <addaction name="separator"/>
+      <addaction name="actionSnap_to_grid"/>
      </widget>
      <widget class="QMenu" name="menuDebug">
       <property name="title">
        <string>Debug</string>
       </property>
       <addaction name="actionDry_run"/>
+      <addaction name="actionShow_link_data"/>
      </widget>
      <widget class="QMenu" name="menuHelp">
       <property name="title">
@@ -272,6 +276,27 @@
   <action name="actionDry_run">
    <property name="text">
     <string>Dry run</string>
+   </property>
+  </action>
+  <action name="actionSnap_to_grid">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Snap to grid</string>
+   </property>
+  </action>
+  <action name="actionRename_pod">
+   <property name="text">
+    <string>Rename pod</string>
+   </property>
+  </action>
+  <action name="actionShow_link_data">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show link data</string>
    </property>
   </action>
  </widget>

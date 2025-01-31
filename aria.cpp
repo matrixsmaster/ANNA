@@ -510,7 +510,7 @@ int Aria::scriptBrainIn()
 {
     ARIA_BIND_HEADER("brainin",1);
     string in = luaL_checkstring(R,1);
-    if (brain && !in.empty()) brain->setInput(in);
+    if (brain) brain->setInput(in);
     return 0;
 }
 

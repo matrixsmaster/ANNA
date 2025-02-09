@@ -323,7 +323,7 @@ void AnnaLSCS::SanitizeLinks()
                 }
             }
             if (pods[jt->to].ptr) {
-                if (jt->pin_to >= pods[jt->to].ptr->getNumOutPins()) {
+                if (jt->pin_to >= pods[jt->to].ptr->getNumInPins()) {
                     DBG("Links sanitizer: wrong target pin (%s : %d)",jt->to.c_str(),jt->pin_to);
                     jt = it->second.erase(jt);
                     continue;

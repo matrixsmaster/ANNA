@@ -1,0 +1,12 @@
+Pod0Name = input
+Pod0Script = test3_in.lua
+Pod0Dims = 78 81 70 48
+Pod1Name = output
+Pod1Script = test3_out.lua
+Pod1Dims = 264 130 70 40
+NPods = 2
+
+
+CONNECTIONS
+
+input.0 -> output.0

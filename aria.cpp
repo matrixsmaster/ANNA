@@ -130,8 +130,17 @@ void Aria::setInPin(int pin, string str)
 string Aria::getOutPin(int pin)
 {
     if (pin < 0 || pin >= pouts) return "";
-    if (LuaCall("outpin","i",pin)) return LuaGetString();
-    return "";
+    if (!LuaCall("outpin","i",pin)) return "";
+
+    string out = LuaGetString();
+    last_outputs[pin] = out;
+    return out;
+}
+
+string Aria::getLastOutPin(int pin)
+{
+    if (pin < 0 || pin >= pouts) return "";
+    return last_outputs[pin];
 }
 
 AriaState Aria::Processing()
@@ -347,6 +356,7 @@ int Aria::scriptSetIOCount()
     ARIA_BIND_HEADER("setiocount",2);
     pins = luaL_checknumber(R,1);
     pouts = luaL_checknumber(R,2);
+    last_outputs.resize(pouts);
     return 0;
 }
 

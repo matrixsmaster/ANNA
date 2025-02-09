@@ -94,10 +94,17 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         if (pod) {
             new_link.from.clear();
             if (!(mev->modifiers() & Qt::ShiftModifier) && pin >= 0 && sys) {
-                // don't select the pod, but select a pin and start making a connection
-                selection.clear();
-                new_link.from = sys->getPodName(pod);
-                new_link.pin_from = pin;
+                selection.clear(); // don't select the pod
+                // check if we need to show connection data
+                if (ui->actionShow_link_data->isChecked() && pod->ptr) {
+                    // show last known output of this pin
+                    debug_text = QString::fromStdString(pod->ptr->getLastOutPin(pin));
+                    debug_txtpos = QPoint(mx,my);
+                } else {
+                    // select a pin and start making a connection
+                    new_link.from = sys->getPodName(pod);
+                    new_link.pin_from = pin;
+                }
             } else
                 selection.push_back(pod); // add pod to selection
         }
@@ -117,10 +124,6 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         break;
 
     case QEvent::MouseMove:
-        // check if we need to show connection data
-        if (ui->actionShow_link_data->isChecked() && pod) {
-            // TODO
-        }
         // move the whole selection (if exists)
         for (auto &i : selection) {
             i->x += mx - ox;
@@ -277,6 +280,12 @@ void LSCSEditor::Update()
 
             DrawConnect(p,sx,sy,ex,ey);
         }
+    }
+
+    // "Hover" text
+    if (!debug_text.isEmpty()) {
+        p->setPen(LCED_DBGTEXT);
+        p->drawText(debug_txtpos,debug_text);
     }
 
     // Update the form
@@ -711,8 +720,19 @@ void LSCSEditor::on_actionApply_input_triggered()
     sys->setInput(str.toStdString());
 }
 
-void LSCSEditor::on_actionShow_link_data_triggered()
+void LSCSEditor::on_actionShrink_pods_triggered()
 {
-    ui->scroll->setMouseTracking(ui->actionShow_link_data->isChecked());
-    selection.clear();
+    if (!sys) return;
+
+    auto lst = sys->getPods();
+    for (auto &&i : lst) {
+        AriaPod* pod = sys->getPod(i);
+        if (!pod) continue;
+
+        // shrink pods down to the absolute minimum
+        pod->w = LCED_MIN_WIDTH;
+        pod->h = LCED_MIN_HEIGHT;
+    }
+
+    Update(); // this will enlarge the pods just about enough
 }

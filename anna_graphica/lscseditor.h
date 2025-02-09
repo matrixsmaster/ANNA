@@ -23,6 +23,7 @@
 #define LCED_BACKGROUND QColor(0,0,0)
 #define LCED_GRID QColor(50,50,50)
 #define LCED_TEXT QColor(250,250,250)
+#define LCED_DBGTEXT QColor(190,190,190)
 #define LCED_BORDER QColor(180,0,200)
 #define LCED_INFILL QColor(100,100,100)
 #define LCED_SELECT QColor(200,100,200)
@@ -87,7 +88,7 @@ private slots:
 
     void on_actionApply_input_triggered();
 
-    void on_actionShow_link_data_triggered();
+    void on_actionShrink_pods_triggered();
 
 private:
     Ui::LSCSEditor *ui;
@@ -103,6 +104,8 @@ private:
     AriaLink new_link;
     QString script_fn, script_pod;
     bool script_modified = false;
+    QString debug_text;
+    QPoint debug_txtpos;
 
     AriaPod* getPodUnder(int x, int y, int* pin = nullptr);
     float Distance(float x0, float y0, float x1, float y1);

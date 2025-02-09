@@ -7,7 +7,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.1.1"
+#define ARIA_VERSION "0.1.2"
 
 #define ARIA_PATH_DELIM '/'
 
@@ -55,6 +55,7 @@ public:
     void setName(std::string name);
     void setInPin(int pin, std::string str);
     std::string getOutPin(int pin);
+    std::string getLastOutPin(int pin);
 
     AriaState Processing();
 
@@ -92,6 +93,7 @@ private:
     std::string merror;
     std::string output;
     std::string input, last_input, usrimage;
+    std::vector<std::string> last_outputs;
     int pins = 0;
     int pouts = 0;
 

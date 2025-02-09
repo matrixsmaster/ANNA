@@ -301,6 +301,40 @@ vector<AriaLink> AnnaLSCS::getLinksFrom(string name)
     return links[name];
 }
 
+void AnnaLSCS::SanitizeLinks()
+{
+    for (auto it = links.begin(); it != links.end();) {
+        if (!pods.count(it->first)) {
+            DBG("Links sanitizer: branch is dead (%s doesn't exist)",it->first.c_str());
+            it = links.erase(it);
+            continue;
+        }
+        for (auto jt = it->second.begin(); jt != it->second.end();) {
+            if ((!pods.count(jt->from)) || (!pods.count(jt->to))) {
+                DBG("Links sanitizer: link is dead (%s or %s)",jt->from.c_str(),jt->to.c_str());
+                jt = it->second.erase(jt);
+                continue;
+            }
+            if (pods[jt->from].ptr) {
+                if (jt->pin_from >= pods[jt->from].ptr->getNumOutPins()) {
+                    DBG("Links sanitizer: wrong source pin (%s : %d)",jt->from.c_str(),jt->pin_from);
+                    jt = it->second.erase(jt);
+                    continue;
+                }
+            }
+            if (pods[jt->to].ptr) {
+                if (jt->pin_to >= pods[jt->to].ptr->getNumOutPins()) {
+                    DBG("Links sanitizer: wrong target pin (%s : %d)",jt->to.c_str(),jt->pin_to);
+                    jt = it->second.erase(jt);
+                    continue;
+                }
+            }
+            ++jt;
+        }
+        ++it;
+    }
+}
+
 bool AnnaLSCS::WriteTo(string fn)
 {
     FILE* f = fopen(fn.c_str(),"w");

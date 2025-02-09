@@ -61,6 +61,8 @@ private slots:
 
     void on_actionSave_triggered();
 
+    void on_actionSave_as_triggered();
+
     void on_actionClose_triggered();
 
     void on_actionAdd_pod_triggered();
@@ -83,12 +85,17 @@ private slots:
 
     void on_actionRename_pod_triggered();
 
+    void on_actionApply_input_triggered();
+
+    void on_actionShow_link_data_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;
     QImage img;
     QRect extent;
     bool modified = false;
+    QString system_fn;
     int mx = 0, my = 0;
     int ox = 0, oy = 0;
     int grid = LCED_DEF_GRID;

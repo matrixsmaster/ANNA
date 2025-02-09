@@ -117,7 +117,11 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         break;
 
     case QEvent::MouseMove:
-        // move the whole selction (if exists)
+        // check if we need to show connection data
+        if (ui->actionShow_link_data->isChecked() && pod) {
+            // TODO
+        }
+        // move the whole selection (if exists)
         for (auto &i : selection) {
             i->x += mx - ox;
             i->y += my - oy;
@@ -311,8 +315,12 @@ void LSCSEditor::on_actionLoad_triggered()
         ui->statusbar->showMessage(QString::asprintf("Unable to load file %s",fn.c_str()));
         delete sys;
         sys = nullptr;
-    } else
+
+    } else {
         ui->statusbar->showMessage(QString::asprintf("Loaded from %s",fn.c_str()));
+        system_fn = QString::fromStdString(fn);
+        modified = false;
+    }
 
     Sanitize();
     Update();
@@ -321,18 +329,29 @@ void LSCSEditor::on_actionLoad_triggered()
 void LSCSEditor::on_actionSave_triggered()
 {
     if (!sys) return;
+    if (system_fn.isEmpty()) on_actionSave_as_triggered();
+    if (system_fn.isEmpty()) return;
 
-    std::string fn = QFileDialog::getSaveFileName(this,"Save LSCS file","","LSCS files (*.lscs);;All files (*.*)").toStdString();
-    if (fn.empty()) return;
-
-    QFileInfo fi(QString::fromStdString(fn));
-    if (fi.suffix().isEmpty()) fn += ".lscs";
-
-    if (sys->WriteTo(fn)) {
-        ui->statusbar->showMessage(QString::asprintf("Saved to %s",fn.c_str()));
+    Sanitize();
+    if (sys->WriteTo(system_fn.toStdString())) {
+        ui->statusbar->showMessage(QString::asprintf("Saved to %s",system_fn.toStdString().c_str()));
         modified = false;
     } else
-        ui->statusbar->showMessage(QString::asprintf("Unable to save file %s",fn.c_str()));
+        ui->statusbar->showMessage(QString::asprintf("Unable to save file %s",system_fn.toStdString().c_str()));
+}
+
+void LSCSEditor::on_actionSave_as_triggered()
+{
+    if (!sys) return;
+
+    QString fn = QFileDialog::getSaveFileName(this,"Save LSCS file","","LSCS files (*.lscs);;All files (*.*)");
+    if (fn.isEmpty()) return;
+
+    QFileInfo fi(fn);
+    if (fi.suffix().isEmpty()) fn += ".lscs";
+
+    system_fn = fn;
+    on_actionSave_triggered();
 }
 
 void LSCSEditor::on_actionClose_triggered()
@@ -477,6 +496,8 @@ void LSCSEditor::Sanitize()
         if (pod->w < LCED_MIN_WIDTH) pod->w = LCED_MIN_WIDTH;
         if (pod->h < LCED_MIN_HEIGHT) pod->h = LCED_MIN_HEIGHT;
     }
+
+    sys->SanitizeLinks();
 }
 
 void LSCSEditor::on_actionSanitize_triggered()
@@ -641,6 +662,8 @@ void LSCSEditor::on_actionRemove_pod_triggered()
     for (auto & i : selection) sys->delPod(i);
     modified = true;
     selection.clear();
+
+    Sanitize();
     Update();
 }
 
@@ -677,4 +700,19 @@ void LSCSEditor::on_actionRename_pod_triggered()
 
     sys->setPodName(selection.first(),nname.toStdString());
     Update();
+}
+
+void LSCSEditor::on_actionApply_input_triggered()
+{
+    if (!sys) return;
+    bool ok = false;
+    QString str = QInputDialog::getText(this,"Debug input","Provide string for getinput():",QLineEdit::Normal,"",&ok);
+    if (!ok || str.isEmpty()) return;
+    sys->setInput(str.toStdString());
+}
+
+void LSCSEditor::on_actionShow_link_data_triggered()
+{
+    ui->scroll->setMouseTracking(ui->actionShow_link_data->isChecked());
+    selection.clear();
 }

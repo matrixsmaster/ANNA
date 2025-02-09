@@ -20,6 +20,9 @@
    <iconset resource="resources.qrc">
     <normaloff>:/img/anna2.png</normaloff>:/img/anna2.png</iconset>
   </property>
+  <property name="sizeGripEnabled">
+   <bool>true</bool>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
     <number>0</number>
@@ -45,6 +48,7 @@
       <addaction name="actionNew"/>
       <addaction name="actionLoad"/>
       <addaction name="actionSave"/>
+      <addaction name="actionSave_as"/>
       <addaction name="actionClose"/>
      </widget>
      <widget class="QMenu" name="menuEdit">
@@ -65,6 +69,7 @@
       </property>
       <addaction name="actionDry_run"/>
       <addaction name="actionShow_link_data"/>
+      <addaction name="actionApply_input"/>
      </widget>
      <widget class="QMenu" name="menuHelp">
       <property name="title">
@@ -210,7 +215,7 @@
     <string>Add pod</string>
    </property>
    <property name="shortcut">
-    <string>F5</string>
+    <string>F4</string>
    </property>
   </action>
   <action name="actionDuplicate_pod">
@@ -230,13 +235,13 @@
    <property name="text">
     <string>Redraw</string>
    </property>
-   <property name="shortcut">
-    <string>F4</string>
-   </property>
   </action>
   <action name="actionAssign_script">
    <property name="text">
     <string>Assign script</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+A</string>
    </property>
   </action>
   <action name="actionSanitize">
@@ -277,6 +282,9 @@
    <property name="text">
     <string>Dry run</string>
    </property>
+   <property name="shortcut">
+    <string>F8</string>
+   </property>
   </action>
   <action name="actionSnap_to_grid">
    <property name="checkable">
@@ -297,6 +305,22 @@
    </property>
    <property name="text">
     <string>Show link data</string>
+   </property>
+  </action>
+  <action name="actionSave_as">
+   <property name="text">
+    <string>Save as...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionApply_input">
+   <property name="text">
+    <string>Apply input...</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+I</string>
    </property>
   </action>
  </widget>

@@ -6,7 +6,7 @@
 #include "brain.h"
 #include "aria.h"
 
-#define LSCS_VERSION "0.1.1"
+#define LSCS_VERSION "0.1.2"
 
 struct AriaPod {
     Aria* ptr = nullptr;
@@ -64,6 +64,7 @@ public:
     bool Link(AriaLink lnk);
     bool Unlink(AriaLink lnk);
     std::vector<AriaLink> getLinksFrom(std::string name);
+    void SanitizeLinks();
 
     bool WriteTo(std::string fn);
 

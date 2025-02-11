@@ -1,0 +1,8 @@
+Pod0Name = test
+Pod0Script = fme_pod_test.lua
+Pod0Dims = 32 41 70 40
+NPods = 1
+
+
+CONNECTIONS
+

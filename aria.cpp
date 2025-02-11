@@ -4,6 +4,7 @@
 #include "brain.h"
 #include "netclient.h"
 #include "aria.h"
+#include "libfme.h"
 
 #define ERR(X,...) fprintf(stderr, "[ARIA] ERROR: " X "\n", __VA_ARGS__)
 
@@ -50,6 +51,7 @@ void Aria::Close()
 bool Aria::Reload()
 {
     Close();
+    clock_gettime(CLOCK_MONOTONIC,&start_time);
     bool r = StartVM();
     state = r? ARIA_READY : ARIA_ERROR;
     return r;
@@ -583,5 +585,42 @@ int Aria::scriptBrainError()
     ARIA_BIND_HEADER("brainerror",0);
     string err = brain? brain->getError() : "brain doesn't exist";
     lua_pushstring(R,err.c_str());
+    return 1;
+}
+
+int Aria::scriptMillis()
+{
+    ARIA_BIND_HEADER("millis",0);
+    timespec now;
+    clock_gettime(CLOCK_MONOTONIC,&now);
+    int ms = floor((double)(now.tv_sec - start_time.tv_sec) * 1e3 + ((double)(now.tv_nsec - start_time.tv_nsec) / 1e6));
+    lua_pushinteger(R,ms);
+    return 1;
+}
+
+int Aria::scriptFmeCheck()
+{
+    ARIA_BIND_HEADER("fmecheck",1);
+    lua_pushboolean(R,fme_check_msg(luaL_checkstring(R,1)));
+    return 1;
+}
+
+int Aria::scriptFmeReceive()
+{
+    ARIA_BIND_HEADER("fmereceive",2);
+    string msg;
+    int len = luaL_checkinteger(R,2);
+    msg.resize(len,0);
+    len = fme_receive_msg(luaL_checkstring(R,1),msg.data(),len);
+    msg.resize(len);
+    lua_pushstring(R,msg.c_str());
+    return 1;
+}
+
+int Aria::scriptFmeSend()
+{
+    ARIA_BIND_HEADER("fmesend",2);
+    string msg = luaL_checkstring(R,2);
+    lua_pushboolean(R,fme_send_msg(luaL_checkstring(R,1),msg.c_str(),msg.length(),luaL_checkinteger(R,3)));
     return 1;
 }

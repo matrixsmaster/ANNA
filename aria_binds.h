@@ -36,6 +36,10 @@ LFUNC(bind_BrainProcess,scriptBrainProcess)
 LFUNC(bind_BrainSetVEnc,scriptBrainSetVEnc)
 LFUNC(bind_BrainLoadImage,scriptBrainLoadImage)
 LFUNC(bind_BrainError,scriptBrainError)
+LFUNC(bind_Millis,scriptMillis)
+LFUNC(bind_FmeCheck,scriptFmeCheck)
+LFUNC(bind_FmeReceive,scriptFmeReceive)
+LFUNC(bind_FmeSend,scriptFmeSend)
 
 #endif // ARIA_BINDS_FUNCTIONS
 
@@ -63,5 +67,9 @@ LBIND(bind_BrainProcess,"brainprocess");
 LBIND(bind_BrainSetVEnc,"brainsetvenc");
 LBIND(bind_BrainLoadImage,"brainloadimage");
 LBIND(bind_BrainError,"brainerror");
+LBIND(bind_Millis,"millis")
+LBIND(bind_FmeCheck,"fmecheck")
+LBIND(bind_FmeReceive,"fmereceive")
+LBIND(bind_FmeSend,"fmesend")
 
 #endif // ARIA_BINDS_NAMES

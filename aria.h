@@ -2,12 +2,13 @@
  * (C) Dmitry 'MatrixS_Master' Solovyev, 2016-2025 */
 #pragma once
 
+#include <time.h>
 #include <thread>
 #include <atomic>
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.1.2"
+#define ARIA_VERSION "0.1.3"
 
 #define ARIA_PATH_DELIM '/'
 
@@ -81,6 +82,10 @@ public:
     int scriptBrainSetVEnc();
     int scriptBrainLoadImage();
     int scriptBrainError();
+    int scriptMillis();
+    int scriptFmeCheck();
+    int scriptFmeReceive();
+    int scriptFmeSend();
 
 private:
     lua_State* luavm = nullptr;
@@ -94,6 +99,8 @@ private:
     std::string output;
     std::string input, last_input, usrimage;
     std::vector<std::string> last_outputs;
+    timespec start_time;
+
     int pins = 0;
     int pouts = 0;
 

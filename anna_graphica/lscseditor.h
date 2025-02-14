@@ -113,7 +113,7 @@ private:
     float Distance(float x0, float y0, float x1, float y1);
     void NormalizeLink(AriaLink& lnk);
     void Sanitize();
-    void DrawIO(QPainter* p, int sx, int sy, int w, bool input, int num, QColor col);
+    bool DrawIO(QPainter *p, QStringList names, int sx, int sy, int w, bool input, QColor col);
     void DrawConnect(QPainter* p, int sx, int sy, int ex, int ey);
     void ShowScriptFor(AriaPod* pod);
     bool NewScript();

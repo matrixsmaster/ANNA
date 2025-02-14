@@ -8,7 +8,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.1.4"
+#define ARIA_VERSION "0.1.5"
 
 #define ARIA_PATH_DELIM '/'
 
@@ -45,6 +45,8 @@ public:
     int getNumInPins()              const   { return pins; }
     int getNumOutPins()             const   { return pouts; }
 
+    std::string getPinName(bool input, int num);
+
     static std::string FixPath(std::string parent, std::string fn);
     static std::string MakeRelativePath(std::string parent, std::string fn);
 
@@ -66,6 +68,7 @@ public:
     int scriptGetUserImage();
     int scriptGetName();
     int scriptSetIOCount();
+    int scriptSetIONames();
     int scriptBrainStart();
     int scriptBrainStop();
     int scriptBrainState();
@@ -104,10 +107,12 @@ private:
 
     int pins = 0;
     int pouts = 0;
+    std::vector<std::string> name_ins, name_outs;
 
     bool StartVM();
     void ErrorVM();
     bool LuaCall(std::string f, const char* args, ...);
     std::string LuaGetString();
+    std::vector<std::string> LuaGetStringList(int idx);
     void StopProcessing();
 };

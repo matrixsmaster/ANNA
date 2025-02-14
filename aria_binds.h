@@ -20,6 +20,7 @@ LFUNC(bind_GetInput,scriptGetInput)
 LFUNC(bind_GetUserImage,scriptGetUserImage)
 LFUNC(bind_GetName,scriptGetName)
 LFUNC(bind_SetIOCount,scriptSetIOCount)
+LFUNC(bind_SetIONames,scriptSetIONames)
 LFUNC(bind_BrainStart,scriptBrainStart)
 LFUNC(bind_BrainStop,scriptBrainStop)
 LFUNC(bind_BrainState,scriptBrainState)
@@ -52,6 +53,7 @@ LBIND(bind_GetInput,"getinput");
 LBIND(bind_GetUserImage,"getuserimage");
 LBIND(bind_GetName,"getname");
 LBIND(bind_SetIOCount,"setiocount");
+LBIND(bind_SetIONames,"setionames")
 LBIND(bind_BrainStart,"brainstart");
 LBIND(bind_BrainStop,"brainstop");
 LBIND(bind_BrainState,"brainstate");

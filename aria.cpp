@@ -57,6 +57,12 @@ bool Aria::Reload()
     return r;
 }
 
+string Aria::getPinName(bool input, int num)
+{
+    if (num < 0 || (input && num >= (int)name_ins.size()) || (!input && num >= (int)name_outs.size())) return "";
+    return input? name_ins.at(num) : name_outs.at(num);
+}
+
 string Aria::FixPath(string parent, string fn)
 {
     const char delim = ARIA_PATH_DELIM;
@@ -293,6 +299,23 @@ string Aria::LuaGetString()
     return r;
 }
 
+std::vector<string> Aria::LuaGetStringList(int idx)
+{
+    std::vector<string> res;
+    if (lua_isnoneornil(luavm,idx)) return res;
+
+    luaL_checktype(luavm,idx,LUA_TTABLE);
+
+    int n = luaL_len(luavm,idx);
+    for (int i = 1; i <= n; i++) {
+        lua_rawgeti(luavm,idx,i);
+        const char* str = lua_tostring(luavm,-1);
+        if (str) res.push_back(str);
+        lua_pop(luavm,1);
+    }
+    return res;
+}
+
 void Aria::StopProcessing()
 {
     if (process_thr) {
@@ -359,6 +382,14 @@ int Aria::scriptSetIOCount()
     pins = luaL_checknumber(R,1);
     pouts = luaL_checknumber(R,2);
     last_outputs.resize(pouts);
+    return 0;
+}
+
+int Aria::scriptSetIONames()
+{
+    ARIA_BIND_HEADER("setionames",2);
+    name_ins = LuaGetStringList(1);
+    name_outs = LuaGetStringList(2);
     return 0;
 }
 
@@ -629,7 +660,7 @@ int Aria::scriptScriptDir()
 {
     ARIA_BIND_HEADER("scriptdir",0);
     string dir = scriptfn;
-    auto pos = dir.find_last_of('/');
+    auto pos = dir.find_last_of(ARIA_PATH_DELIM);
     if (pos == string::npos) dir = ".";
     else dir.erase(pos);
     lua_pushstring(R,dir.c_str());

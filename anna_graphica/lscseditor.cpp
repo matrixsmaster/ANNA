@@ -217,17 +217,34 @@ void LSCSEditor::Update()
         p->drawText(pod->x,pod->y-LCED_MARGIN,QString::fromStdString(i));
 
         if (pod->ptr) {
-            p->setBrush(QBrush(LCED_INCOL));
+            bool small = false;
+            QStringList lst;
             int n = pod->ptr->getNumInPins();
-            if (n) DrawIO(p,pod->x,pod->y+LCED_PIN_DIST,pod->w,true,n,LCED_INCOL);
+            for (int j = 0; j < n; j++) {
+                QString s = QString::fromStdString(pod->ptr->getPinName(true,j));
+                if (s.isEmpty()) s = s.asprintf("%d",j);
+                lst.push_back(s);
+            }
+            if (n)
+                small = !DrawIO(p,lst,pod->x,pod->y+LCED_PIN_DIST,pod->w,true,LCED_INCOL);
 
-            p->setBrush(QBrush(LCED_OUTCOL));
+            lst.clear();
             n = pod->ptr->getNumOutPins();
-            if (n) DrawIO(p,pod->x+pod->w,pod->y+LCED_PIN_DIST,pod->w,false,n,LCED_OUTCOL);
+            for (int j = 0; j < n; j++) {
+                QString s = QString::fromStdString(pod->ptr->getPinName(false,j));
+                if (s.isEmpty()) s = s.asprintf("%d",j);
+                lst.push_back(s);
+            }
+            if (n)
+                small |= !DrawIO(p,lst,pod->x+pod->w,pod->y+LCED_PIN_DIST,pod->w,false,LCED_OUTCOL);
 
             n = LCED_PIN_DIST * (std::max(pod->ptr->getNumInPins(),pod->ptr->getNumOutPins()) + 1);
             if (pod->h < n) {
                 pod->h = n;
+                redraw = true;
+            }
+            if (small) {
+                pod->w += LCED_MARGIN;
                 redraw = true;
             }
         }
@@ -515,12 +532,15 @@ void LSCSEditor::on_actionSanitize_triggered()
     Update();
 }
 
-void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int w, bool input, int num, QColor col)
+bool LSCSEditor::DrawIO(QPainter *p, QStringList names, int sx, int sy, int w, bool input, QColor col)
 {
     QPoint arr[LCED_SYM_CONNECT_N];
     int darr[] = LCED_SYM_CONNECT;
+    bool ok = true;
 
-    for (int n = 0; n < num; n++) {
+    p->setBrush(QBrush(col));
+
+    for (auto &i : names) {
         for (int i = 0; i < LCED_SYM_CONNECT_N; i++) {
             arr[i].setX(sx + darr[i*2]);
             arr[i].setY(sy + darr[i*2+1]);
@@ -529,15 +549,16 @@ void LSCSEditor::DrawIO(QPainter *p, int sx, int sy, int w, bool input, int num,
         p->setPen(col);
         p->drawPolygon(arr,LCED_SYM_CONNECT_N);
 
-        QString txt = QString::asprintf("%d",n);
-        QRect rct;
+        QRect rct,brct;
         if (input) rct = QRect(QPoint(sx+LCED_PIN_TXT_MARGIN,sy-LCED_PIN_TXT_HEIGHT/2),QPoint(sx+w/2,sy+LCED_PIN_TXT_HEIGHT/2));
         else rct = QRect(QPoint(sx-w/2,sy-LCED_PIN_TXT_HEIGHT/2),QPoint(sx-LCED_PIN_TXT_MARGIN,sy+LCED_PIN_TXT_HEIGHT/2));
         p->setPen(LCED_TEXT);
-        p->drawText(rct,(input? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignVCenter,txt);
+        p->drawText(rct,(input? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignVCenter,i,&brct);
 
         sy += LCED_PIN_DIST;
+        if (brct.width() + LCED_PIN_TXT_MARGIN > w/2) ok = false;
     }
+    return ok;
 }
 
 void LSCSEditor::DrawConnect(QPainter* p, int sx, int sy, int ex, int ey)

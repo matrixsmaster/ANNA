@@ -1,0 +1,15 @@
+Pod0Name = test1
+Pod0Script = test_names.lua
+Pod0Dims = 55 52 94 64
+Pod1Name = test2
+Pod1Script = test_names.lua
+Pod1Dims = 205 197 94 64
+NPods = 2
+
+
+CONNECTIONS
+
+test1.0 -> test2.0
+test1.2 -> test2.1
+test2.0 -> test1.0
+test2.1 -> test1.1

@@ -2,7 +2,7 @@
 
 ANNA is a very powerful cross-platform AI toolkit. It contains versatile CLI/GUI LLM tools optimized for local inference, and supports optional remote offloading.
 
-## (NEW) ANNA's Lightweight Scripted Consciousness Simulator (LSCS)
+## Lightweight Scripted Consciousness Simulator (LSCS)
 
 LSCS is a powerful new addition to ANNA, which allows anyone to create complex multi-model load-sharing structures. These structures can include generation models, filtering models, multi-modal models, and any types of other user-supplied scripted blocks. Together, these blocks can represent a constantly running self-driving "consciousness" model, able to be aware of changes in its environment (virtual or physical) and react to them, while also being able to communicate with its user (if needed) and store/recall any data it processed previously. Blocks can physically run on different devices, allowing for an extremely efficient distributed parallel systems. Ultimately, LSCS allows anyone to create very complex and realistic "consciousness" simulations!
 

@@ -40,6 +40,7 @@ LFUNC(bind_Millis,scriptMillis)
 LFUNC(bind_FmeCheck,scriptFmeCheck)
 LFUNC(bind_FmeReceive,scriptFmeReceive)
 LFUNC(bind_FmeSend,scriptFmeSend)
+LFUNC(bind_ScriptDir,scriptScriptDir)
 
 #endif // ARIA_BINDS_FUNCTIONS
 
@@ -71,5 +72,6 @@ LBIND(bind_Millis,"millis")
 LBIND(bind_FmeCheck,"fmecheck")
 LBIND(bind_FmeReceive,"fmereceive")
 LBIND(bind_FmeSend,"fmesend")
+LBIND(bind_ScriptDir,"scriptdir")
 
 #endif // ARIA_BINDS_NAMES

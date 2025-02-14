@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "lua.h"
 
@@ -402,6 +403,14 @@ static int os_exit (lua_State *L) {
 }
 #endif
 
+static int os_cwd(lua_State *L)
+{
+    char* wd = getcwd(NULL,0);
+    lua_pushstring(L,wd? wd:"");
+    if (wd) free(wd);
+    return 1;
+}
+
 static const luaL_Reg syslib[] = {
   {"clock",     os_clock},
   {"date",      os_date},
@@ -414,6 +423,7 @@ static const luaL_Reg syslib[] = {
   {"setlocale", os_setlocale},
   {"time",      os_time},
   //{"tmpname",   os_tmpname},
+    { "cwd", os_cwd },
   {NULL, NULL}
 };
 

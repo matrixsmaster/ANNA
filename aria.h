@@ -8,7 +8,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.1.3"
+#define ARIA_VERSION "0.1.4"
 
 #define ARIA_PATH_DELIM '/'
 
@@ -86,6 +86,7 @@ public:
     int scriptFmeCheck();
     int scriptFmeReceive();
     int scriptFmeSend();
+    int scriptScriptDir();
 
 private:
     lua_State* luavm = nullptr;

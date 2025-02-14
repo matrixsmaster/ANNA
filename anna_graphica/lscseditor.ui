@@ -73,6 +73,7 @@
       <addaction name="actionDry_run"/>
       <addaction name="actionShow_link_data"/>
       <addaction name="actionApply_input"/>
+      <addaction name="actionReset"/>
      </widget>
      <widget class="QMenu" name="menuHelp">
       <property name="title">
@@ -347,6 +348,14 @@
   <action name="actionShrink_pods">
    <property name="text">
     <string>Shrink pods</string>
+   </property>
+  </action>
+  <action name="actionReset">
+   <property name="text">
+    <string>Reset</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F8</string>
    </property>
   </action>
  </widget>

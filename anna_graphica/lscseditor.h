@@ -90,6 +90,8 @@ private slots:
 
     void on_actionShrink_pods_triggered();
 
+    void on_actionReset_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;

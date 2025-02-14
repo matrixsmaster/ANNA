@@ -624,3 +624,14 @@ int Aria::scriptFmeSend()
     lua_pushboolean(R,fme_send_msg(luaL_checkstring(R,1),msg.c_str(),msg.length(),luaL_checkinteger(R,3)));
     return 1;
 }
+
+int Aria::scriptScriptDir()
+{
+    ARIA_BIND_HEADER("scriptdir",0);
+    string dir = scriptfn;
+    auto pos = dir.find_last_of('/');
+    if (pos == string::npos) dir = ".";
+    else dir.erase(pos);
+    lua_pushstring(R,dir.c_str());
+    return 1;
+}

@@ -736,3 +736,8 @@ void LSCSEditor::on_actionShrink_pods_triggered()
 
     Update(); // this will enlarge the pods just about enough
 }
+
+void LSCSEditor::on_actionReset_triggered()
+{
+    if (sys) sys->Reset();
+}

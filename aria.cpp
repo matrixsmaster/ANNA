@@ -51,6 +51,10 @@ void Aria::Close()
 bool Aria::Reload()
 {
     Close();
+    pins = pouts = 0;
+    name_ins.clear();
+    name_outs.clear();
+
     clock_gettime(CLOCK_MONOTONIC,&start_time);
     bool r = StartVM();
     state = r? ARIA_READY : ARIA_ERROR;
@@ -132,13 +136,22 @@ void Aria::setName(string name)
 void Aria::setInPin(int pin, string str)
 {
     if (pin < 0 || pin >= pins) return;
-    LuaCall("inpin","is",pin,str.c_str());
+    // call by name (if exists), otherwise call by number
+    if (pin < (int)name_ins.size())
+        LuaCall("inpin","ss",name_ins.at(pin).c_str(),str.c_str());
+    else
+        LuaCall("inpin","is",pin,str.c_str());
 }
 
 string Aria::getOutPin(int pin)
 {
     if (pin < 0 || pin >= pouts) return "";
-    if (!LuaCall("outpin","i",pin)) return "";
+
+    if (pin < (int)name_outs.size()) {
+        if (!LuaCall("outpin","s",name_outs.at(pin).c_str())) return "";
+    } else {
+        if (!LuaCall("outpin","i",pin)) return "";
+    }
 
     string out = LuaGetString();
     last_outputs[pin] = out;

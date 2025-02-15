@@ -20,7 +20,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.13.4"
+#define AG_VERSION "0.13.5"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -176,6 +176,8 @@ private slots:
     void on_actionDialog_as_prompt_triggered();
 
     void on_actionDialog_as_log_triggered();
+
+    void on_actionClear_prompt_triggered();
 
 private:
     Ui::MainWnd *ui;

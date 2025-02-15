@@ -443,6 +443,7 @@
     <addaction name="actionLoad_initial_prompt"/>
     <addaction name="actionUse_current_input_as_prompt"/>
     <addaction name="actionReset_prompt_to_default"/>
+    <addaction name="actionClear_prompt"/>
     <addaction name="separator"/>
     <addaction name="actionStop"/>
     <addaction name="actionContinue"/>
@@ -761,6 +762,11 @@
   <action name="actionDialog_as_log">
    <property name="text">
     <string>Dialog as log</string>
+   </property>
+  </action>
+  <action name="actionClear_prompt">
+   <property name="text">
+    <string>Clear prompt</string>
    </property>
   </action>
  </widget>

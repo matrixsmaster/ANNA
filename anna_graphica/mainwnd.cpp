@@ -233,10 +233,12 @@ void MainWnd::LoadLLM(const QString &fn)
         return;
     }
 
-    // Process initial prompt
-    ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
-    qApp->processEvents();
-    ProcessInput(config.params.prompt);
+    // Process initial prompt (if present)
+    if (*config.params.prompt) {
+        ui->statusbar->showMessage("LLM file loaded. Please wait for system prompt processing...");
+        qApp->processEvents();
+        ProcessInput(config.params.prompt);
+    }
     --block;
 
     // Display whatever initial output we might have already
@@ -531,13 +533,20 @@ void MainWnd::on_ModelPath_returnPressed()
 
     if (!config.params.prompt[0]) {
         auto uq = QMessageBox::question(this,"ANNA","Do you want to open a prompt file?\nIf answered No, a default prompt will be used.",
-                                        QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::No);
-        strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
-        if (uq == QMessageBox::Yes)
+                                        QMessageBox::No | QMessageBox::Yes | QMessageBox::Cancel | QMessageBox::Ignore, QMessageBox::No);
+
+        switch (uq) {
+        case QMessageBox::No:
+            strcpy(config.params.prompt,AG_DEFAULT_PROMPT);
+            break;
+        case QMessageBox::Yes:
             on_actionLoad_initial_prompt_triggered();
-        else if (uq == QMessageBox::Cancel) {
-            config.params.prompt[0] = 0;
+            if (!config.params.prompt[0]) return;
+            break;
+        case QMessageBox::Cancel:
             return;
+        default:
+            break;
         }
     }
 
@@ -755,10 +764,12 @@ void MainWnd::on_actionNew_dialog_triggered()
 
     } else if (brain) {
         brain->Reset();
-        ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
-        qApp->processEvents();
+        if (*config.params.prompt) {
+            ui->statusbar->showMessage("Brain reset complete. Please wait for prompt processing...");
+            qApp->processEvents();
+            ProcessInput(config.params.prompt);
+        }
 
-        ProcessInput(config.params.prompt);
         if (brain->getState() != ANNA_ERROR)
             ui->statusbar->showMessage("Brain has been reset and ready for new dialog.");
     }
@@ -1286,4 +1297,9 @@ void MainWnd::on_actionDialog_as_log_triggered()
     cur_chat = txt;
     UpdateChatLogFrom(cur_chat);
     ui->statusbar->showMessage("Dialog history loaded from " + fn);
+}
+
+void MainWnd::on_actionClear_prompt_triggered()
+{
+    memset(config.params.prompt,0,sizeof(config.params.prompt));
 }

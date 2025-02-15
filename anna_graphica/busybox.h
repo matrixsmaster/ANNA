@@ -4,8 +4,6 @@
 #include <QDialog>
 //#include <mutex>
 
-#define NUMITEMS(A) ((int)(sizeof(A) / sizeof((A)[0])))
-
 #define GUI_BUSYBX_ELRAD 20
 #define GUI_BUSYBX_SPD 6.5
 #define GUI_BUSYBX_STP 10.f

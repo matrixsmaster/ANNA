@@ -260,7 +260,7 @@ bool Aria::LuaCall(string f, const char* args, ...)
         case 'i':
         {
             int i = va_arg(vl,int);
-            DBG("pushing integer %d\n",i);
+            //DBG("pushing integer %d\n",i);
             lua_pushinteger(luavm,i);
             num++;
             break;
@@ -269,7 +269,7 @@ bool Aria::LuaCall(string f, const char* args, ...)
         case 'd':
         {
             double vf = va_arg(vl,double);
-            DBG("pushing float (number) %f\n",vf);
+            //DBG("pushing float (number) %f\n",vf);
             lua_pushnumber(luavm,vf);
             num++;
             break;
@@ -277,7 +277,7 @@ bool Aria::LuaCall(string f, const char* args, ...)
         case 's':
         {
             const char* str = va_arg(vl,const char*);
-            DBG("pushing string %s\n",str);
+            //DBG("pushing string %s\n",str);
             lua_pushstring(luavm,str);
             num++;
             break;
@@ -291,7 +291,7 @@ bool Aria::LuaCall(string f, const char* args, ...)
 
     //now call the target
     r = lua_pcall(luavm,num,1,0);
-    DBG("pod %s called %s, result = %d\n",scriptfn.c_str(),f.c_str(),r);
+    //DBG("pod %s called %s, result = %d\n",scriptfn.c_str(),f.c_str(),r);
     res = true;
 
     //check the results
@@ -308,7 +308,7 @@ string Aria::LuaGetString()
     if (!luavm) return "";
     if (!lua_isstring(luavm,-1)) return "";
     string r = lua_tostring(luavm,-1);
-    DBG("string returned: '%s'\n",r.c_str());
+    //DBG("string returned: '%s'\n",r.c_str());
     return r;
 }
 

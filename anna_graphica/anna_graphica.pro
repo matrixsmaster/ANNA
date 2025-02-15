@@ -31,6 +31,7 @@ HEADERS += \
     ../vecstore.h \
     aboutbox.h \
     busybox.h \
+    eliza_data.h \
     helpbox.h \
     logitbiasdialog.h \
     lscseditor.h \

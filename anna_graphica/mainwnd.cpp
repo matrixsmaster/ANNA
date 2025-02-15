@@ -79,6 +79,7 @@ void MainWnd::DefaultConfig()
     guiconfig.log_fnt = ui->ChatLog->font();
     guiconfig.usr_fnt = ui->UserInput->font();
     guiconfig.use_lscs = false;
+    guiconfig.lscs_period = -1;
 }
 
 void MainWnd::LoadSettings()
@@ -425,7 +426,14 @@ void MainWnd::Generate()
         CheckRQPs(raw_output + convo);
 
         // now it's a good time to bail if turnover was detected
-        if (s == ANNA_TURNOVER) break;
+        if (s == ANNA_TURNOVER) {
+            // however, if it's an LSCS system, we might be requested to continue
+            AnnaLSCS* is_lscs = dynamic_cast<AnnaLSCS*>(brain);
+            if (is_lscs && guiconfig.use_lscs) {
+                if (guiconfig.lscs_period >= 0) usleep(1000UL * guiconfig.lscs_period); // FIXME: replace with interactive wait with timeout (might be also needed in BusyBox)
+            } else
+                break;
+        }
         nowait = true; // this is needed after the first full loop to prevent the brain to fire a wait on every token
 
         // make it interactive - update the UI

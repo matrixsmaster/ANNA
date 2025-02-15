@@ -82,6 +82,8 @@ void SettingsDialog::showEvent(QShowEvent *event)
         ui->taPrefix->setText(gs->txt_prefix);
         ui->taSuffix->setText(gs->txt_suffix);
         ui->useLSCS->setChecked(gs->use_lscs);
+        ui->lscsCont->setChecked(gs->lscs_period >= 0);
+        ui->lscsPeriod->setValue((gs->lscs_period > 0)? gs->lscs_period : 0);
 
         fromStringList(ui->stopWords,gs->stop_words);
 
@@ -149,6 +151,7 @@ void SettingsDialog::SaveSettings(AnnaConfig* cfg, QSettings* sets)
     sets->setValue("txt_prefix",gs->txt_prefix);
     sets->setValue("txt_suffix",gs->txt_suffix);
     sets->setValue("use_lscs",gs->use_lscs);
+    sets->setValue("lscs_period",gs->lscs_period);
     sets->setValue("stop_words",gs->stop_words);
 
     sets->beginWriteArray("RQP");
@@ -216,6 +219,7 @@ void SettingsDialog::on_buttonBox_accepted()
     gs->txt_prefix = ui->taPrefix->text();
     gs->txt_suffix = ui->taSuffix->text();
     gs->use_lscs = ui->useLSCS->isChecked();
+    gs->lscs_period = ui->lscsCont->isChecked()? ui->lscsPeriod->value() : -1;
 
     gs->stop_words = toStringList(ui->stopWords);
 
@@ -285,6 +289,7 @@ void SettingsDialog::LoadSettings(AnnaConfig* cfg, QSettings* sets)
     gs->txt_prefix = sets->value("txt_prefix",gs->txt_prefix).toString();
     gs->txt_suffix = sets->value("txt_suffix",gs->txt_suffix).toString();
     gs->use_lscs = sets->value("use_lscs",gs->use_lscs).toBool();
+    gs->lscs_period = sets->value("lscs_period",gs->lscs_period).toInt();
     gs->stop_words = sets->value("stop_words",gs->stop_words).toStringList();
 
     int n_rqps = sets->beginReadArray("RQP");

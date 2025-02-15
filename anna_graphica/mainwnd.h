@@ -20,7 +20,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.13.5"
+#define AG_VERSION "0.13.6"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
@@ -49,6 +49,7 @@ struct AnnaGuiSettings {
     bool md_fix, save_prompt, clear_log;
     bool use_server, use_busybox, use_attprefix, mk_dummy, multi_usr;
     bool use_lscs;
+    int lscs_period;
     QString server;
     QFont log_fnt, usr_fnt;
     QString musr_delim;

@@ -96,9 +96,9 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
             if (!(mev->modifiers() & Qt::ShiftModifier) && pin >= 0 && sys) {
                 selection.clear(); // don't select the pod
                 // check if we need to show connection data
-                if (ui->actionShow_link_data->isChecked() && pod->ptr) {
+                if (ui->actionShow_link_data->isChecked() && pod->ptr && pin >= pod->ptr->getNumInPins()) {
                     // show last known output of this pin
-                    debug_text = QString::fromStdString(pod->ptr->getLastOutPin(pin));
+                    debug_text = QString::fromStdString(pod->ptr->getLastOutPin(pin-pod->ptr->getNumInPins()));
                     debug_txtpos = QPoint(mx,my);
                 } else {
                     // select a pin and start making a connection

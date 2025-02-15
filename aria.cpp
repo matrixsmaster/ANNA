@@ -154,7 +154,7 @@ string Aria::getOutPin(int pin)
     }
 
     string out = LuaGetString();
-    last_outputs[pin] = out;
+    if (!out.empty()) last_outputs[pin] = out;
     return out;
 }
 

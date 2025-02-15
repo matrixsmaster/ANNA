@@ -8,7 +8,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.1.6"
+#define ARIA_VERSION "0.1.6b"
 
 #define ARIA_PATH_DELIM '/'
 

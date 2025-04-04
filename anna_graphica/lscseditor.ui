@@ -100,6 +100,9 @@
       </property>
       <addaction name="actionLoad_2"/>
       <addaction name="actionSave_2"/>
+      <addaction name="separator"/>
+      <addaction name="actionFind"/>
+      <addaction name="actionFind_next"/>
      </widget>
      <addaction name="menuFile"/>
      <addaction name="menuEdit"/>
@@ -192,7 +195,7 @@
     <string>Load</string>
    </property>
    <property name="shortcut">
-    <string>F3</string>
+    <string>Ctrl+O</string>
    </property>
   </action>
   <action name="actionSave">
@@ -356,6 +359,22 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+F8</string>
+   </property>
+  </action>
+  <action name="actionFind">
+   <property name="text">
+    <string>Find...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F</string>
+   </property>
+  </action>
+  <action name="actionFind_next">
+   <property name="text">
+    <string>Find next</string>
+   </property>
+   <property name="shortcut">
+    <string>F3</string>
    </property>
   </action>
  </widget>

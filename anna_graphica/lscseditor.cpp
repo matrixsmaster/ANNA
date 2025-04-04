@@ -86,7 +86,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         break;
 
     case QEvent::MouseButtonPress:
-        if (!(mev->modifiers() & Qt::ShiftModifier)) {
+        if (!(mev->modifiers() & Qt::ShiftModifier) && !selection.contains(pod)) {
             // deselect
             selection.clear();
             new_link.from.clear();
@@ -94,6 +94,7 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
         if (pod) {
             new_link.from.clear();
             if (!(mev->modifiers() & Qt::ShiftModifier) && pin >= 0 && sys) {
+                // a pin has been clicked on
                 selection.clear(); // don't select the pod
                 // check if we need to show connection data
                 if (ui->actionShow_link_data->isChecked() && pod->ptr && pin >= pod->ptr->getNumInPins()) {
@@ -105,13 +106,34 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
                     new_link.from = sys->getPodName(pod);
                     new_link.pin_from = pin;
                 }
-            } else
-                selection.push_back(pod); // add pod to selection
+            } else {
+                if (!selection.contains(pod))
+                    selection.push_back(pod); // add pod to selection
+            }
+        } else {
+            draw_select = true;
+            QPoint p(mx,my);
+            select_rect = QRect(p,p);
         }
         break;
 
     case QEvent::MouseButtonRelease:
-        if (pod && pin >= 0 && sys && !new_link.from.empty()) {
+        if (draw_select) {
+            // select multiple pods
+            draw_select = false;
+            if (!(mev->modifiers() & Qt::ShiftModifier)) {
+                // deselect first
+                selection.clear();
+            }
+            auto lst = sys->getPods();
+            for (auto &&i : lst) {
+                AriaPod* tpod = sys->getPod(i);
+                if (!tpod) continue;
+                QRect pr(tpod->x,tpod->y,tpod->w,tpod->h);
+                if (select_rect.contains(pr)) selection.push_back(tpod);
+            }
+
+        } else if (pod && pin >= 0 && sys && !new_link.from.empty()) {
             // finalize a connection
             new_link.to = sys->getPodName(pod);
             new_link.pin_to = pin;
@@ -134,6 +156,8 @@ bool LSCSEditor::eventFilter(QObject* obj, QEvent* event)
             }
             modified = true;
         }
+        // update selection rect
+        if (draw_select) select_rect.setBottomRight(QPoint(mx,my));
         break;
 
     default: break;
@@ -303,6 +327,15 @@ void LSCSEditor::Update()
     if (!debug_text.isEmpty()) {
         p->setPen(LCED_DBGTEXT);
         p->drawText(debug_txtpos,debug_text);
+    }
+
+    // Selection rectangle
+    if (draw_select) {
+        QPen pen(LCED_SELRECT);
+        pen.setStyle(Qt::DashLine);
+        p->setPen(pen);
+        p->setBrush(Qt::NoBrush);
+        p->drawRect(select_rect);
     }
 
     // Update the form
@@ -761,4 +794,20 @@ void LSCSEditor::on_actionShrink_pods_triggered()
 void LSCSEditor::on_actionReset_triggered()
 {
     if (sys) sys->Reset();
+}
+
+void LSCSEditor::on_actionFind_triggered()
+{
+    if (!sys || !ui->actionScript_editor->isChecked()) return;
+    bool ok = false;
+    QString text = QInputDialog::getText(this,"Find text","Text to find",QLineEdit::Normal,last_search,&ok);
+    if (!ok || text.isEmpty()) return;
+    last_search = text;
+    ui->script->find(text);
+}
+
+void LSCSEditor::on_actionFind_next_triggered()
+{
+    if (!sys || !ui->actionScript_editor->isChecked() || last_search.isEmpty()) return;
+    ui->script->find(last_search);
 }

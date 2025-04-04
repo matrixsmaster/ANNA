@@ -672,6 +672,10 @@ void MainWnd::on_SendButton_clicked()
 
 void MainWnd::closeEvent(QCloseEvent* event)
 {
+    if (cur_chat.isEmpty()) {
+        event->accept();
+        return;
+    }
     auto b = QMessageBox::question(this,"ANNA","Exit ANNA?\n",QMessageBox::No | QMessageBox::Yes,QMessageBox::Yes);
     if (b == QMessageBox::Yes) event->accept();
     else event->ignore();

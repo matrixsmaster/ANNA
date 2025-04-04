@@ -30,6 +30,7 @@
 #define LCED_INCOL QColor(0,200,20)
 #define LCED_OUTCOL QColor(150,20,50)
 #define LCED_CONCOL QColor(100,100,250)
+#define LCED_SELRECT QColor(200,100,100)
 
 #define LCED_SYM_CONNECT_N 7
 #define LCED_SYM_CONNECT { 0,0, -4,-3, 4,-3, 6,0, 4,3, -4,3, 0,0 }
@@ -92,6 +93,10 @@ private slots:
 
     void on_actionReset_triggered();
 
+    void on_actionFind_triggered();
+
+    void on_actionFind_next_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;
@@ -103,11 +108,14 @@ private:
     int ox = 0, oy = 0;
     int grid = LCED_DEF_GRID;
     QList<AriaPod*> selection;
+    bool draw_select = false;
+    QRect select_rect;
     AriaLink new_link;
     QString script_fn, script_pod;
     bool script_modified = false;
     QString debug_text;
     QPoint debug_txtpos;
+    QString last_search;
 
     AriaPod* getPodUnder(int x, int y, int* pin = nullptr);
     float Distance(float x0, float y0, float x1, float y1);

@@ -35,6 +35,11 @@
 #define LCED_SYM_CONNECT_N 7
 #define LCED_SYM_CONNECT { 0,0, -4,-3, 4,-3, 6,0, 4,3, -4,3, 0,0 }
 
+#define LCED_POD_SKELETON   "function inpin(pin,msg)\nend\n\n" \
+                            "function processing()\nend\n\n" \
+                            "function outpin(pin)\nend\n\n" \
+                            "setiocount(1,1)\n"
+
 namespace Ui {
 class LSCSEditor;
 }

@@ -633,6 +633,8 @@ void LSCSEditor::ShowScriptFor(AriaPod* pod)
         QFileInfo fi(script_fn);
         if (fi.suffix().isEmpty()) script_fn += ".lua";
 
+        ui->script->textCursor().insertText(QString(LCED_POD_SKELETON));
+
     } else {
         // load script
         script_fn = QString::fromStdString(pod->ptr->getFName());

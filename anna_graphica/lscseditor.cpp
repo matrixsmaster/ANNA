@@ -811,3 +811,15 @@ void LSCSEditor::on_actionFind_next_triggered()
     if (!sys || !ui->actionScript_editor->isChecked() || last_search.isEmpty()) return;
     ui->script->find(last_search);
 }
+
+void LSCSEditor::on_actionComment_triggered()
+{
+    if (!sys || !ui->actionScript_editor->isChecked()) return;
+    ui->script->prependLines("--",true);
+}
+
+void LSCSEditor::on_actionUncomment_triggered()
+{
+    if (!sys || !ui->actionScript_editor->isChecked()) return;
+    ui->script->prependLines("--",false);
+}

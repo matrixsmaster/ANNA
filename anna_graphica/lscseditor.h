@@ -97,6 +97,10 @@ private slots:
 
     void on_actionFind_next_triggered();
 
+    void on_actionComment_triggered();
+
+    void on_actionUncomment_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;

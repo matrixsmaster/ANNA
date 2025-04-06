@@ -41,6 +41,7 @@ public:
 
     void lineNumberAreaPaintEvent(QPaintEvent *event);
     int lineNumberAreaWidth();
+    void prependLines(QString prefix, bool add);
 
 protected:
     void resizeEvent(QResizeEvent *ev) override;

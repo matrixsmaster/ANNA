@@ -4,6 +4,7 @@
 
 #include <QPainter>
 #include <QTextBlock>
+#include <QDebug>
 #include "luaeditor.h"
 #include "lua_tables.h"
 
@@ -38,6 +39,35 @@ int LuaEditor::lineNumberAreaWidth()
         ++digits;
     }
     return fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits + 3;
+}
+
+void LuaEditor::prependLines(QString prefix, bool add)
+{
+    auto cur = textCursor();
+    int a = cur.selectionStart();
+    int b = cur.selectionEnd();
+    cur.setPosition(a);
+    cur.movePosition(QTextCursor::StartOfLine);
+
+    do {
+        setTextCursor(cur);
+        qDebug() << "Cursor " << cur.position() << " : " << cur.anchor();
+        if (cur.block().text().startsWith(prefix)) {
+            if (!add) {
+                cur.movePosition(QTextCursor::Right,QTextCursor::KeepAnchor,prefix.length());
+                qDebug() << "Select " << cur.position() << " : " << cur.anchor();
+                setTextCursor(cur);
+                cur.removeSelectedText();
+                b -= prefix.length();
+            }
+        } else if (add) {
+            cur.insertText(prefix);
+            b += prefix.length();
+        }
+
+        cur = textCursor();
+        cur.movePosition(QTextCursor::NextBlock);
+    } while (cur.position() < b);
 }
 
 void LuaEditor::updateLineNumberAreaWidth(int /* newBlockCount */)

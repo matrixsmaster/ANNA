@@ -460,6 +460,7 @@
     <addaction name="actionShow_tokens_with_IDs"/>
     <addaction name="actionShow_active_biases"/>
     <addaction name="actionClear_chat_log"/>
+    <addaction name="actionClear_IO_vectors"/>
     <addaction name="actionReview_RQP"/>
     <addaction name="actionShow_RQP_output"/>
     <addaction name="actionShow_lock"/>
@@ -767,6 +768,11 @@
   <action name="actionClear_prompt">
    <property name="text">
     <string>Clear prompt</string>
+   </property>
+  </action>
+  <action name="actionClear_IO_vectors">
+   <property name="text">
+    <string>Clear IO vectors</string>
    </property>
   </action>
  </widget>

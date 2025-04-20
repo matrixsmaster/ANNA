@@ -538,6 +538,15 @@ csamp_end:
     return 0;
 }
 
+int Aria::scriptBrainReset()
+{
+    ARIA_BIND_HEADER("brainreset",1);
+    int flags = luaL_checkinteger(R,1);
+    if (flags < 0 || flags > ANNA_RESET_ALL) flags = ANNA_RESET_ALL;
+    if (brain) brain->Reset(flags);
+    return 0;
+}
+
 int Aria::scriptBrainLoad()
 {
     ARIA_BIND_HEADER("brainload",1);

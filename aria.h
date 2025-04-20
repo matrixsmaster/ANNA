@@ -8,7 +8,7 @@
 #include "brain.h"
 #include "lua.hpp"
 
-#define ARIA_VERSION "0.1.6b"
+#define ARIA_VERSION "0.1.7"
 
 #define ARIA_PATH_DELIM '/'
 
@@ -76,6 +76,7 @@ public:
     int scriptBrainCContext();
     int scriptBrainCGroupAtt();
     int scriptBrainCSampling();
+    int scriptBrainReset();
     int scriptBrainLoad();
     int scriptBrainSave();
     int scriptBrainIn();

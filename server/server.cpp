@@ -15,7 +15,8 @@
 #include "../common.h"
 #include "../vecstore.h"
 
-#define SERVER_VERSION "0.4.2b"
+// Keep minor version in sync with the client
+#define SERVER_VERSION "0.6.0"
 #define SERVER_DEBUG 1
 
 #define SERVER_SAVE_DIR "saves"
@@ -81,6 +82,7 @@ struct session {
 const char* allowed_versions[] = {
     "0.4.0",
     "0.5.0",
+    "0.6.0",
     NULL
 };
 
@@ -710,8 +712,12 @@ void install_services(Server* srv)
         if (!id) return;
         if (!check_brain(id,"reset",res)) return;
 
+        int flags = ANNA_RESET_ALL;
+        if (!req.body.empty()) flags = atoi(req.body.c_str());
+        if (flags < 0 || flags > ANNA_RESET_ALL) flags = ANNA_RESET_ALL;
+
         usermap[id].lk.lock();
-        usermap.at(id).brain->Reset();
+        usermap.at(id).brain->Reset(flags);
         usermap[id].lk.unlock();
         DBG("Brain is reset\n");
         fin_request(id);

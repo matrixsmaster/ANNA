@@ -406,9 +406,9 @@ AnnaState AnnaClient::Processing(bool skip_sampling)
     return (r < 0 || r >= ANNA_NUM_STATES)? ANNA_ERROR : (AnnaState)r;
 }
 
-void AnnaClient::Reset()
+void AnnaClient::Reset(int flags)
 {
-    request(true,"/reset");
+    request(true,"/reset",myformat("%d",flags));
 }
 
 void AnnaClient::Undo()

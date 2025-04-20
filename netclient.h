@@ -5,7 +5,8 @@
 #include <functional>
 #include "brain.h"
 
-#define ANNA_CLIENT_VERSION "0.5.0"
+// Keep minor version in sync with the server
+#define ANNA_CLIENT_VERSION "0.6.0"
 
 #define ANNA_CLIENT_TIMEOUT (4*60)
 #define ANNA_CLIENT_CHUNK (8ULL * 1024ULL * 1024ULL)
@@ -56,7 +57,7 @@ public:
     bool EmbedImage(std::string imgfile) override;
 
     AnnaState Processing(bool skip_sampling = false) override;
-    void Reset() override;
+    void Reset(int flags) override;
     void Undo() override;
 
     void KeepAlive();

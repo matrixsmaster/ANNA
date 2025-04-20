@@ -45,7 +45,7 @@ public:
     bool EmbedImage(std::string imgfile) override;
 
     AnnaState Processing(bool skip_sampling = false) override;
-    void Reset() override;
+    void Reset(int flags = 0) override;
     void Undo() override                                        {}
 
     void Clear();

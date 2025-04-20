@@ -1315,3 +1315,10 @@ void MainWnd::on_actionClear_prompt_triggered()
 {
     memset(config.params.prompt,0,sizeof(config.params.prompt));
 }
+
+void MainWnd::on_actionClear_IO_vectors_triggered()
+{
+    if (!brain) return;
+    brain->Reset(ANNA_RESET_IOVEC|ANNA_RESET_SAMPLING);
+    ui->statusbar->showMessage("IO vectors and sampling state reset");
+}

@@ -139,7 +139,7 @@ AnnaState AnnaLSCS::Processing(bool /*skip_sampling*/)
     return state;
 }
 
-void AnnaLSCS::Reset()
+void AnnaLSCS::Reset(int /*flags*/)
 {
     state = ANNA_ERROR;
     Clear();

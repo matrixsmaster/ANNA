@@ -15,7 +15,7 @@
 #include "sampling.h"
 #include "vecstore.h"
 
-#define ANNA_VERSION "0.12.3"
+#define ANNA_VERSION "0.13.0"
 
 #define ANNA_FORMAT_DEF_CHARS 1024
 #define ANNA_STATE_VERSION 3
@@ -29,6 +29,17 @@ enum AnnaState
     ANNA_PROCESSING,
     ANNA_TURNOVER,
     ANNA_NUM_STATES
+};
+
+enum AnnaResetFlag
+{
+    ANNA_RESET_NONE = 0,
+    ANNA_RESET_CONTEXT = 0x01,
+    ANNA_RESET_PROMPT = 0x02,
+    ANNA_RESET_IOVEC = 0x04,
+    ANNA_RESET_SAMPLING = 0x08,
+    ANNA_RESET_ALL_BUT_STATE = 0xFE,
+    ANNA_RESET_ALL = 0xFF
 };
 
 struct __attribute__((packed)) AnnaConfig
@@ -84,7 +95,7 @@ public:
     virtual bool EmbedImage(std::string imgfile);
 
     virtual AnnaState Processing(bool skip_sampling = false);
-    virtual void Reset();
+    virtual void Reset(int flags = ANNA_RESET_ALL);
     virtual void Undo();
 
     static std::string myformat(const char* fmt, ...);

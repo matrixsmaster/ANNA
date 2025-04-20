@@ -269,22 +269,34 @@ AnnaState AnnaBrain::Processing(bool skip_sampling)
     return state;
 }
 
-void AnnaBrain::Reset()
+void AnnaBrain::Reset(int flags)
 {
-    llama_kv_cache_seq_rm(ctx,0,0,n_past);
+    if (flags & ANNA_RESET_CONTEXT) {
+        llama_kv_cache_seq_rm(ctx,0,0,n_past);
+        n_past = 0;
+        ga_i = 0;
+    }
 
-    n_past = 0;
-    n_remain = 0;
-    n_consumed = 0;
-    ga_i = 0;
-    queue.clear();
-    inp_emb.clear();
-    ext_emb.clear();
-    forced_start.clear();
-    accumulator.clear();
+    if (flags & ANNA_RESET_PROMPT) {
+        prompt.clear();
+    }
 
-    if (ctx_sp) llama_sampling_free(ctx_sp);
-    ctx_sp = llama_sampling_init(config.params);
+    if (flags & ANNA_RESET_IOVEC) {
+        n_remain = 0;
+        n_consumed = 0;
+
+        queue.clear();
+        inp_emb.clear();
+        ext_emb.clear();
+        forced_start.clear();
+        accumulator.clear();
+    }
+
+    if (flags & ANNA_RESET_SAMPLING) {
+        if (ctx_sp) llama_sampling_free(ctx_sp);
+        ctx_sp = llama_sampling_init(config.params);
+    }
+
     state = ANNA_READY;
 }
 

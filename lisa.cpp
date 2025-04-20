@@ -11,7 +11,11 @@
 #include <string>
 #include "lscs.h"
 
-#define LISA_VERSION "0.0.4"
+#define LIBFME_IMPLEMENTED_
+#include "libfme.h"
+
+#define LISA_VERSION "0.0.6"
+#define LISA_MAX_FME_MESSAGE 256
 
 #define ERR(X,...) fprintf(stderr, "[LISA] ERROR: " X "\n", __VA_ARGS__)
 #define ERRS(...) fprintf(stderr, "[LISA] ERROR: " __VA_ARGS__)
@@ -28,10 +32,12 @@ const char* argstrings[] = {
     "-s file : load LSCS scheme",
     "-t time : inter-step delay value (in ms)",
     "-m file : use shutdown marker file",
+    "-F file : use FME control",
     NULL
 };
 
-string g_lscs_file, g_shutmark;
+bool g_quit = false, g_pause = false;
+string g_lscs_file, g_shutmark, g_fme_socket;
 int g_timeout = 100;
 
 void usage(const char* sname)
@@ -47,7 +53,7 @@ int set_params(int argc, char* argv[])
     int opt;
 
     // parse params
-    while ((opt = getopt(argc,argv,"s:t:m:")) != -1) {
+    while ((opt = getopt(argc,argv,"s:t:m:F:")) != -1) {
         switch (opt) {
         case 's':
             g_lscs_file = optarg;
@@ -57,6 +63,9 @@ int set_params(int argc, char* argv[])
             break;
         case 'm':
             g_shutmark = optarg;
+            break;
+        case 'F':
+            g_fme_socket = optarg;
             break;
         default:
             usage(argv[0]);
@@ -71,6 +80,29 @@ int set_params(int argc, char* argv[])
     }
 
     return 0;
+}
+
+void recv_fme_cmd()
+{
+    char msg[LISA_MAX_FME_MESSAGE] = {0};
+    int r = fme_receive_msg(g_fme_socket.c_str(),msg,sizeof(msg));
+    if (!r) return;
+
+    if (!strncmp(msg,"quit",LISA_MAX_FME_MESSAGE-1)) {
+        g_quit = true;
+
+    } else if (!strncmp(msg,"set_period",LISA_MAX_FME_MESSAGE-1)) {
+        int p = 0;
+        if (sscanf(msg,"set_period %d",&p) == 1 && p > 0) g_timeout = p;
+
+    } else if (!strncmp(msg,"pause",LISA_MAX_FME_MESSAGE-1)) {
+        g_pause = true;
+
+    } else if (!strncmp(msg,"unpause",LISA_MAX_FME_MESSAGE-1)) {
+        g_pause = false;
+
+    } else
+        ERR("Unknown FME command received: '%s'",msg);
 }
 
 int main(int argc, char* argv[])
@@ -93,13 +125,18 @@ int main(int argc, char* argv[])
     }
 
     // run main loop
-    while (sys->getState() != ANNA_ERROR) {
-        if (!g_shutmark.empty()) {
-            struct stat dummy;
-            if (!stat(g_shutmark.c_str(),&dummy)) break;
+    while (!g_quit) {
+        if (sys->getState() == ANNA_ERROR) {
+            fprintf(stderr,"System state switched to Error, exiting...\n");
+            break;
+        }
+        if (!g_shutmark.empty() && fme_check_msg(g_shutmark.c_str())) break;
+        if (!g_fme_socket.empty() && fme_check_msg(g_fme_socket.c_str())) {
+            recv_fme_cmd();
+            continue; // skip a cycle to allow faster command execution and reaction to changes
         }
 
-        sys->Processing();
+        if (!g_pause) sys->Processing();
         usleep(g_timeout * 1000);
     }
 

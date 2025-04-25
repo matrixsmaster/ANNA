@@ -298,6 +298,10 @@ void LSCSEditor::Update()
             AriaPod* recv = sys->getPod(j.to);
             if (!recv) continue;
 
+            // select color based on whether src/dst pod is selected
+            conpen.setColor((selection.contains(pod) || selection.contains(recv))? LCED_ACTCONCOL : LCED_CONCOL);
+            p->setPen(conpen);
+
             int sy = pod->y + (j.pin_from + 1) * LCED_PIN_DIST;
             int ey = recv->y + (j.pin_to + 1) * LCED_PIN_DIST;
             int ex = recv->x;
@@ -306,6 +310,8 @@ void LSCSEditor::Update()
     }
 
     // New (unfinished) connection
+    conpen.setColor(LCED_NEWCONCOL);
+    p->setPen(conpen);
     if (!new_link.from.empty() && new_link.pin_from >= 0) {
         AriaPod* pod = sys->getPod(new_link.from);
         if (pod && pod->ptr) {

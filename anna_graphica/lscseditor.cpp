@@ -185,13 +185,7 @@ bool LSCSEditor::CloseIt(bool force)
     extent = QRect(0,0,ui->scroll->width()-LCED_UI_MARGIN,ui->scroll->height()-LCED_UI_MARGIN);
     selection.clear();
     modified = false;
-
-    ui->script->clear();
-    ui->actionScript_editor->setChecked(false);
-    on_actionScript_editor_triggered();
-    script_fn.clear();
-    script_pod.clear();
-    script_modified = false;
+    CloseScript();
 
     return true;
 }
@@ -377,7 +371,10 @@ void LSCSEditor::on_actionLoad_triggered()
 
     sys = new AnnaLSCS(fn);
     if (sys->getState() != ANNA_READY) {
-        ui->statusbar->showMessage(QString::asprintf("Unable to load file %s",fn.c_str()));
+        if (sys->getState() == ANNA_ERROR)
+            ui->statusbar->showMessage(QString::asprintf("Unable to load file %s: %s",fn.c_str(),sys->getError().c_str()));
+        else
+            ui->statusbar->showMessage(QString::asprintf("Unable to load file %s: [state = %s]",fn.c_str(),sys->StateToStr(sys->getState()).c_str()));
         delete sys;
         sys = nullptr;
 
@@ -532,6 +529,9 @@ void LSCSEditor::on_actionAssign_script_triggered()
             selection.clear();
             return;
         }
+
+        if (str == script_pod.toStdString()) CloseScript();
+
         if (!sys->setPodScript(str,fn.toStdString())) {
             ui->statusbar->showMessage(QString::asprintf("Error: unable to set script for %s: %s",str.c_str(),sys->getError().c_str()));
             return;
@@ -705,6 +705,16 @@ void LSCSEditor::SaveScript()
     script_modified = false;
 }
 
+void LSCSEditor::CloseScript()
+{
+    ui->script->clear();
+    ui->actionScript_editor->setChecked(false);
+    on_actionScript_editor_triggered();
+    script_fn.clear();
+    script_pod.clear();
+    script_modified = false;
+}
+
 void LSCSEditor::on_actionSave_2_triggered()
 {
     if (script_fn.isEmpty()) return;
@@ -830,4 +840,18 @@ void LSCSEditor::on_actionUncomment_triggered()
 {
     if (!sys || !ui->actionScript_editor->isChecked()) return;
     ui->script->prependLines("--",false);
+}
+
+void LSCSEditor::on_actionSave_as_2_triggered()
+{
+    if (!sys) return;
+
+    QString fn = QFileDialog::getSaveFileName(this,"Save script file","","Lua scripts (*.lua);;All files (*.*)");
+    if (fn.isEmpty()) return;
+
+    QFileInfo fi(fn);
+    if (fi.suffix().isEmpty()) fn += ".lua";
+
+    script_fn = fn;
+    on_actionSave_2_triggered();
 }

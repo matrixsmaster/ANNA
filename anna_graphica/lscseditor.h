@@ -108,6 +108,8 @@ private slots:
 
     void on_actionUncomment_triggered();
 
+    void on_actionSave_as_2_triggered();
+
 private:
     Ui::LSCSEditor *ui;
     AnnaLSCS* sys = nullptr;
@@ -138,6 +140,7 @@ private:
     bool NewScript();
     void LoadScript();
     void SaveScript();
+    void CloseScript();
 };
 
 #endif // LSCSEDITOR_H

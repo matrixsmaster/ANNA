@@ -20,7 +20,7 @@
 #include "netclient.h"
 #include "lscs.h"
 
-#define AG_VERSION "0.13.11"
+#define AG_VERSION "0.13.12"
 
 #define AG_MAXTEXT 10*1024*1024
 #define AG_ICON_W 48
